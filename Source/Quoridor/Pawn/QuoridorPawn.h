@@ -27,14 +27,14 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	ATile* CurrentTile;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, category = "Player")
 	int32 PlayerNumber;
 	
 	UFUNCTION(BlueprintCallable)
 	void InitializePawn(ATile* StartTile, AQuoridorBoard* Board);
 
 protected:
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category = "Pawn")
 	UStaticMeshComponent* PawnMesh;
 
 	UPROPERTY(VisibleAnywhere)
