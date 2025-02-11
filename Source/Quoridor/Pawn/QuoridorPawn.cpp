@@ -41,12 +41,16 @@ bool AQuoridorPawn::CanMoveToTile(const ATile* TargetTile) const
 		  !TargetTile->IsOccupied() && 
 		  CurrentTile->IsAdjacent(TargetTile);
 }
-void AQuoridorPawn::InitializePawn(ATile* StartTile)
+
+void AQuoridorPawn::InitializePawn(ATile* StartTile, AQuoridorBoard* Board)
 {
 	if (StartTile)
 	{
 		CurrentTile = StartTile;
+		BoardReference = Board;  // Store the board reference
 		SetActorLocation(StartTile->GetActorLocation() + FVector(0, 0, 50));
 		StartTile->SetPawnOnTile(this);
 	}
 }
+
+

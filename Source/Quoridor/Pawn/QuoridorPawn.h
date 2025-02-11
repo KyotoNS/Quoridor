@@ -14,6 +14,9 @@ class QUORIDOR_API AQuoridorPawn : public APawn
 
 public:
 	AQuoridorPawn();
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	AQuoridorBoard* BoardReference;
 
 	UFUNCTION(BlueprintCallable)
 	void MoveToTile(ATile* NewTile);
@@ -28,7 +31,7 @@ public:
 	int32 PlayerNumber;
 	
 	UFUNCTION(BlueprintCallable)
-	void InitializePawn(ATile* StartTile);
+	void InitializePawn(ATile* StartTile, AQuoridorBoard* Board);
 
 protected:
 	UPROPERTY(VisibleAnywhere)
