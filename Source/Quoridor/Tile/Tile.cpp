@@ -1,28 +1,21 @@
 ﻿#include "Tile.h"
 #include "Components/StaticMeshComponent.h"
+#include "Quoridor/Board/QuoridorBoard.h"
+#include "Kismet/GameplayStatics.h"
 
-// Constructor: Initializes the tile, sets up the mesh, and ensures it's visible in the game.
-ATile::ATile()
-{
+ATile::ATile() {
 	PrimaryActorTick.bCanEverTick = false;
-
-	// Create a static mesh component for visualization
 	TileMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TileMesh"));
 	RootComponent = TileMesh;
-
-	// Ensure the tile is not hidden in the game
-	if (TileMesh)
-	{
-		TileMesh->SetHiddenInGame(false);
-	}
 }
 
-// Checks if another tile is adjacent to this one (horizontally or vertically)
-bool ATile::IsAdjacent(const ATile* OtherTile) const
-{
-	if (!OtherTile) return false;
+void ATile::SetGridPosition(int32 X, int32 Y) {
+	GridX = X;
+	GridY = Y;
+}
 
-	// A tile is adjacent if it differs by exactly 1 in X or Y
-	return (FMath::Abs(GridX - OtherTile->GridX) + 
-		   FMath::Abs(GridY - OtherTile->GridY)) == 1;
+bool ATile::HasWall(EDirection Direction) const {
+	TArray<AActor*> Boards;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AQuoridorBoard::StaticClass(), Boards);
+	return Boards.Num() > 0 ? Cast<AQuoridorBoard>(Boards[0])->HasWallBetween(GridX, GridY, Direction) : false;
 }
