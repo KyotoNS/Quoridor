@@ -15,7 +15,21 @@ void AQuoridorBoard::BeginPlay()
 	Super::BeginPlay();
 
 	// Center the board at (0,0,0)
+	const float BoardHalfLength = (GridSize * TileSize) / 2.0f;
+	const float HalfTileSize = TileSize / 2.0f;
 	const FVector BoardCenter = GetActorLocation();
+
+	// North Wall
+	SpawnWall(BoardCenter + FVector(0.0f, BoardHalfLength + HalfTileSize, 0.0f), FRotator::ZeroRotator, FVector(GridSize, 1, 1));
+
+	// South Wall
+	SpawnWall(BoardCenter + FVector(0.0f, -BoardHalfLength - HalfTileSize, 0.0f), FRotator::ZeroRotator, FVector(GridSize, 1, 1));
+
+	// East Wall
+	SpawnWall(BoardCenter + FVector(BoardHalfLength + HalfTileSize, 0.0f, 0.0f), FRotator(0.0f, 90.0f, 0.0f), FVector(GridSize + 1.32, 1, 1));
+
+	// West Wall
+	SpawnWall(BoardCenter + FVector(-BoardHalfLength - HalfTileSize, 0.0f, 0.0f), FRotator(0.0f, 90.0f, 0.0f), FVector(GridSize + 1.32, 1, 1));
     
 	// Initialize tiles
 	Tiles.SetNum(GridSize);
@@ -45,6 +59,7 @@ void AQuoridorBoard::BeginPlay()
 		SpawnPawn(FIntPoint(4, 0), 1); // Player 1
 		SpawnPawn(FIntPoint(4, 8), 2); // Player 2
 	}, 0.1f, false);
+	
 }
 
 void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
@@ -96,4 +111,13 @@ void AQuoridorBoard::ClearSelection()
 {
 	SelectedPawn = nullptr;
 	// Unhighlight all tiles
+}
+void AQuoridorBoard::SpawnWall(FVector Location, FRotator Rotation, FVector Scale)
+{
+	if (WallAroundClass)
+	{
+		AActor* Wall = GetWorld()->SpawnActor<AActor>(WallAroundClass, Location, Rotation);
+		Wall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+		Wall->SetActorScale3D(Scale);
+	}
 }

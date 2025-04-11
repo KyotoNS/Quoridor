@@ -24,7 +24,7 @@ protected:
 	TSubclassOf<ATile> TileClass;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Board")
-	float TileSize = 100.0f;
+	float TileSize = 120.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Board")
 	int32 GridSize = 9;
@@ -40,6 +40,8 @@ protected:
 	
 	TArray<TArray<ATile*>> Tiles;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Board")
+	TSubclassOf<AActor> WallAroundClass;
 	
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Gameplay")
 	int32 CurrentPlayerTurn = 1;
@@ -50,7 +52,8 @@ protected:
 	
 
 	void ClearSelection();
-	
+	void SpawnWall(FVector Location, FRotator Rotation, FVector Scale);
+
 private:
 	void SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber);
 };
