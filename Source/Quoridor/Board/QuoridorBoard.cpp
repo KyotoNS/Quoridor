@@ -1,6 +1,7 @@
 ﻿
 #include "QuoridorBoard.h"
 #include "Quoridor/Pawn/QuoridorPawn.h"
+#include "Quoridor/Wall/WallSlot.h"
 #include "Quoridor/Tile/Tile.h"
 #include "Engine/World.h"
 
@@ -59,6 +60,30 @@ void AQuoridorBoard::BeginPlay()
 		SpawnPawn(FIntPoint(4, 0), 1); // Player 1
 		SpawnPawn(FIntPoint(4, 8), 2); // Player 2
 	}, 0.1f, false);
+
+	// Spawn wall slots (horizontal)
+	for (int32 y = 0; y < GridSize - 1; ++y)
+	{
+		for (int32 x = 0; x < GridSize; ++x)
+		{
+			const FVector Loc = Tiles[y][x]->GetActorLocation() + FVector(0, TileSize / 2, 0);
+			AWallSlot* Slot = GetWorld()->SpawnActor<AWallSlot>(WallSlotClass, Loc, FRotator::ZeroRotator);
+			Slot->Orientation = EWallOrientation::Horizontal;
+			WallSlots.Add(Slot);
+		}
+	}
+
+	// Spawn wall slots (vertical)
+	for (int32 y = 0; y < GridSize; ++y)
+	{
+		for (int32 x = 0; x < GridSize - 1; ++x)
+		{
+			const FVector Loc = Tiles[y][x]->GetActorLocation() + FVector(TileSize / 2, 0, 0);
+			AWallSlot* Slot = GetWorld()->SpawnActor<AWallSlot>(WallSlotClass, Loc, FRotator(0, 90, 0));
+			Slot->Orientation = EWallOrientation::Vertical;
+			WallSlots.Add(Slot);
+		}
+	}
 	
 }
 
@@ -120,4 +145,23 @@ void AQuoridorBoard::SpawnWall(FVector Location, FRotator Rotation, FVector Scal
 		Wall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 		Wall->SetActorScale3D(Scale);
 	}
+}
+
+bool AQuoridorBoard::TryPlaceWall(AWallSlot* TargetSlot)
+{
+	if (TargetSlot && TargetSlot->CanPlaceWall())
+	{
+		TargetSlot->SetOccupied(true);
+
+		// Visual wall
+		SpawnWall(TargetSlot->GetActorLocation(),
+			TargetSlot->Orientation == EWallOrientation::Horizontal
+				? FRotator::ZeroRotator
+				: FRotator(0, 90, 0),
+			FVector(1, 1, 1)); // Bisa diatur lebih spesifik ukuran wall-nya
+
+		CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
+		return true;
+	}
+	return false;
 }

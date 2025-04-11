@@ -8,7 +8,7 @@
 
 class ATile;
 class AQuoridorPawn;
-
+class AWallSlot;
 UCLASS()
 class QUORIDOR_API AQuoridorBoard : public AActor
 {
@@ -42,6 +42,16 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Board")
 	TSubclassOf<AActor> WallAroundClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Walls")
+	TSubclassOf<AWallSlot> WallSlotClass;
+
+	UPROPERTY()
+	TArray<AWallSlot*> WallSlots;
+
+	UFUNCTION(BlueprintCallable)
+	bool TryPlaceWall(AWallSlot* TargetSlot);
+
 	
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Gameplay")
 	int32 CurrentPlayerTurn = 1;
