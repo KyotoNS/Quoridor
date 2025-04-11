@@ -1,50 +1,63 @@
-﻿#pragma once
+﻿#pragma once  // Prevents multiple inclusions
+
 #include "CoreMinimal.h"
+#include "Quoridor/Tile/Tile.h"
 #include "GameFramework/Actor.h"
-#include "Quoridor/Wall/QuoridorTypes.h"
 #include "QuoridorBoard.generated.h"
 
-class ATile;
-class AQuoridorPawn;
-class AWall;
+class ATile;  // Forward declaration of ATile
+class AQuoridorPawn;  // Forward declaration of AQuoridorPawn
 
 UCLASS()
-class QUORIDOR_API AQuoridorBoard : public AActor {
+class QUORIDOR_API AQuoridorBoard : public AActor
+{
 	GENERATED_BODY()
     
 public:    
-	AQuoridorBoard();
+	AQuoridorBoard();  // Constructor
 
 protected:
-	virtual void BeginPlay() override;
+	virtual void BeginPlay() override;  // Called when the game starts
 
-	UPROPERTY(EditDefaultsOnly) TSubclassOf<ATile> TileClass;
-	UPROPERTY(EditDefaultsOnly) TSubclassOf<AQuoridorPawn> PawnClass;
-	UPROPERTY(EditDefaultsOnly) TSubclassOf<AWall> WallClass;
+	// Tile blueprint class used for spawning tiles
+	UPROPERTY(EditDefaultsOnly, Category = "Board")
+	TSubclassOf<ATile> TileClass;
+	
+	// Size of each tile in world units
+	UPROPERTY(EditDefaultsOnly, Category = "Board")
+	float TileSize = 100.0f;
+
+	// Grid size (default: 9x9)
+	UPROPERTY(EditDefaultsOnly, Category = "Board")
+	int32 GridSize = 9;
+
+	// Pawn blueprint class for spawning pawns
+	UPROPERTY(EditDefaultsOnly, Category = "Pawns")
+	TSubclassOf<AQuoridorPawn> PawnClass;
+	
+	// Handles clicks on pawns
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	void HandlePawnClick(AQuoridorPawn* ClickedPawn);
     
-	UPROPERTY(VisibleInstanceOnly) TArray<TArray<ATile*>> Tiles;
-	UPROPERTY(VisibleInstanceOnly) int32 CurrentPlayerTurn = 1;
-	UPROPERTY(VisibleInstanceOnly) AQuoridorPawn* SelectedPawn;
+	// Handles clicks on tiles
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	void HandleTileClick(ATile* ClickedTile);
+	
+	// 2D array of tile references
+	TArray<TArray<ATile*>> Tiles;
 
-	UFUNCTION(BlueprintCallable) void HandlePawnClick(AQuoridorPawn* ClickedPawn);
-	UFUNCTION(BlueprintCallable) void HandleTileClick(ATile* ClickedTile);
+	// Keeps track of the current player turn (1 or 2)
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Gameplay")
+	int32 CurrentPlayerTurn = 1;
 
-private:
-	TArray<TArray<TArray<bool>>> WallGrid;
-	TArray<AWall*> PlacedWalls;
-	int32 PlayerWalls[2] = {10, 10};
+	// Stores the selected pawn
+	UPROPERTY(VisibleInstanceOnly)
+	AQuoridorPawn* SelectedPawn;
 
-	void SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber);
+	// Clears selection state after a move
 	void ClearSelection();
-	bool IsWallPlacementValid(FIntPoint GridPos, EWallOrientation Orientation);
-	bool ValidatePathExists(int32 PlayerNumber);
-	TArray<FIntPoint> FindPath(int32 StartX, int32 StartY, int32 TargetRow);
-    
-public:
-	UFUNCTION(BlueprintCallable) 
-	bool TryPlaceWall(FIntPoint GridPos, EWallOrientation Orientation, int32 PlayerNumber);
-    
-	UFUNCTION(BlueprintCallable)
-	bool HasWallBetween(int32 TileX, int32 TileY, EDirection Direction) const;
-	bool IsValidTile(int32 X, int32 Y) const;
+	
+private:
+	// Spawns a pawn at a given position for a specific player
+	void SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber);
 };
