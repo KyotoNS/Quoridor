@@ -53,4 +53,55 @@ void AQuoridorPawn::InitializePawn(ATile* StartTile, AQuoridorBoard* Board)
 	}
 }
 
+FWallDefinition AQuoridorPawn::GetNextWall()
+{
+	if (PlayerWalls.Num() > 0)
+	{
+		FWallDefinition Wall = PlayerWalls[0];
+		PlayerWalls.RemoveAt(0);
+		return Wall;
+	}
+	
+	// Return default wall jika kosong (harus dijaga validasinya)
+	return FWallDefinition();
+}
+
+bool AQuoridorPawn::HasWallOfLength(int32 Length) const
+{
+	return PlayerWalls.ContainsByPredicate([Length](const FWallDefinition& Wall)
+	{
+		return Wall.Length == Length;
+	});
+}
+
+int32 AQuoridorPawn::GetWallCountOfLength(int32 Length) const
+{
+	int32 Count = 0;
+	for (const FWallDefinition& Wall : PlayerWalls)
+	{
+		if (Wall.Length == Length)
+		{
+			Count++;
+		}
+	}
+	return Count;
+}
+
+
+FWallDefinition AQuoridorPawn::TakeWallOfLength(int32 Length)
+{
+	for (int32 i = 0; i < PlayerWalls.Num(); ++i)
+	{
+		if (PlayerWalls[i].Length == Length)
+		{
+			FWallDefinition Wall = PlayerWalls[i];
+			PlayerWalls.RemoveAt(i);
+			return Wall;
+		}
+	}
+	return FWallDefinition(); // Return default if not found
+}
+
+
+
 

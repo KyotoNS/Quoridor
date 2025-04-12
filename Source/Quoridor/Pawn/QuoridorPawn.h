@@ -1,8 +1,9 @@
-﻿// QuoridorPawn.h
+﻿//QuoridorPawn.h
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "Quoridor/Wall/WallDefinition.h"
 #include "QuoridorPawn.generated.h"
 
 class ATile;
@@ -29,9 +30,28 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, category = "Player")
 	int32 PlayerNumber;
+
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FWallDefinition> PlayerWalls;
+
+	UFUNCTION(BlueprintCallable)
+	FWallDefinition GetNextWall();
+
+	UFUNCTION(BlueprintCallable)
+	bool HasRemainingWalls() const { return PlayerWalls.Num() > 0; }
 	
 	UFUNCTION(BlueprintCallable)
 	void InitializePawn(ATile* StartTile, AQuoridorBoard* Board);
+
+	UFUNCTION(BlueprintCallable)
+	bool HasWallOfLength(int32 Length) const;
+
+	UFUNCTION(BlueprintCallable)
+	int32 GetWallCountOfLength(int32 Length) const;
+
+	UFUNCTION(BlueprintCallable)
+	FWallDefinition TakeWallOfLength(int32 Length);
+
 
 protected:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category = "Pawn")

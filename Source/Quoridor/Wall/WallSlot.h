@@ -19,6 +19,12 @@ class QUORIDOR_API AWallSlot : public AActor
 public:	
 	AWallSlot();
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 GridX;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 GridY;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EWallOrientation Orientation;
 
@@ -30,4 +36,7 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetOccupied(bool bOccupied) { bIsOccupied = bOccupied; }
+
+	UFUNCTION(BlueprintCallable)
+	void SetGridPosition(int32 X, int32 Y) { GridX = X; GridY = Y; }
 };

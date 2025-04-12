@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "Quoridor/Tile/Tile.h"
 #include "GameFramework/Actor.h"
+#include "Quoridor/Wall/WallSlot.h"
 #include "QuoridorBoard.generated.h"
 
 class ATile;
@@ -44,25 +45,36 @@ protected:
 	TSubclassOf<AActor> WallAroundClass;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Walls")
-	TSubclassOf<AWallSlot> WallSlotClass;
+    TSubclassOf<AWallSlot> WallSlotClass;
+    
+    UPROPERTY()
+    TArray<AWallSlot*> WallSlots;
 
-	UPROPERTY()
-	TArray<AWallSlot*> WallSlots;
-
-	UFUNCTION(BlueprintCallable)
-	bool TryPlaceWall(AWallSlot* TargetSlot);
-
+	UPROPERTY(EditDefaultsOnly, Category = "Walls")
+	TSubclassOf<AActor> WallPlacementClass;
+    
+    UFUNCTION(BlueprintCallable)
+    bool TryPlaceWall(AWallSlot* StartSlot, int32 WallLength);
 	
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Gameplay")
 	int32 CurrentPlayerTurn = 1;
 
+	bool bIsPlacingWall = false;
+	int32 PendingWallLength = 0;
+
 	UPROPERTY(VisibleInstanceOnly)
 	AQuoridorPawn* SelectedPawn;
-
 	
+	UFUNCTION(BlueprintCallable)
+	void StartWallPlacement(int32 WallLength);
+
+	UFUNCTION(BlueprintCallable, Category="Walls")
+	int32 GetCurrentPlayerWallCount(int32 WallLength) const;
 
 	void ClearSelection();
 	void SpawnWall(FVector Location, FRotator Rotation, FVector Scale);
+	AWallSlot* FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation);
+	void HandleWallSlotClick(AWallSlot* ClickedSlot);
 
 private:
 	void SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber);

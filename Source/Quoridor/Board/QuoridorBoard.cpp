@@ -1,7 +1,10 @@
 ﻿
 #include "QuoridorBoard.h"
+
+#include "EngineUtils.h"
 #include "Quoridor/Pawn/QuoridorPawn.h"
 #include "Quoridor/Wall/WallSlot.h"
+#include "Quoridor/Wall/WallDefinition.h"
 #include "Quoridor/Tile/Tile.h"
 #include "Engine/World.h"
 
@@ -85,6 +88,7 @@ void AQuoridorBoard::BeginPlay()
 		}
 	}
 	
+	
 }
 
 void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
@@ -97,19 +101,33 @@ void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
 			// Spawn parameters
 			FActorSpawnParameters SpawnParams;
 			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-            
-			// Spawn pawn at tile location
+
 			const FVector SpawnLocation = StartTile->GetActorLocation() + FVector(0, 0, 50);
 			AQuoridorPawn* NewPawn = GetWorld()->SpawnActor<AQuoridorPawn>(PawnClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
-            
-			// Initialize pawn
-			NewPawn->CurrentTile = StartTile;
-			NewPawn->PlayerNumber = PlayerNumber;
-			StartTile->SetPawnOnTile(NewPawn);
+			
+			if (NewPawn)
+			{
+				NewPawn->CurrentTile = StartTile;
+				NewPawn->PlayerNumber = PlayerNumber;
+				StartTile->SetPawnOnTile(NewPawn);
+
+				// Tambah random wall
+				TArray<FWallDefinition> RandomWalls;
+				for (int32 i = 0; i < 10; ++i)
+				{
+					FWallDefinition NewWall;
+					NewWall.Length = FMath::RandRange(1, 3); // panjang: 1 - 3
+					NewWall.Orientation = FMath::RandBool() ? EWallOrientation::Horizontal : EWallOrientation::Vertical;
+					RandomWalls.Add(NewWall);
+				}
+
+				NewPawn->PlayerWalls = RandomWalls;
+			}
 		}
 	}
 	UE_LOG(LogTemp, Warning, TEXT("Spawning pawn at X:%d Y:%d"), GridPosition.X, GridPosition.Y);
 }
+
 void AQuoridorBoard::HandlePawnClick(AQuoridorPawn* ClickedPawn)
 {
 	if (ClickedPawn && ClickedPawn->PlayerNumber == CurrentPlayerTurn)
@@ -147,21 +165,124 @@ void AQuoridorBoard::SpawnWall(FVector Location, FRotator Rotation, FVector Scal
 	}
 }
 
-bool AQuoridorBoard::TryPlaceWall(AWallSlot* TargetSlot)
+bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 {
-	if (TargetSlot && TargetSlot->CanPlaceWall())
+	if (!StartSlot || !StartSlot->CanPlaceWall()) return false;
+
+	// Ambil posisi awal
+	const int32 StartX = StartSlot->GridX;
+	const int32 StartY = StartSlot->GridY;
+	const EWallOrientation Orientation = StartSlot->Orientation;
+
+	TArray<AWallSlot*> AffectedSlots;
+	AffectedSlots.Add(StartSlot);
+
+	// Cari slot yang terkena wall
+	for (int32 i = 1; i < WallLength; ++i)
 	{
-		TargetSlot->SetOccupied(true);
+		int32 NextX = StartX;
+		int32 NextY = StartY;
 
-		// Visual wall
-		SpawnWall(TargetSlot->GetActorLocation(),
-			TargetSlot->Orientation == EWallOrientation::Horizontal
-				? FRotator::ZeroRotator
-				: FRotator(0, 90, 0),
-			FVector(1, 1, 1)); // Bisa diatur lebih spesifik ukuran wall-nya
+		if (Orientation == EWallOrientation::Horizontal)
+			NextY += i;
+		else
+			NextX += i;
 
-		CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
-		return true;
+		AWallSlot* NextSlot = FindWallSlotAt(NextX, NextY, Orientation);
+		if (!NextSlot || NextSlot->bIsOccupied)
+		{
+			return false; // Tidak valid, satu saja gagal berarti batal
+		}
+		AffectedSlots.Add(NextSlot);
 	}
-	return false;
+
+	// Tandai semua slot sebagai occupied
+	for (AWallSlot* Slot : AffectedSlots)
+	{
+		Slot->SetOccupied(true);
+	}
+
+	// Tempatkan wall mesh (di tengah semua slot)
+	FVector StartLocation = StartSlot->GetActorLocation();
+	FVector EndLocation = AffectedSlots.Last()->GetActorLocation();
+	FVector MiddleLocation = (StartLocation + EndLocation) / 2;
+
+	FRotator WallRotation = Orientation == EWallOrientation::Horizontal
+		? FRotator::ZeroRotator
+		: FRotator(0, 90, 0);
+
+	FVector Scale = FVector(WallLength, 1, 1); // Adjust if mesh needs stretching
+
+	AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, MiddleLocation, WallRotation);
+	if (NewWall)
+	{
+		NewWall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+		NewWall->SetActorScale3D(Scale);
+	}
+
+	CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
+	return true;
 }
+
+AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation)
+{
+	for (AWallSlot* Slot : WallSlots)
+	{
+		if (Slot && Slot->GridX == X && Slot->GridY == Y && Slot->Orientation == Orientation)
+		{
+			return Slot;
+		}
+	}
+	return nullptr;
+}
+
+void AQuoridorBoard::HandleWallSlotClick(AWallSlot* ClickedSlot)
+{
+	if (!bIsPlacingWall || !ClickedSlot || !SelectedPawn) return;
+
+	if (TryPlaceWall(ClickedSlot, PendingWallLength))
+	{
+		SelectedPawn->TakeWallOfLength(PendingWallLength);
+
+		bIsPlacingWall = false;
+		PendingWallLength = 0;
+
+		UE_LOG(LogTemp, Warning, TEXT("Wall placed successfully."));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Failed to place wall."));
+	}
+}
+
+
+void AQuoridorBoard::StartWallPlacement(int32 WallLength)
+{
+	if (!SelectedPawn || !SelectedPawn->HasWallOfLength(WallLength))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No wall of length %d available"), WallLength);
+		return;
+	}
+
+	PendingWallLength = WallLength;
+	bIsPlacingWall = true;
+
+	// Optionally: spawn preview wall actor attached to cursor
+}
+
+int32 AQuoridorBoard::GetCurrentPlayerWallCount(int32 WallLength) const
+{
+	for (TActorIterator<AQuoridorPawn> It(GetWorld()); It; ++It)
+	{
+		AQuoridorPawn* Pawn = *It;
+		if (Pawn && Pawn->PlayerNumber == CurrentPlayerTurn)
+		{
+			return Pawn->GetWallCountOfLength(WallLength);
+		}
+	}
+	return 0;
+}
+
+
+
+
