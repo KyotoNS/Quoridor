@@ -13,7 +13,7 @@ class AWallPreview;
 
 AQuoridorBoard::AQuoridorBoard()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	CurrentPlayerTurn = 1;
 }
 
@@ -253,47 +253,50 @@ AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Ori
 	return nullptr;
 }
 
-void AQuoridorBoard::HandleWallSlotClick(AWallSlot* ClickedSlot)
+
+void AQuoridorBoard::StartWallPlacement(int32 WallLength, EWallOrientation Orientation)
 {
-	if (!bIsPlacingWall || !ClickedSlot || !SelectedPawn) return;
+	// Dapatkan pawn sesuai player turn
+	SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
 
-	if (TryPlaceWall(ClickedSlot, PendingWallLength))
+	if (!SelectedPawn || !SelectedPawn->HasWallOfLength(WallLength))
 	{
-		SelectedPawn->TakeWallOfLength(PendingWallLength);
+		UE_LOG(LogTemp, Warning, TEXT("Player does not have wall of length %d"), WallLength);
+		return;
+	}
 
+	// Jika pemain klik wall yang sama → toggle off
+	if (bIsPlacingWall && PendingWallLength == WallLength && PendingWallOrientation == Orientation)
+	{
 		bIsPlacingWall = false;
 		PendingWallLength = 0;
 
-		UE_LOG(LogTemp, Warning, TEXT("Wall placed successfully."));
-		
 		if (WallPreviewActor)
 		{
 			WallPreviewActor->Destroy();
 			WallPreviewActor = nullptr;
 		}
 
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Failed to place wall."));
-	}
-}
-
-
-void AQuoridorBoard::StartWallPlacement(int32 WallLength, EWallOrientation Orientation)
-{
-	if (!SelectedPawn || !SelectedPawn->HasWallOfLength(WallLength))
+		UE_LOG(LogTemp, Warning, TEXT("Wall placement canceled."));
 		return;
+	}
 
+	// Pemain memilih wall baru
 	PendingWallLength = WallLength;
 	PendingWallOrientation = Orientation;
 	bIsPlacingWall = true;
 
+	// Spawn preview jika belum ada
 	if (!WallPreviewActor && WallPreviewClass)
 	{
 		WallPreviewActor = GetWorld()->SpawnActor<AActor>(WallPreviewClass);
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Wall selected: Length = %d, Orientation = %s"),
+		PendingWallLength,
+		PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
 }
+
 
 
 int32 AQuoridorBoard::GetCurrentPlayerWallCount(int32 WallLength) const
@@ -309,62 +312,44 @@ int32 AQuoridorBoard::GetCurrentPlayerWallCount(int32 WallLength) const
 	return 0;
 }
 
-void AQuoridorBoard::Tick(float DeltaTime)
+void AQuoridorBoard::ShowWallPreviewAtSlot(AWallSlot* HoveredSlot)
 {
-	Super::Tick(DeltaTime);
+	if (!bIsPlacingWall || !WallPreviewActor || !HoveredSlot) return;
 
-	if (!bIsPlacingWall || !WallPreviewActor)
+	if (HoveredSlot->bIsOccupied || HoveredSlot->Orientation != PendingWallOrientation)
 		return;
 
-	APlayerController* PC = GetWorld()->GetFirstPlayerController();
-	if (!PC) return;
+	FVector Location = HoveredSlot->GetActorLocation();
+	FRotator Rotation = PendingWallOrientation == EWallOrientation::Horizontal
+		? FRotator::ZeroRotator
+		: FRotator(0, 90, 0);
 
-	FHitResult Hit;
-	if (PC->GetHitResultUnderCursor(ECC_Visibility, false, Hit))
+	if (AWallPreview* Preview = Cast<AWallPreview>(WallPreviewActor))
 	{
-		AWallSlot* HoveredSlot = Cast<AWallSlot>(Hit.GetActor());
-
-		if (HoveredSlot)
-		{
-			// ✅ Log saat hover slot, walaupun belum pilih wall
-			UE_LOG(LogTemp, Warning, TEXT("Hovering WallSlot at (%d, %d), Orientation: %s"),
-				HoveredSlot->GridX,
-				HoveredSlot->GridY,
-				HoveredSlot->Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
-		}
-
-		if (HoveredSlot && !HoveredSlot->bIsOccupied && HoveredSlot->Orientation == PendingWallOrientation)
-		{
-			// --- Update preview wall position ---
-			FVector Location = HoveredSlot->GetActorLocation();
-			FRotator Rotation = PendingWallOrientation == EWallOrientation::Horizontal
-				? FRotator::ZeroRotator
-				: FRotator(0, 90, 0);
-
-			if (AWallPreview* Preview = Cast<AWallPreview>(WallPreviewActor))
-			{
-				Preview->SetPreviewTransform(Location, Rotation, PendingWallLength);
-			}
-
-			// --- Check for click to place wall ---
-			if (PC->WasInputKeyJustPressed(EKeys::LeftMouseButton))
-			{
-				if (TryPlaceWall(HoveredSlot, PendingWallLength))
-				{
-					// Success, stop preview
-					bIsPlacingWall = false;
-					PendingWallLength = 0;
-
-					if (WallPreviewActor)
-					{
-						WallPreviewActor->Destroy();
-						WallPreviewActor = nullptr;
-					}
-				}
-			}
-		}
+		Preview->SetPreviewTransform(Location, Rotation, PendingWallLength);
 	}
 }
+void AQuoridorBoard::HideWallPreview()
+{
+	if (WallPreviewActor)
+	{
+		WallPreviewActor->SetActorLocation(FVector(999999, 999999, 999999)); // Atau
+		// WallPreviewActor->SetActorHiddenInGame(true);
+	}
+}
+
+AQuoridorPawn* AQuoridorBoard::GetPawnForPlayer(int32 PlayerNumber)
+{
+	for (TActorIterator<AQuoridorPawn> It(GetWorld()); It; ++It)
+	{
+		if (It->PlayerNumber == PlayerNumber)
+			return *It;
+	}
+	return nullptr;
+}
+
+
+
 
 
 

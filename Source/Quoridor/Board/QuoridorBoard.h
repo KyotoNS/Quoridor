@@ -79,12 +79,14 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category="Walls")
 	int32 GetCurrentPlayerWallCount(int32 WallLength) const;
-	void Tick(float DeltaTime);
-
+	UFUNCTION(BlueprintCallable)
+	void HideWallPreview();
+	AQuoridorPawn* GetPawnForPlayer(int32 PlayerNumber);
+	UFUNCTION(BlueprintCallable)
+	void ShowWallPreviewAtSlot(class AWallSlot* HoveredSlot);
 	void ClearSelection();
 	void SpawnWall(FVector Location, FRotator Rotation, FVector Scale);
 	AWallSlot* FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation);
-	void HandleWallSlotClick(AWallSlot* ClickedSlot);
 
 private:
 	void SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber);

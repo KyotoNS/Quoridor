@@ -42,9 +42,6 @@ public:
 	TArray<FWallDefinition> PlayerWalls;
 
 	UFUNCTION(BlueprintCallable)
-	FWallDefinition GetNextWall();
-
-	UFUNCTION(BlueprintCallable)
 	bool HasRemainingWalls() const { return PlayerWalls.Num() > 0; }
 	
 	UFUNCTION(BlueprintCallable)

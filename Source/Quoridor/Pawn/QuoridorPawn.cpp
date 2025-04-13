@@ -53,19 +53,6 @@ void AQuoridorPawn::InitializePawn(ATile* StartTile, AQuoridorBoard* Board)
 	}
 }
 
-FWallDefinition AQuoridorPawn::GetNextWall()
-{
-	if (PlayerWalls.Num() > 0)
-	{
-		FWallDefinition Wall = PlayerWalls[0];
-		PlayerWalls.RemoveAt(0);
-		return Wall;
-	}
-	
-	// Return default wall jika kosong (harus dijaga validasinya)
-	return FWallDefinition();
-}
-
 bool AQuoridorPawn::HasWallOfLength(int32 Length) const
 {
 	for (const FWallDefinition& Wall : PlayerWalls)
