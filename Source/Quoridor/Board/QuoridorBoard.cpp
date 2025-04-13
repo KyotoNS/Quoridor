@@ -7,10 +7,13 @@
 #include "Quoridor/Wall/WallDefinition.h"
 #include "Quoridor/Tile/Tile.h"
 #include "Engine/World.h"
+#include "Quoridor/Wall/WallPreview.h"
+
+class AWallPreview;
 
 AQuoridorBoard::AQuoridorBoard()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 	CurrentPlayerTurn = 1;
 }
 
@@ -169,15 +172,14 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 {
 	if (!StartSlot || !StartSlot->CanPlaceWall()) return false;
 
-	// Ambil posisi awal
-	const int32 StartX = StartSlot->GridX;
-	const int32 StartY = StartSlot->GridY;
-	const EWallOrientation Orientation = StartSlot->Orientation;
+	int32 StartX = StartSlot->GridX;
+	int32 StartY = StartSlot->GridY;
+	EWallOrientation Orientation = StartSlot->Orientation;
 
 	TArray<AWallSlot*> AffectedSlots;
 	AffectedSlots.Add(StartSlot);
 
-	// Cari slot yang terkena wall
+	// Cek semua slot yang akan dipakai oleh wall
 	for (int32 i = 1; i < WallLength; ++i)
 	{
 		int32 NextX = StartX;
@@ -191,7 +193,8 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 		AWallSlot* NextSlot = FindWallSlotAt(NextX, NextY, Orientation);
 		if (!NextSlot || NextSlot->bIsOccupied)
 		{
-			return false; // Tidak valid, satu saja gagal berarti batal
+			UE_LOG(LogTemp, Warning, TEXT("Failed: Wall slot (%d, %d) is invalid."), NextX, NextY);
+			return false;
 		}
 		AffectedSlots.Add(NextSlot);
 	}
@@ -202,7 +205,7 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 		Slot->SetOccupied(true);
 	}
 
-	// Tempatkan wall mesh (di tengah semua slot)
+	// Hitung lokasi tengah
 	FVector StartLocation = StartSlot->GetActorLocation();
 	FVector EndLocation = AffectedSlots.Last()->GetActorLocation();
 	FVector MiddleLocation = (StartLocation + EndLocation) / 2;
@@ -211,8 +214,10 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 		? FRotator::ZeroRotator
 		: FRotator(0, 90, 0);
 
-	FVector Scale = FVector(WallLength, 1, 1); // Adjust if mesh needs stretching
+	// Sesuaikan skala wall
+	FVector Scale = FVector(WallLength, 1, 1); // Kalau perlu stretch
 
+	// Spawn wall
 	AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, MiddleLocation, WallRotation);
 	if (NewWall)
 	{
@@ -220,9 +225,21 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 		NewWall->SetActorScale3D(Scale);
 	}
 
+	// Kurangi wall dari pemain aktif (jika ada sistemnya)
+	if (SelectedPawn)
+	{
+		SelectedPawn->RemoveWallOfLength(WallLength); // opsional
+	}
+
+	// Log sukses
+	UE_LOG(LogTemp, Warning, TEXT("Wall placed by Player %d at (%d, %d), length %d"), CurrentPlayerTurn, StartX, StartY, WallLength);
+
+	// Ganti giliran
 	CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
+
 	return true;
 }
+
 
 AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation)
 {
@@ -248,6 +265,13 @@ void AQuoridorBoard::HandleWallSlotClick(AWallSlot* ClickedSlot)
 		PendingWallLength = 0;
 
 		UE_LOG(LogTemp, Warning, TEXT("Wall placed successfully."));
+		
+		if (WallPreviewActor)
+		{
+			WallPreviewActor->Destroy();
+			WallPreviewActor = nullptr;
+		}
+
 	}
 	else
 	{
@@ -256,19 +280,21 @@ void AQuoridorBoard::HandleWallSlotClick(AWallSlot* ClickedSlot)
 }
 
 
-void AQuoridorBoard::StartWallPlacement(int32 WallLength)
+void AQuoridorBoard::StartWallPlacement(int32 WallLength, EWallOrientation Orientation)
 {
 	if (!SelectedPawn || !SelectedPawn->HasWallOfLength(WallLength))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("No wall of length %d available"), WallLength);
 		return;
-	}
 
 	PendingWallLength = WallLength;
+	PendingWallOrientation = Orientation;
 	bIsPlacingWall = true;
 
-	// Optionally: spawn preview wall actor attached to cursor
+	if (!WallPreviewActor && WallPreviewClass)
+	{
+		WallPreviewActor = GetWorld()->SpawnActor<AActor>(WallPreviewClass);
+	}
 }
+
 
 int32 AQuoridorBoard::GetCurrentPlayerWallCount(int32 WallLength) const
 {
@@ -282,6 +308,67 @@ int32 AQuoridorBoard::GetCurrentPlayerWallCount(int32 WallLength) const
 	}
 	return 0;
 }
+
+void AQuoridorBoard::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (!bIsPlacingWall || !WallPreviewActor)
+		return;
+
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	if (!PC) return;
+
+	FHitResult Hit;
+	if (PC->GetHitResultUnderCursor(ECC_Visibility, false, Hit))
+	{
+		AWallSlot* HoveredSlot = Cast<AWallSlot>(Hit.GetActor());
+
+		if (HoveredSlot)
+		{
+			// ✅ Log saat hover slot, walaupun belum pilih wall
+			UE_LOG(LogTemp, Warning, TEXT("Hovering WallSlot at (%d, %d), Orientation: %s"),
+				HoveredSlot->GridX,
+				HoveredSlot->GridY,
+				HoveredSlot->Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+		}
+
+		if (HoveredSlot && !HoveredSlot->bIsOccupied && HoveredSlot->Orientation == PendingWallOrientation)
+		{
+			// --- Update preview wall position ---
+			FVector Location = HoveredSlot->GetActorLocation();
+			FRotator Rotation = PendingWallOrientation == EWallOrientation::Horizontal
+				? FRotator::ZeroRotator
+				: FRotator(0, 90, 0);
+
+			if (AWallPreview* Preview = Cast<AWallPreview>(WallPreviewActor))
+			{
+				Preview->SetPreviewTransform(Location, Rotation, PendingWallLength);
+			}
+
+			// --- Check for click to place wall ---
+			if (PC->WasInputKeyJustPressed(EKeys::LeftMouseButton))
+			{
+				if (TryPlaceWall(HoveredSlot, PendingWallLength))
+				{
+					// Success, stop preview
+					bIsPlacingWall = false;
+					PendingWallLength = 0;
+
+					if (WallPreviewActor)
+					{
+						WallPreviewActor->Destroy();
+						WallPreviewActor = nullptr;
+					}
+				}
+			}
+		}
+	}
+}
+
+
+
+
 
 
 

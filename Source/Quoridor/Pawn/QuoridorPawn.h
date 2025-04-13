@@ -25,6 +25,13 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool CanMoveToTile(const ATile* TargetTile) const;
 
+	UFUNCTION(BlueprintCallable)
+	bool RemoveWallOfLength(int32 INT32);
+
+	UFUNCTION(BlueprintCallable)
+	bool HasWallOfLength(int32 Length) const;
+	
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	ATile* CurrentTile;
 
@@ -42,10 +49,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	void InitializePawn(ATile* StartTile, AQuoridorBoard* Board);
-
-	UFUNCTION(BlueprintCallable)
-	bool HasWallOfLength(int32 Length) const;
-
+	
 	UFUNCTION(BlueprintCallable)
 	int32 GetWallCountOfLength(int32 Length) const;
 

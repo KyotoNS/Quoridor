@@ -19,6 +19,9 @@ class QUORIDOR_API AWallSlot : public AActor
 public:	
 	AWallSlot();
 
+	UPROPERTY(VisibleAnywhere)
+	class UBoxComponent* BoxCollision;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 GridX;
 

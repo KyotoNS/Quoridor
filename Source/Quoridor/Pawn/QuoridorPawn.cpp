@@ -68,11 +68,14 @@ FWallDefinition AQuoridorPawn::GetNextWall()
 
 bool AQuoridorPawn::HasWallOfLength(int32 Length) const
 {
-	return PlayerWalls.ContainsByPredicate([Length](const FWallDefinition& Wall)
+	for (const FWallDefinition& Wall : PlayerWalls)
 	{
-		return Wall.Length == Length;
-	});
+		if (Wall.Length == Length)
+			return true;
+	}
+	return false;
 }
+
 
 int32 AQuoridorPawn::GetWallCountOfLength(int32 Length) const
 {
@@ -100,6 +103,19 @@ FWallDefinition AQuoridorPawn::TakeWallOfLength(int32 Length)
 		}
 	}
 	return FWallDefinition(); // Return default if not found
+}
+
+bool AQuoridorPawn::RemoveWallOfLength(int32 Length)
+{
+	for (int32 i = 0; i < PlayerWalls.Num(); ++i)
+	{
+		if (PlayerWalls[i].Length == Length)
+		{
+			PlayerWalls.RemoveAt(i);
+			return true;
+		}
+	}
+	return false; // Tidak ada wall yang cocok
 }
 
 

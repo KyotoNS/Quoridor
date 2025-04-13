@@ -64,12 +64,22 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly)
 	AQuoridorPawn* SelectedPawn;
+
+	UPROPERTY()
+	AActor* WallPreviewActor;
+
+	UPROPERTY(EditDefaultsOnly, Category="Walls")
+	TSubclassOf<AActor> WallPreviewClass;
+
+	UPROPERTY()
+	EWallOrientation PendingWallOrientation;
 	
 	UFUNCTION(BlueprintCallable)
-	void StartWallPlacement(int32 WallLength);
+	void StartWallPlacement(int32 WallLength, EWallOrientation Orientation);
 
 	UFUNCTION(BlueprintCallable, Category="Walls")
 	int32 GetCurrentPlayerWallCount(int32 WallLength) const;
+	void Tick(float DeltaTime);
 
 	void ClearSelection();
 	void SpawnWall(FVector Location, FRotator Rotation, FVector Scale);
