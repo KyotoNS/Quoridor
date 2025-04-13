@@ -254,19 +254,18 @@ AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Ori
 }
 
 
-void AQuoridorBoard::StartWallPlacement(int32 WallLength, EWallOrientation Orientation)
+void AQuoridorBoard::StartWallPlacement(int32 WallLength)
 {
-	// Dapatkan pawn sesuai player turn
 	SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
 
 	if (!SelectedPawn || !SelectedPawn->HasWallOfLength(WallLength))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Player does not have wall of length %d"), WallLength);
+		UE_LOG(LogTemp, Warning, TEXT("Player %d does not have wall of length %d"), CurrentPlayerTurn, WallLength);
 		return;
 	}
 
-	// Jika pemain klik wall yang sama → toggle off
-	if (bIsPlacingWall && PendingWallLength == WallLength && PendingWallOrientation == Orientation)
+	// Toggle cancel jika panjang sama & bIsPlacingWall aktif
+	if (bIsPlacingWall && PendingWallLength == WallLength)
 	{
 		bIsPlacingWall = false;
 		PendingWallLength = 0;
@@ -281,12 +280,15 @@ void AQuoridorBoard::StartWallPlacement(int32 WallLength, EWallOrientation Orien
 		return;
 	}
 
-	// Pemain memilih wall baru
+	// Set wall length baru, tapi pertahankan orientasi terakhir
 	PendingWallLength = WallLength;
-	PendingWallOrientation = Orientation;
 	bIsPlacingWall = true;
+	// Ganti giliran
+	CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
 
-	// Spawn preview jika belum ada
+	// Reset orientasi ke default (misalnya Horizontal)
+	PendingWallOrientation = EWallOrientation::Horizontal;
+	
 	if (!WallPreviewActor && WallPreviewClass)
 	{
 		WallPreviewActor = GetWorld()->SpawnActor<AActor>(WallPreviewClass);
@@ -296,6 +298,7 @@ void AQuoridorBoard::StartWallPlacement(int32 WallLength, EWallOrientation Orien
 		PendingWallLength,
 		PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
 }
+
 
 
 
@@ -347,6 +350,30 @@ AQuoridorPawn* AQuoridorBoard::GetPawnForPlayer(int32 PlayerNumber)
 	}
 	return nullptr;
 }
+
+void AQuoridorBoard::ToggleWallOrientation()
+{
+	if (!bIsPlacingWall) return;
+
+	PendingWallOrientation = (PendingWallOrientation == EWallOrientation::Horizontal)
+		? EWallOrientation::Vertical
+		: EWallOrientation::Horizontal;
+
+	if (SelectedPawn)
+	{
+		SelectedPawn->LastWallOrientation = PendingWallOrientation;
+		UE_LOG(LogTemp, Warning, TEXT("Saved to SelectedPawn -> %s"),
+			PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SelectedPawn is NULL!"));
+	}
+	UE_LOG(LogTemp, Warning, TEXT("Wall orientation changed to %s"),
+		PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+}
+
+
 
 
 

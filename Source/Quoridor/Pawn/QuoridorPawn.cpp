@@ -78,20 +78,6 @@ int32 AQuoridorPawn::GetWallCountOfLength(int32 Length) const
 }
 
 
-FWallDefinition AQuoridorPawn::TakeWallOfLength(int32 Length)
-{
-	for (int32 i = 0; i < PlayerWalls.Num(); ++i)
-	{
-		if (PlayerWalls[i].Length == Length)
-		{
-			FWallDefinition Wall = PlayerWalls[i];
-			PlayerWalls.RemoveAt(i);
-			return Wall;
-		}
-	}
-	return FWallDefinition(); // Return default if not found
-}
-
 bool AQuoridorPawn::RemoveWallOfLength(int32 Length)
 {
 	for (int32 i = 0; i < PlayerWalls.Num(); ++i)

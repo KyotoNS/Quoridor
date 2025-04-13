@@ -49,9 +49,9 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	int32 GetWallCountOfLength(int32 Length) const;
-
-	UFUNCTION(BlueprintCallable)
-	FWallDefinition TakeWallOfLength(int32 Length);
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	EWallOrientation LastWallOrientation = EWallOrientation::Horizontal;
 
 
 protected:

@@ -1,12 +1,12 @@
 ﻿
 #pragma once
 
-#include "CoreMinimal.h"
+	#include "CoreMinimal.h"
 #include "Quoridor/Tile/Tile.h"
 #include "GameFramework/Actor.h"
 #include "Quoridor/Wall/WallSlot.h"
 #include "QuoridorBoard.generated.h"
-
+	
 class ATile;
 class AQuoridorPawn;
 class AWallSlot;
@@ -46,7 +46,10 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Walls")
     TSubclassOf<AWallSlot> WallSlotClass;
-    
+
+	UFUNCTION(BlueprintCallable)
+	void ToggleWallOrientation();
+
     UPROPERTY()
     TArray<AWallSlot*> WallSlots;
 
@@ -75,7 +78,7 @@ protected:
 	EWallOrientation PendingWallOrientation;
 	
 	UFUNCTION(BlueprintCallable)
-	void StartWallPlacement(int32 WallLength, EWallOrientation Orientation);
+	void StartWallPlacement(int32 WallLength);
 
 	UFUNCTION(BlueprintCallable, Category="Walls")
 	int32 GetCurrentPlayerWallCount(int32 WallLength) const;

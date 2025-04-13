@@ -18,5 +18,5 @@ void AWallPreview::SetPreviewTransform(FVector Location, FRotator Rotation, int3
 	SetActorRotation(Rotation);
 
 	// Scale preview mesh based on length
-	SetActorScale3D(FVector(Length, 1.0f, 1.0f));
+	SetActorScale3D(FVector(Length , 1.0f, 1.0f));
 }
