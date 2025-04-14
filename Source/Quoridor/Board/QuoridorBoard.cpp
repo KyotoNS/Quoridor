@@ -160,6 +160,7 @@ void AQuoridorBoard::ClearSelection()
 	SelectedPawn = nullptr;
 	// Unhighlight all tiles
 }
+
 void AQuoridorBoard::SpawnWall(FVector Location, FRotator Rotation, FVector Scale)
 {
 	if (WallAroundClass)
@@ -167,81 +168,117 @@ void AQuoridorBoard::SpawnWall(FVector Location, FRotator Rotation, FVector Scal
 		AActor* Wall = GetWorld()->SpawnActor<AActor>(WallAroundClass, Location, Rotation);
 		Wall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 		Wall->SetActorScale3D(Scale);
+		BorderWalls.Add(Wall); // Store the border wall
 	}
 }
 
 bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 {
-	if (!StartSlot || !StartSlot->CanPlaceWall()) return false;
+    if (!StartSlot || !StartSlot->CanPlaceWall()) return false;
 
-	int32 StartX = StartSlot->GridX;
-	int32 StartY = StartSlot->GridY;
-	EWallOrientation Orientation = StartSlot->Orientation;
+    int32 StartX = StartSlot->GridX;
+    int32 StartY = StartSlot->GridY;
+    EWallOrientation Orientation = StartSlot->Orientation;
 
-	TArray<AWallSlot*> AffectedSlots;
-	AffectedSlots.Add(StartSlot);
+    TArray<AWallSlot*> AffectedSlots;
+    AffectedSlots.Add(StartSlot);
 
-	// Cek semua slot yang akan dipakai oleh wall
-	for (int32 i = 1; i < WallLength; ++i)
-	{
-		int32 NextX = StartX;
-		int32 NextY = StartY;
+    // Check all slots that will be used by the wall
+    for (int32 i = 1; i < WallLength; ++i)
+    {
+        int32 NextX = StartX;
+        int32 NextY = StartY;
 
-		if (Orientation == EWallOrientation::Horizontal)
-			NextY += i;
-		else
-			NextX += i;
+        if (Orientation == EWallOrientation::Horizontal)
+            NextX += i; // Stack upwards (X direction)
+        else
+            NextY += i; // Stack sideways (Y direction)
 
-		AWallSlot* NextSlot = FindWallSlotAt(NextX, NextY, Orientation);
-		if (!NextSlot || NextSlot->bIsOccupied)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Failed: Wall slot (%d, %d) is invalid."), NextX, NextY);
-			return false;
-		}
-		AffectedSlots.Add(NextSlot);
-	}
+        AWallSlot* NextSlot = FindWallSlotAt(NextX, NextY, Orientation);
+        if (!NextSlot || NextSlot->bIsOccupied)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Failed: Wall slot (%d, %d) is invalid."), NextX, NextY);
+            return false;
+        }
+        AffectedSlots.Add(NextSlot);
+    }
 
-	// Tandai semua slot sebagai occupied
-	for (AWallSlot* Slot : AffectedSlots)
-	{
-		Slot->SetOccupied(true);
-	}
+    // Check for collision with border walls
+    FVector BaseLocation = StartSlot->GetActorLocation();
+    FRotator WallRotation = Orientation == EWallOrientation::Horizontal
+        ? FRotator::ZeroRotator
+        : FRotator(0, 90, 0);
 
-	// Hitung lokasi tengah
-	FVector StartLocation = StartSlot->GetActorLocation();
-	FVector EndLocation = AffectedSlots.Last()->GetActorLocation();
-	FVector MiddleLocation = (StartLocation + EndLocation) / 2;
+    for (int32 i = 0; i < WallLength; ++i)
+    {
+        FVector SegmentLocation = BaseLocation;
+        if (Orientation == EWallOrientation::Horizontal)
+            SegmentLocation.X += i * TileSize; // Stack upwards (X direction)
+        else
+            SegmentLocation.Y += i * TileSize; // Stack sideways (Y direction)
 
-	FRotator WallRotation = Orientation == EWallOrientation::Horizontal
-		? FRotator::ZeroRotator
-		: FRotator(0, 90, 0);
+        // Perform a box overlap check at this segment's location
+        FBox SegmentBounds = FBox::BuildAABB(SegmentLocation, FVector(TileSize / 2, TileSize / 2, 10.0f));
+        for (AActor* BorderWall : BorderWalls)
+        {
+            if (!BorderWall) continue;
 
-	// Sesuaikan skala wall
-	FVector Scale = FVector(WallLength, 1, 1); // Kalau perlu stretch
+            FVector BorderOrigin, BorderExtent;
+            BorderWall->GetActorBounds(false, BorderOrigin, BorderExtent);
+            FBox BorderBounds = FBox::BuildAABB(BorderOrigin, BorderExtent);
 
-	// Spawn wall
-	AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, MiddleLocation, WallRotation);
-	if (NewWall)
-	{
-		NewWall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-		NewWall->SetActorScale3D(Scale);
-	}
+            if (SegmentBounds.Intersect(BorderBounds))
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Failed: Wall segment at (%f, %f) overlaps with border wall"), SegmentLocation.X, SegmentLocation.Y);
+                return false;
+            }
+        }
+    }
 
-	// Kurangi wall dari pemain aktif (jika ada sistemnya)
-	if (SelectedPawn)
-	{
-		SelectedPawn->RemoveWallOfLength(WallLength); // opsional
-	}
+    // Mark all slots as occupied
+    for (AWallSlot* Slot : AffectedSlots)
+    {
+        Slot->SetOccupied(true);
+    }
 
-	// Log sukses
-	UE_LOG(LogTemp, Warning, TEXT("Wall placed by Player %d at (%d, %d), length %d"), CurrentPlayerTurn, StartX, StartY, WallLength);
+    // Spawn wall segments
+    for (int32 i = 0; i < WallLength; ++i)
+    {
+        FVector SegmentLocation = BaseLocation;
+        if (Orientation == EWallOrientation::Horizontal)
+            SegmentLocation.X += i * TileSize; // Stack upwards (X direction)
+        else
+            SegmentLocation.Y += i * TileSize; // Stack sideways (Y direction)
 
-	// Ganti giliran
-	CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
+        AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, SegmentLocation, WallRotation);
+        if (NewWall)
+        {
+            NewWall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+        }
+    }
 
-	return true;
+    // Reduce wall count for the active player
+    if (SelectedPawn)
+    {
+        SelectedPawn->RemoveWallOfLength(WallLength);
+    }
+
+    // Log success
+    UE_LOG(LogTemp, Warning, TEXT("Wall placed by Player %d at (%d, %d), length %d"), CurrentPlayerTurn, StartX, StartY, WallLength);
+
+    // Reset the current player's orientation to Horizontal before switching turns
+    AQuoridorPawn* CurrentPawn = GetPawnForPlayer(CurrentPlayerTurn);
+    if (CurrentPawn)
+    {
+        PlayerOrientations[CurrentPawn] = EWallOrientation::Horizontal;
+        UE_LOG(LogTemp, Warning, TEXT("Reset Player %d orientation to Horizontal"), CurrentPlayerTurn);
+    }
+
+    // Switch turns
+    CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
+
+    return true;
 }
-
 
 AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation)
 {
@@ -254,7 +291,6 @@ AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Ori
 	}
 	return nullptr;
 }
-
 
 void AQuoridorBoard::StartWallPlacement(int32 WallLength)
 {
@@ -280,32 +316,26 @@ void AQuoridorBoard::StartWallPlacement(int32 WallLength)
 			UE_LOG(LogTemp, Warning, TEXT("Reset Player %d orientation to Horizontal on cancel"), CurrentPlayerTurn);
 		}
 
-		if (WallPreviewActor)
-		{
-			WallPreviewActor->Destroy();
-			WallPreviewActor = nullptr;
-		}
+		// Clear any existing previews
+		HideWallPreview();
 
 		UE_LOG(LogTemp, Warning, TEXT("Wall placement canceled."));
 		return;
 	}
 
-	// Set wall length baru, tapi pertahankan orientasi terakhir
+	// Set wall length baru
 	PendingWallLength = WallLength;
 	bIsPlacingWall = true;
-	// Reset orientasi ke default (misalnya Horizontal)
+	// Reset orientasi ke default (Horizontal)
 	PendingWallOrientation = EWallOrientation::Horizontal;
-    
-	if (!WallPreviewActor && WallPreviewClass)
-	{
-		WallPreviewActor = GetWorld()->SpawnActor<AActor>(WallPreviewClass);
-	}
+
+	// Clear any existing previews when starting placement
+	HideWallPreview();
 
 	UE_LOG(LogTemp, Warning, TEXT("Wall selected: Length = %d, Orientation = %s"),
 		PendingWallLength,
 		PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
 }
-
 
 int32 AQuoridorBoard::GetCurrentPlayerWallCount(int32 WallLength) const
 {
@@ -322,28 +352,60 @@ int32 AQuoridorBoard::GetCurrentPlayerWallCount(int32 WallLength) const
 
 void AQuoridorBoard::ShowWallPreviewAtSlot(AWallSlot* HoveredSlot)
 {
-	if (!bIsPlacingWall || !WallPreviewActor || !HoveredSlot) return;
+	if (!bIsPlacingWall || !HoveredSlot || !WallPreviewClass) return;
 
 	if (HoveredSlot->bIsOccupied || HoveredSlot->Orientation != PendingWallOrientation)
 		return;
 
-	FVector Location = HoveredSlot->GetActorLocation();
+	// Clear any existing previews
+	HideWallPreview();
+
+	// Calculate positions for each segment
+	FVector BaseLocation = HoveredSlot->GetActorLocation();
 	FRotator Rotation = PendingWallOrientation == EWallOrientation::Horizontal
 		? FRotator::ZeroRotator
 		: FRotator(0, 90, 0);
 
-	if (AWallPreview* Preview = Cast<AWallPreview>(WallPreviewActor))
+	for (int32 i = 0; i < PendingWallLength; ++i)
 	{
-		Preview->SetPreviewTransform(Location, Rotation, PendingWallLength);
+		FVector SegmentLocation = BaseLocation;
+		if (PendingWallOrientation == EWallOrientation::Horizontal)
+		{
+			// Horizontal: Offset in X direction (upwards, face to face)
+			SegmentLocation.X += i * TileSize;
+		}
+		else
+		{
+			// Vertical: Offset in Y direction (sideways, face to face)
+			SegmentLocation.Y += i * TileSize;
+		}
+
+		// Spawn a preview segment
+		AActor* PreviewSegment = GetWorld()->SpawnActor<AActor>(WallPreviewClass, SegmentLocation, Rotation);
+		if (PreviewSegment)
+		{
+			if (AWallPreview* Preview = Cast<AWallPreview>(PreviewSegment))
+			{
+				Preview->SetPreviewTransform(SegmentLocation, Rotation, 1, TileSize, PendingWallOrientation);
+			}
+			WallPreviewActors.Add(PreviewSegment);
+		}
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Spawned %d preview segments for length %d, Orientation: %s"),
+		WallPreviewActors.Num(), PendingWallLength, PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
 }
+
 void AQuoridorBoard::HideWallPreview()
 {
-	if (WallPreviewActor)
+	for (AActor* Preview : WallPreviewActors)
 	{
-		WallPreviewActor->SetActorLocation(FVector(999999, 999999, 999999)); // Atau
-		// WallPreviewActor->SetActorHiddenInGame(true);
+		if (Preview)
+		{
+			Preview->Destroy();
+		}
 	}
+	WallPreviewActors.Empty();
 }
 
 AQuoridorPawn* AQuoridorBoard::GetPawnForPlayer(int32 PlayerNumber)
@@ -393,6 +455,7 @@ void AQuoridorBoard::LogAllPlayerOrientations()
 		UE_LOG(LogTemp, Warning, TEXT("%s orientation: %s"), *PlayerName, *OrientationStr);
 	}
 }
+
 EWallOrientation AQuoridorBoard::GetPlayerOrientation(AQuoridorPawn* Pawn) const
 {
 	if (!Pawn) return EWallOrientation::Horizontal; // default

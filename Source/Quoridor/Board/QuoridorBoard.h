@@ -67,15 +67,19 @@ protected:
 
 	UPROPERTY(BlueprintReadWrite, VisibleInstanceOnly)
 	AQuoridorPawn* SelectedPawn;
-
-	UPROPERTY()
-	AActor* WallPreviewActor;
-
+	
 	UPROPERTY(EditDefaultsOnly, Category="Walls")
 	TSubclassOf<AActor> WallPreviewClass;
 
 	UPROPERTY()
 	EWallOrientation PendingWallOrientation;
+
+	// New: Store border walls for collision checks
+	UPROPERTY(VisibleAnywhere, Category = "Board")
+	TArray<AActor*> BorderWalls;
+	
+	UPROPERTY(VisibleAnywhere)
+	TArray<AActor*> WallPreviewActors; // New: Store multiple preview actors
 	
 	UFUNCTION(BlueprintCallable)
 	EWallOrientation GetPlayerOrientation(AQuoridorPawn* Pawn) const;
