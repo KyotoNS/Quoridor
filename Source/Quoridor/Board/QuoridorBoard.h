@@ -50,7 +50,7 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	void ToggleWallOrientation();
 
-    UPROPERTY()
+	UPROPERTY()
     TArray<AWallSlot*> WallSlots;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Walls")
@@ -65,7 +65,7 @@ protected:
 	bool bIsPlacingWall = false;
 	int32 PendingWallLength = 0;
 
-	UPROPERTY(VisibleInstanceOnly)
+	UPROPERTY(BlueprintReadWrite, VisibleInstanceOnly)
 	AQuoridorPawn* SelectedPawn;
 
 	UPROPERTY()
@@ -78,12 +78,16 @@ protected:
 	EWallOrientation PendingWallOrientation;
 	
 	UFUNCTION(BlueprintCallable)
+	EWallOrientation GetPlayerOrientation(AQuoridorPawn* Pawn) const;
+	
+	UFUNCTION(BlueprintCallable)
 	void StartWallPlacement(int32 WallLength);
 
 	UFUNCTION(BlueprintCallable, Category="Walls")
 	int32 GetCurrentPlayerWallCount(int32 WallLength) const;
 	UFUNCTION(BlueprintCallable)
 	void HideWallPreview();
+	UFUNCTION(BlueprintCallable)
 	AQuoridorPawn* GetPawnForPlayer(int32 PlayerNumber);
 	UFUNCTION(BlueprintCallable)
 	void ShowWallPreviewAtSlot(class AWallSlot* HoveredSlot);
@@ -93,4 +97,8 @@ protected:
 
 private:
 	void SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber);
+	UPROPERTY()
+	TMap<AQuoridorPawn*, EWallOrientation> PlayerOrientations;
+
+	void LogAllPlayerOrientations();
 };

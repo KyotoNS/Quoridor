@@ -125,6 +125,8 @@ void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
 				}
 
 				NewPawn->PlayerWalls = RandomWalls;
+				// Initialize orientation in PlayerOrientations
+				PlayerOrientations.Add(NewPawn, EWallOrientation::Horizontal);
 			}
 		}
 	}
@@ -270,6 +272,14 @@ void AQuoridorBoard::StartWallPlacement(int32 WallLength)
 		bIsPlacingWall = false;
 		PendingWallLength = 0;
 
+		// Reset the player's orientation to Horizontal when canceling
+		if (SelectedPawn)
+		{
+			PlayerOrientations[SelectedPawn] = EWallOrientation::Horizontal;
+			PendingWallOrientation = EWallOrientation::Horizontal;
+			UE_LOG(LogTemp, Warning, TEXT("Reset Player %d orientation to Horizontal on cancel"), CurrentPlayerTurn);
+		}
+
 		if (WallPreviewActor)
 		{
 			WallPreviewActor->Destroy();
@@ -283,12 +293,9 @@ void AQuoridorBoard::StartWallPlacement(int32 WallLength)
 	// Set wall length baru, tapi pertahankan orientasi terakhir
 	PendingWallLength = WallLength;
 	bIsPlacingWall = true;
-	// Ganti giliran
-	CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
-
 	// Reset orientasi ke default (misalnya Horizontal)
 	PendingWallOrientation = EWallOrientation::Horizontal;
-	
+    
 	if (!WallPreviewActor && WallPreviewClass)
 	{
 		WallPreviewActor = GetWorld()->SpawnActor<AActor>(WallPreviewClass);
@@ -298,8 +305,6 @@ void AQuoridorBoard::StartWallPlacement(int32 WallLength)
 		PendingWallLength,
 		PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
 }
-
-
 
 
 int32 AQuoridorBoard::GetCurrentPlayerWallCount(int32 WallLength) const
@@ -353,25 +358,53 @@ AQuoridorPawn* AQuoridorBoard::GetPawnForPlayer(int32 PlayerNumber)
 
 void AQuoridorBoard::ToggleWallOrientation()
 {
-	if (!bIsPlacingWall) return;
+	// If no pawn is selected, default to the current player's pawn
+	if (!SelectedPawn)
+	{
+		SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
+	}
 
+	if (!SelectedPawn)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ToggleWallOrientation: No pawn found for Player %d"), CurrentPlayerTurn);
+		return;
+	}
+
+	// Toggle orientation
 	PendingWallOrientation = (PendingWallOrientation == EWallOrientation::Horizontal)
 		? EWallOrientation::Vertical
 		: EWallOrientation::Horizontal;
 
-	if (SelectedPawn)
-	{
-		SelectedPawn->LastWallOrientation = PendingWallOrientation;
-		UE_LOG(LogTemp, Warning, TEXT("Saved to SelectedPawn -> %s"),
-			PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("SelectedPawn is NULL!"));
-	}
-	UE_LOG(LogTemp, Warning, TEXT("Wall orientation changed to %s"),
-		PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+	// Update player's orientation
+	PlayerOrientations.FindOrAdd(SelectedPawn) = PendingWallOrientation;
+
+	// Log for debugging
+	LogAllPlayerOrientations();
 }
+
+void AQuoridorBoard::LogAllPlayerOrientations()
+{
+	UE_LOG(LogTemp, Warning, TEXT("=== Player Orientations ==="));
+	for (const TPair<AQuoridorPawn*, EWallOrientation>& Pair : PlayerOrientations)
+	{
+		FString OrientationStr = (Pair.Value == EWallOrientation::Horizontal) ? TEXT("Horizontal") : TEXT("Vertical");
+		FString PlayerName = *Pair.Key->GetName();
+
+		UE_LOG(LogTemp, Warning, TEXT("%s orientation: %s"), *PlayerName, *OrientationStr);
+	}
+}
+EWallOrientation AQuoridorBoard::GetPlayerOrientation(AQuoridorPawn* Pawn) const
+{
+	if (!Pawn) return EWallOrientation::Horizontal; // default
+
+	if (const EWallOrientation* FoundOrientation = PlayerOrientations.Find(Pawn))
+	{
+		return *FoundOrientation;
+	}
+
+	return EWallOrientation::Horizontal; // default jika belum diset
+}
+
 
 
 
