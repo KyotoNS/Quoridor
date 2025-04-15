@@ -67,6 +67,17 @@ void AQuoridorBoard::BeginPlay()
 		SpawnPawn(FIntPoint(4, 8), 2); // Player 2
 	}, 0.1f, false);
 
+	for (int32 y = 0; y < GridSize - 1; ++y)
+{
+    for (int32 x = 0; x < GridSize; ++x)
+    {
+        const FVector Loc = Tiles[y][x]->GetActorLocation() + FVector(0, TileSize / 2, 0);
+        AWallSlot* Slot = GetWorld()->SpawnActor<AWallSlot>(WallSlotClass, Loc, FRotator::ZeroRotator);
+        Slot->Orientation = EWallOrientation::Horizontal;
+        Slot->SetGridPosition(x, y);
+        WallSlots.Add(Slot);
+    }
+}
 	// Spawn wall slots (horizontal)
 	for (int32 y = 0; y < GridSize - 1; ++y)
 	{
@@ -75,6 +86,8 @@ void AQuoridorBoard::BeginPlay()
 			const FVector Loc = Tiles[y][x]->GetActorLocation() + FVector(0, TileSize / 2, 0);
 			AWallSlot* Slot = GetWorld()->SpawnActor<AWallSlot>(WallSlotClass, Loc, FRotator::ZeroRotator);
 			Slot->Orientation = EWallOrientation::Horizontal;
+			Slot->SetGridPosition(x, y);
+			Slot->Board = this;
 			WallSlots.Add(Slot);
 		}
 	}
@@ -87,11 +100,11 @@ void AQuoridorBoard::BeginPlay()
 			const FVector Loc = Tiles[y][x]->GetActorLocation() + FVector(TileSize / 2, 0, 0);
 			AWallSlot* Slot = GetWorld()->SpawnActor<AWallSlot>(WallSlotClass, Loc, FRotator(0, 90, 0));
 			Slot->Orientation = EWallOrientation::Vertical;
+			Slot->SetGridPosition(x, y);
+			Slot->Board = this;
 			WallSlots.Add(Slot);
 		}
 	}
-	
-	
 }
 
 void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
@@ -174,50 +187,119 @@ void AQuoridorBoard::SpawnWall(FVector Location, FRotator Rotation, FVector Scal
 
 bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 {
-    if (!StartSlot || !StartSlot->CanPlaceWall()) return false;
+    if (!StartSlot)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: StartSlot is nullptr"));
+        return false;
+    }
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: StartSlot at X:%d Y:%d"), StartSlot->GridX, StartSlot->GridY);
+
+    if (!bIsPlacingWall)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Not in wall placement mode (bIsPlacingWall is false)"));
+        return false;
+    }
+    if (WallLength == 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: WallLength is 0"));
+        return false;
+    }
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Wall placement mode active, WallLength: %d"), WallLength);
+
+    if (StartSlot->Orientation != PendingWallOrientation)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Orientation mismatch. Slot: %s, Player: %s"),
+            StartSlot->Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"),
+            PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+        return false;
+    }
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Orientation matched. Slot: %s, Player: %s"),
+        StartSlot->Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"),
+        PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+
+    SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
+    if (!SelectedPawn)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: No pawn found for Player %d"), CurrentPlayerTurn);
+        return false;
+    }
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Found pawn for Player %d"), CurrentPlayerTurn);
+
+    if (!SelectedPawn->HasWallOfLength(WallLength))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Player %d does not have a wall of length %d"), CurrentPlayerTurn, WallLength);
+        return false;
+    }
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Player %d has a wall of length %d"), CurrentPlayerTurn, WallLength);
+
+    if (!StartSlot->CanPlaceWall())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: StartSlot (%d, %d) is occupied"), StartSlot->GridX, StartSlot->GridY);
+        return false;
+    }
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: StartSlot (%d, %d) is available"), StartSlot->GridX, StartSlot->GridY);
 
     int32 StartX = StartSlot->GridX;
     int32 StartY = StartSlot->GridY;
     EWallOrientation Orientation = StartSlot->Orientation;
-
     TArray<AWallSlot*> AffectedSlots;
     AffectedSlots.Add(StartSlot);
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Checking adjacent slots for length %d, Orientation: %s"),
+        WallLength, Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
 
-    // Check all slots that will be used by the wall
     for (int32 i = 1; i < WallLength; ++i)
     {
         int32 NextX = StartX;
         int32 NextY = StartY;
-
         if (Orientation == EWallOrientation::Horizontal)
-            NextX += i; // Stack upwards (X direction)
+            NextX += i;
         else
-            NextY += i; // Stack sideways (Y direction)
+            NextY += i;
+
+        // Validasi batas koordinat
+        if (Orientation == EWallOrientation::Horizontal && NextX >= GridSize)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Next slot (%d, %d) exceeds horizontal bounds (GridSize: %d)"),
+                NextX, NextY, GridSize);
+            return false;
+        }
+        if (Orientation == EWallOrientation::Vertical && NextY >= GridSize)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Next slot (%d, %d) exceeds vertical bounds (GridSize: %d)"),
+                NextX, NextY, GridSize);
+            return false;
+        }
 
         AWallSlot* NextSlot = FindWallSlotAt(NextX, NextY, Orientation);
-        if (!NextSlot || NextSlot->bIsOccupied)
+        if (!NextSlot)
         {
-            UE_LOG(LogTemp, Warning, TEXT("Failed: Wall slot (%d, %d) is invalid."), NextX, NextY);
+            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: No slot found at (%d, %d) with Orientation: %s"),
+                NextX, NextY, Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+            return false;
+        }
+        if (NextSlot->bIsOccupied)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Wall slot (%d, %d) is occupied"), NextX, NextY);
             return false;
         }
         AffectedSlots.Add(NextSlot);
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Slot (%d, %d) is available"), NextX, NextY);
     }
 
-    // Check for collision with border walls
     FVector BaseLocation = StartSlot->GetActorLocation();
     FRotator WallRotation = Orientation == EWallOrientation::Horizontal
         ? FRotator::ZeroRotator
         : FRotator(0, 90, 0);
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Checking for border wall collisions"));
 
     for (int32 i = 0; i < WallLength; ++i)
     {
         FVector SegmentLocation = BaseLocation;
         if (Orientation == EWallOrientation::Horizontal)
-            SegmentLocation.X += i * TileSize; // Stack upwards (X direction)
+            SegmentLocation.X += i * TileSize;
         else
-            SegmentLocation.Y += i * TileSize; // Stack sideways (Y direction)
+            SegmentLocation.Y += i * TileSize;
 
-        // Perform a box overlap check at this segment's location
         FBox SegmentBounds = FBox::BuildAABB(SegmentLocation, FVector(TileSize / 2, TileSize / 2, 10.0f));
         for (AActor* BorderWall : BorderWalls)
         {
@@ -229,53 +311,54 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 
             if (SegmentBounds.Intersect(BorderBounds))
             {
-                UE_LOG(LogTemp, Warning, TEXT("Failed: Wall segment at (%f, %f) overlaps with border wall"), SegmentLocation.X, SegmentLocation.Y);
+                UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Wall segment at (%f, %f) overlaps with border wall"),
+                    SegmentLocation.X, SegmentLocation.Y);
                 return false;
             }
         }
     }
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: No border wall collisions detected"));
 
-    // Mark all slots as occupied
     for (AWallSlot* Slot : AffectedSlots)
     {
         Slot->SetOccupied(true);
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Marked slot (%d, %d) as occupied"), Slot->GridX, Slot->GridY);
     }
 
-    // Spawn wall segments
     for (int32 i = 0; i < WallLength; ++i)
     {
         FVector SegmentLocation = BaseLocation;
         if (Orientation == EWallOrientation::Horizontal)
-            SegmentLocation.X += i * TileSize; // Stack upwards (X direction)
+            SegmentLocation.X += i * TileSize;
         else
-            SegmentLocation.Y += i * TileSize; // Stack sideways (Y direction)
+            SegmentLocation.Y += i * TileSize;
 
         AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, SegmentLocation, WallRotation);
         if (NewWall)
         {
             NewWall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Spawned wall segment at (%f, %f)"), SegmentLocation.X, SegmentLocation.Y);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Failed to spawn wall segment at (%f, %f)"), SegmentLocation.X, SegmentLocation.Y);
         }
     }
 
-    // Reduce wall count for the active player
     if (SelectedPawn)
     {
         SelectedPawn->RemoveWallOfLength(WallLength);
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Removed wall of length %d from Player %d"), WallLength, CurrentPlayerTurn);
     }
 
-    // Log success
-    UE_LOG(LogTemp, Warning, TEXT("Wall placed by Player %d at (%d, %d), length %d"), CurrentPlayerTurn, StartX, StartY, WallLength);
+    bIsPlacingWall = false;
+    PendingWallLength = 0;
+    HideWallPreview();
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Reset wall placement state"));
 
-    // Reset the current player's orientation to Horizontal before switching turns
-    AQuoridorPawn* CurrentPawn = GetPawnForPlayer(CurrentPlayerTurn);
-    if (CurrentPawn)
-    {
-        PlayerOrientations[CurrentPawn] = EWallOrientation::Horizontal;
-        UE_LOG(LogTemp, Warning, TEXT("Reset Player %d orientation to Horizontal"), CurrentPlayerTurn);
-    }
-
-    // Switch turns
     CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed by Player %d at (%d, %d), length %d. Switched turn to Player %d"),
+        CurrentPlayerTurn == 1 ? 2 : 1, StartX, StartY, WallLength, CurrentPlayerTurn);
 
     return true;
 }
@@ -286,9 +369,13 @@ AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Ori
 	{
 		if (Slot && Slot->GridX == X && Slot->GridY == Y && Slot->Orientation == Orientation)
 		{
+			UE_LOG(LogTemp, Warning, TEXT("Found WallSlot at X:%d Y:%d, Orientation: %s"),
+				X, Y, Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
 			return Slot;
 		}
 	}
+	UE_LOG(LogTemp, Warning, TEXT("No WallSlot found at X:%d Y:%d, Orientation: %s"),
+		X, Y, Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
 	return nullptr;
 }
 

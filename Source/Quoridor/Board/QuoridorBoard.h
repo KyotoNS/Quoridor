@@ -56,13 +56,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Walls")
 	TSubclassOf<AActor> WallPlacementClass;
     
-    UFUNCTION(BlueprintCallable)
+    UFUNCTION(BlueprintCallable, Category = "Wall")
     bool TryPlaceWall(AWallSlot* StartSlot, int32 WallLength);
 	
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Gameplay")
 	int32 CurrentPlayerTurn = 1;
 
 	bool bIsPlacingWall = false;
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly)
 	int32 PendingWallLength = 0;
 
 	UPROPERTY(BlueprintReadWrite, VisibleInstanceOnly)
@@ -71,7 +72,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Walls")
 	TSubclassOf<AActor> WallPreviewClass;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	EWallOrientation PendingWallOrientation;
 
 	// New: Store border walls for collision checks

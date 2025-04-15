@@ -4,6 +4,9 @@
 #include "GameFramework/Actor.h"
 #include "WallSlot.generated.h"
 
+// Forward declaration untuk AQuoridorBoard
+class AQuoridorBoard;
+
 UENUM(BlueprintType)
 enum class EWallOrientation : uint8
 {
@@ -15,12 +18,15 @@ UCLASS()
 class QUORIDOR_API AWallSlot : public AActor
 {
 	GENERATED_BODY()
-	
+    
 public:	
 	AWallSlot();
 
 	UPROPERTY(VisibleAnywhere)
 	class UBoxComponent* BoxCollision;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "References")
+	AQuoridorBoard* Board;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 GridX;
