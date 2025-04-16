@@ -17,7 +17,16 @@ class QUORIDOR_API AQuoridorBoard : public AActor
     
 public:    
 	AQuoridorBoard();
-
+	UPROPERTY(BlueprintReadWrite, VisibleInstanceOnly)
+	AQuoridorPawn* SelectedPawn;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Board")
+	int32 GridSize = 9;
+	
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Gameplay")
+	int32 CurrentPlayerTurn = 1;
+	
+	TArray<TArray<ATile*>> Tiles;
 protected:
 	virtual void BeginPlay() override;
 
@@ -26,9 +35,6 @@ protected:
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Board")
 	float TileSize = 120.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Board")
-	int32 GridSize = 9;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Pawns")
 	TSubclassOf<AQuoridorPawn> PawnClass;
@@ -39,7 +45,7 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	void HandleTileClick(ATile* ClickedTile);
 	
-	TArray<TArray<ATile*>> Tiles;
+	
 
 	UPROPERTY(EditDefaultsOnly, Category = "Board")
 	TSubclassOf<AActor> WallAroundClass;
@@ -58,16 +64,10 @@ protected:
     
     UFUNCTION(BlueprintCallable, Category = "Wall")
     bool TryPlaceWall(AWallSlot* StartSlot, int32 WallLength);
-	
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Gameplay")
-	int32 CurrentPlayerTurn = 1;
 
 	bool bIsPlacingWall = false;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly)
 	int32 PendingWallLength = 0;
-
-	UPROPERTY(BlueprintReadWrite, VisibleInstanceOnly)
-	AQuoridorPawn* SelectedPawn;
 	
 	UPROPERTY(EditDefaultsOnly, Category="Walls")
 	TSubclassOf<AActor> WallPreviewClass;

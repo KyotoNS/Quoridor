@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "Quoridor/Board/QuoridorBoard.h"
 #include "Quoridor/Wall/WallDefinition.h"
 #include "QuoridorPawn.generated.h"
 
@@ -30,7 +31,15 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	bool HasWallOfLength(int32 Length) const;
-	
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 GridX;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 GridY;
+
+	UFUNCTION(BlueprintCallable)
+	void SetGridPosition(int32 X, int32 Y);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	ATile* CurrentTile;
@@ -46,13 +55,18 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	void InitializePawn(ATile* StartTile, AQuoridorBoard* Board);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 GridSize;
 	
 	UFUNCTION(BlueprintCallable)
 	int32 GetWallCountOfLength(int32 Length) const;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	EWallOrientation LastWallOrientation = EWallOrientation::Horizontal;
-
+	
+	UFUNCTION(BlueprintCallable)
+	void MovePawn(int32 NewX, int32 NewY);
 
 protected:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category = "Pawn")

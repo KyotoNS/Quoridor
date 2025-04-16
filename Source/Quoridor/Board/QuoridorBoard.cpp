@@ -148,11 +148,28 @@ void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
 
 void AQuoridorBoard::HandlePawnClick(AQuoridorPawn* ClickedPawn)
 {
-	if (ClickedPawn && ClickedPawn->PlayerNumber == CurrentPlayerTurn)
+	if (!ClickedPawn)
 	{
-		SelectedPawn = ClickedPawn;
-		// Highlight possible moves
+		UE_LOG(LogTemp, Warning, TEXT("HandlePawnClick: ClickedPawn is nullptr"));
+		return;
 	}
+
+	// Periksa apakah giliran saat ini sesuai dengan nomor pemain pion yang diklik
+	if (ClickedPawn->PlayerNumber != CurrentPlayerTurn)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HandlePawnClick Failed: Not Player %d's turn (Current turn: Player %d)"),
+			ClickedPawn->PlayerNumber, CurrentPlayerTurn);
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red,
+			FString::Printf(TEXT("Not Player %d's turn! Current turn: Player %d"),
+				ClickedPawn->PlayerNumber, CurrentPlayerTurn));
+		SelectedPawn = nullptr; // Pastikan SelectedPawn diatur ulang
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("HandlePawnClick: Pawn clicked for Player %d"), ClickedPawn->PlayerNumber);
+
+	// Pilih pion untuk digerakkan atau untuk menempatkan tembok
+	SelectedPawn = ClickedPawn;
 }
 
 void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)

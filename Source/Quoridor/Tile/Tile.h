@@ -12,9 +12,15 @@ class QUORIDOR_API ATile : public AActor
     
 public:    
 	ATile();
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 GridX;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 GridY;
+	
 	UFUNCTION(BlueprintCallable)
 	void SetGridPosition(int32 X, int32 Y) { GridX = X; GridY = Y; }
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	AQuoridorPawn* PawnOnTile;
 
@@ -31,9 +37,5 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* TileMesh;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	int32 GridX;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	int32 GridY;
+	
 };
