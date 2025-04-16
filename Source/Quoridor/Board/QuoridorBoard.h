@@ -27,6 +27,21 @@ public:
 	int32 CurrentPlayerTurn = 1;
 	
 	TArray<TArray<ATile*>> Tiles;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TArray<AQuoridorPawn*> Pawns;
+	
+	UPROPERTY()
+	TArray<AWallSlot*> WallSlots;
+	
+	// Array untuk menyimpan slot tembok
+	UPROPERTY(VisibleAnywhere)
+	TArray<AWallSlot*> HorizontalWallSlots;
+	UPROPERTY(VisibleAnywhere)
+	TArray<AWallSlot*> VerticalWallSlots;
+	UFUNCTION(BlueprintCallable)
+	AWallSlot* FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -44,8 +59,6 @@ protected:
     
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	void HandleTileClick(ATile* ClickedTile);
-	
-	
 
 	UPROPERTY(EditDefaultsOnly, Category = "Board")
 	TSubclassOf<AActor> WallAroundClass;
@@ -55,9 +68,6 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 	void ToggleWallOrientation();
-
-	UPROPERTY()
-    TArray<AWallSlot*> WallSlots;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Walls")
 	TSubclassOf<AActor> WallPlacementClass;
@@ -98,7 +108,6 @@ protected:
 	void ShowWallPreviewAtSlot(class AWallSlot* HoveredSlot);
 	void ClearSelection();
 	void SpawnWall(FVector Location, FRotator Rotation, FVector Scale);
-	AWallSlot* FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation);
 
 private:
 	void SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber);

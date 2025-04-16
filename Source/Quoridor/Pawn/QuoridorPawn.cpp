@@ -129,8 +129,56 @@ void AQuoridorPawn::MovePawn(int32 NewX, int32 NewY)
         return;
     }
 
-    // Periksa apakah ada tembok yang menghalangi (opsional)
-    // Anda bisa menambahkan logika ini nanti jika diperlukan
+    // Periksa apakah pergerakan hanya satu langkah
+    int32 DeltaX = NewX - GridX;
+    int32 DeltaY = NewY - GridY;
+    if (FMath::Abs(DeltaX) + FMath::Abs(DeltaY) != 1)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MovePawn Failed: Invalid move for Player %d. Must move exactly one step (DeltaX: %d, DeltaY: %d)"),
+            PlayerNumber, DeltaX, DeltaY);
+        return;
+    }
+
+    // Periksa apakah ada tembok yang menghalangi
+    AWallSlot* BlockingWallSlot = nullptr;
+    if (DeltaX == 1) // Bergerak ke kanan
+    {
+        BlockingWallSlot = BoardReference->FindWallSlotAt(GridX, GridY, EWallOrientation::Vertical);
+    }
+    else if (DeltaX == -1) // Bergerak ke kiri
+    {
+        BlockingWallSlot = BoardReference->FindWallSlotAt(GridX - 1, GridY, EWallOrientation::Vertical);
+    }
+    else if (DeltaY == 1) // Bergerak ke atas
+    {
+        BlockingWallSlot = BoardReference->FindWallSlotAt(GridX, GridY, EWallOrientation::Horizontal);
+    }
+    else if (DeltaY == -1) // Bergerak ke bawah
+    {
+        BlockingWallSlot = BoardReference->FindWallSlotAt(GridX, GridY - 1, EWallOrientation::Horizontal);
+    }
+
+    if (BlockingWallSlot && BlockingWallSlot->bIsOccupied)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("MovePawn Failed: Path blocked by wall for Player %d from (%d, %d) to (%d, %d)"),
+            PlayerNumber, GridX, GridY, NewX, NewY);
+        GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red,
+            FString::Printf(TEXT("Path blocked by wall for Player %d"), PlayerNumber));
+        return;
+    }
+
+    // Periksa apakah tile tujuan sudah ditempati oleh pion lain
+    for (AQuoridorPawn* OtherPawn : BoardReference->Pawns)
+    {
+        if (OtherPawn && OtherPawn != this && OtherPawn->GridX == NewX && OtherPawn->GridY == NewY)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("MovePawn Failed: Tile (%d, %d) already occupied by another pawn for Player %d"),
+                NewX, NewY, PlayerNumber);
+            GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red,
+                FString::Printf(TEXT("Tile (%d, %d) already occupied"), NewX, NewY));
+            return;
+        }
+    }
 
     // Perbarui posisi pion
     GridX = NewX;

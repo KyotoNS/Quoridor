@@ -48,4 +48,5 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetGridPosition(int32 X, int32 Y) { GridX = X; GridY = Y; }
+	
 };
