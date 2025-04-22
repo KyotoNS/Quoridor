@@ -42,9 +42,84 @@ void AQuoridorPawn::MoveToTile(ATile* NewTile)
 
 bool AQuoridorPawn::CanMoveToTile(const ATile* TargetTile) const
 {
-	return TargetTile && 
-		  !TargetTile->IsOccupied() && 
-		  CurrentTile->IsAdjacent(TargetTile);
+    if (!TargetTile || !CurrentTile)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile Failed: Invalid TargetTile or CurrentTile"));
+        return false;
+    }
+
+    if (!BoardReference)
+    {
+        UE_LOG(LogTemp, Error, TEXT("CanMoveToTile Failed: BoardReference is nullptr for Player %d"), PlayerNumber);
+        return false;
+    }
+
+    if (TargetTile->IsOccupied())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile Failed: TargetTile (%d, %d) is occupied"), TargetTile->GridX, TargetTile->GridY);
+        return false;
+    }
+
+    if (!CurrentTile->IsAdjacent(TargetTile))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile Failed: TargetTile (%d, %d) is not adjacent to CurrentTile (%d, %d)"),
+            TargetTile->GridX, TargetTile->GridY, CurrentTile->GridX, CurrentTile->GridY);
+        return false;
+    }
+
+    // Tentukan arah pergerakan
+    int32 DeltaX = TargetTile->GridX - CurrentTile->GridX;
+    int32 DeltaY = TargetTile->GridY - CurrentTile->GridY;
+    AWallSlot* BlockingWallSlot = nullptr;
+
+    // Periksa tembok berdasarkan arah pergerakan
+    if (DeltaX == 1) // Ke kanan
+    {
+        BlockingWallSlot = BoardReference->FindWallSlotAt(CurrentTile->GridX, CurrentTile->GridY, EWallOrientation::Vertical);
+        UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile: Checking vertical wall slot at (%d, %d)"), CurrentTile->GridX, CurrentTile->GridY);
+    }
+    else if (DeltaX == -1) // Ke kiri
+    {
+        BlockingWallSlot = BoardReference->FindWallSlotAt(CurrentTile->GridX - 1, CurrentTile->GridY, EWallOrientation::Vertical);
+        UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile: Checking vertical wall slot at (%d, %d)"), CurrentTile->GridX - 1, CurrentTile->GridY);
+    }
+    else if (DeltaY == 1) // Ke atas
+    {
+        BlockingWallSlot = BoardReference->FindWallSlotAt(CurrentTile->GridX, CurrentTile->GridY, EWallOrientation::Horizontal);
+        UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile: Checking horizontal wall slot at (%d, %d)"), CurrentTile->GridX, CurrentTile->GridY);
+    }
+    else if (DeltaY == -1) // Ke bawah
+    {
+        BlockingWallSlot = BoardReference->FindWallSlotAt(CurrentTile->GridX, CurrentTile->GridY - 1, EWallOrientation::Horizontal);
+        UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile: Checking horizontal wall slot at (%d, %d)"), CurrentTile->GridX, CurrentTile->GridY - 1);
+    }
+
+    if (BlockingWallSlot)
+    {
+        if (BlockingWallSlot->bIsOccupied)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile Failed: Wall slot at (%d, %d, %s) is occupied, blocking path from (%d, %d) to (%d, %d)"),
+                BlockingWallSlot->GridX, BlockingWallSlot->GridY,
+                BlockingWallSlot->Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"),
+                CurrentTile->GridX, CurrentTile->GridY, TargetTile->GridX, TargetTile->GridY);
+            return false;
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile: Wall slot at (%d, %d, %s) is not occupied"),
+                BlockingWallSlot->GridX, BlockingWallSlot->GridY,
+                BlockingWallSlot->Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile: No wall slot found for path from (%d, %d) to (%d, %d)"),
+            CurrentTile->GridX, CurrentTile->GridY, TargetTile->GridX, TargetTile->GridY);
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile Success: Valid move from (%d, %d) to (%d, %d)"),
+        CurrentTile->GridX, CurrentTile->GridY, TargetTile->GridX, TargetTile->GridY);
+    return true;
 }
 
 void AQuoridorPawn::InitializePawn(ATile* StartTile, AQuoridorBoard* Board)
@@ -56,6 +131,8 @@ void AQuoridorPawn::InitializePawn(ATile* StartTile, AQuoridorBoard* Board)
 		SetActorLocation(StartTile->GetActorLocation() + FVector(0, 0, 50));
 		StartTile->SetPawnOnTile(this);
 	}
+	UE_LOG(LogTemp, Warning, TEXT("InitializePawn Success: Player %d initialized at tile (%d, %d) with BoardReference set"),
+		PlayerNumber, StartTile->GridX, StartTile->GridY);
 }
 
 bool AQuoridorPawn::HasWallOfLength(int32 Length) const
@@ -67,7 +144,6 @@ bool AQuoridorPawn::HasWallOfLength(int32 Length) const
 	}
 	return false;
 }
-
 
 int32 AQuoridorPawn::GetWallCountOfLength(int32 Length) const
 {
@@ -81,7 +157,6 @@ int32 AQuoridorPawn::GetWallCountOfLength(int32 Length) const
 	}
 	return Count;
 }
-
 
 bool AQuoridorPawn::RemoveWallOfLength(int32 Length)
 {
@@ -101,6 +176,7 @@ void AQuoridorPawn::SetGridPosition(int32 X, int32 Y)
 	GridX = X;
 	GridY = Y;
 }
+
 void AQuoridorPawn::MovePawn(int32 NewX, int32 NewY)
 {
     if (!BoardReference)
@@ -109,7 +185,6 @@ void AQuoridorPawn::MovePawn(int32 NewX, int32 NewY)
         return;
     }
 
-    // Periksa apakah giliran saat ini sesuai dengan nomor pemain
     int32 CurrentTurn = BoardReference->CurrentPlayerTurn;
     if (CurrentTurn != PlayerNumber)
     {
@@ -121,7 +196,6 @@ void AQuoridorPawn::MovePawn(int32 NewX, int32 NewY)
         return;
     }
 
-    // Validasi posisi baru
     if (NewX < 0 || NewX >= BoardReference->GridSize || NewY < 0 || NewY >= BoardReference->GridSize)
     {
         UE_LOG(LogTemp, Warning, TEXT("MovePawn Failed: Position (%d, %d) out of bounds for Player %d"),
@@ -129,77 +203,38 @@ void AQuoridorPawn::MovePawn(int32 NewX, int32 NewY)
         return;
     }
 
-    // Periksa apakah pergerakan hanya satu langkah
-    int32 DeltaX = NewX - GridX;
-    int32 DeltaY = NewY - GridY;
-    if (FMath::Abs(DeltaX) + FMath::Abs(DeltaY) != 1)
+    // Validasi pergerakan menggunakan CanMoveToTile
+    if (BoardReference->Tiles.IsValidIndex(NewY) && BoardReference->Tiles[NewY].IsValidIndex(NewX))
     {
-        UE_LOG(LogTemp, Warning, TEXT("MovePawn Failed: Invalid move for Player %d. Must move exactly one step (DeltaX: %d, DeltaY: %d)"),
-            PlayerNumber, DeltaX, DeltaY);
-        return;
-    }
-
-    // Periksa apakah ada tembok yang menghalangi
-    AWallSlot* BlockingWallSlot = nullptr;
-    if (DeltaX == 1) // Bergerak ke kanan
-    {
-        BlockingWallSlot = BoardReference->FindWallSlotAt(GridX, GridY, EWallOrientation::Vertical);
-    }
-    else if (DeltaX == -1) // Bergerak ke kiri
-    {
-        BlockingWallSlot = BoardReference->FindWallSlotAt(GridX - 1, GridY, EWallOrientation::Vertical);
-    }
-    else if (DeltaY == 1) // Bergerak ke atas
-    {
-        BlockingWallSlot = BoardReference->FindWallSlotAt(GridX, GridY, EWallOrientation::Horizontal);
-    }
-    else if (DeltaY == -1) // Bergerak ke bawah
-    {
-        BlockingWallSlot = BoardReference->FindWallSlotAt(GridX, GridY - 1, EWallOrientation::Horizontal);
-    }
-
-    if (BlockingWallSlot && BlockingWallSlot->bIsOccupied)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("MovePawn Failed: Path blocked by wall for Player %d from (%d, %d) to (%d, %d)"),
-            PlayerNumber, GridX, GridY, NewX, NewY);
-        GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red,
-            FString::Printf(TEXT("Path blocked by wall for Player %d"), PlayerNumber));
-        return;
-    }
-
-    // Periksa apakah tile tujuan sudah ditempati oleh pion lain
-    for (AQuoridorPawn* OtherPawn : BoardReference->Pawns)
-    {
-        if (OtherPawn && OtherPawn != this && OtherPawn->GridX == NewX && OtherPawn->GridY == NewY)
+        ATile* TargetTile = BoardReference->Tiles[NewY][NewX];
+        if (CanMoveToTile(TargetTile))
         {
-            UE_LOG(LogTemp, Warning, TEXT("MovePawn Failed: Tile (%d, %d) already occupied by another pawn for Player %d"),
-                NewX, NewY, PlayerNumber);
-            GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red,
-                FString::Printf(TEXT("Tile (%d, %d) already occupied"), NewX, NewY));
-            return;
-        }
-    }
+            if (CurrentTile)
+            {
+                CurrentTile->SetPawnOnTile(nullptr);
+            }
 
-    // Perbarui posisi pion
-    GridX = NewX;
-    GridY = NewY;
-    if (BoardReference->Tiles.IsValidIndex(NewY) && BoardReference->Tiles[NewY].IsValidIndex(NewX) && BoardReference->Tiles[NewY][NewX])
-    {
-        SetActorLocation(BoardReference->Tiles[NewY][NewX]->GetActorLocation());
-        UE_LOG(LogTemp, Warning, TEXT("MovePawn Success: Player %d moved to (%d, %d)"), PlayerNumber, NewX, NewY);
+            GridX = NewX;
+            GridY = NewY;
+            CurrentTile = TargetTile;
+            CurrentTile->SetPawnOnTile(this);
+            SetActorLocation(CurrentTile->GetActorLocation() + FVector(0, 0, 50));
+
+            UE_LOG(LogTemp, Warning, TEXT("MovePawn Success: Player %d moved to (%d, %d)"), PlayerNumber, NewX, NewY);
+
+            BoardReference->CurrentPlayerTurn = BoardReference->CurrentPlayerTurn == 1 ? 2 : 1;
+            UE_LOG(LogTemp, Warning, TEXT("MovePawn: Switched turn to Player %d"), BoardReference->CurrentPlayerTurn);
+            BoardReference->SelectedPawn = nullptr;
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("MovePawn Failed: Invalid move to (%d, %d) for Player %d"), NewX, NewY, PlayerNumber);
+        }
     }
     else
     {
         UE_LOG(LogTemp, Warning, TEXT("MovePawn Failed: Invalid tile at position (%d, %d)"), NewX, NewY);
-        return;
     }
-
-    // Ganti giliran setelah pergerakan
-    BoardReference->CurrentPlayerTurn = BoardReference->CurrentPlayerTurn == 1 ? 2 : 1;
-    UE_LOG(LogTemp, Warning, TEXT("MovePawn: Switched turn to Player %d"), BoardReference->CurrentPlayerTurn);
-
-    // Bersihkan SelectedPawn setelah pergerakan
-    BoardReference->SelectedPawn = nullptr;
 }
 
 

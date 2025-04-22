@@ -109,41 +109,52 @@ void AQuoridorBoard::BeginPlay()
 
 void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
 {
-	if (Tiles.IsValidIndex(GridPosition.Y) && Tiles[GridPosition.Y].IsValidIndex(GridPosition.X))
-	{
-		ATile* StartTile = Tiles[GridPosition.Y][GridPosition.X];
-		if (StartTile && PawnClass)
-		{
-			// Spawn parameters
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    if (Tiles.IsValidIndex(GridPosition.Y) && Tiles[GridPosition.Y].IsValidIndex(GridPosition.X))
+    {
+        ATile* StartTile = Tiles[GridPosition.Y][GridPosition.X];
+        if (StartTile && PawnClass)
+        {
+            FActorSpawnParameters SpawnParams;
+            SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-			const FVector SpawnLocation = StartTile->GetActorLocation() + FVector(0, 0, 50);
-			AQuoridorPawn* NewPawn = GetWorld()->SpawnActor<AQuoridorPawn>(PawnClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
-			
-			if (NewPawn)
-			{
-				NewPawn->CurrentTile = StartTile;
-				NewPawn->PlayerNumber = PlayerNumber;
-				StartTile->SetPawnOnTile(NewPawn);
+            const FVector SpawnLocation = StartTile->GetActorLocation() + FVector(0, 0, 50);
+            AQuoridorPawn* NewPawn = GetWorld()->SpawnActor<AQuoridorPawn>(PawnClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
+            
+            if (NewPawn)
+            {
+                // Inisialisasi pion dengan petak awal dan referensi ke papan
+                NewPawn->InitializePawn(StartTile, this);
+                NewPawn->PlayerNumber = PlayerNumber;
 
-				// Tambah random wall
-				TArray<FWallDefinition> RandomWalls;
-				for (int32 i = 0; i < 10; ++i)
-				{
-					FWallDefinition NewWall;
-					NewWall.Length = FMath::RandRange(1, 3); // panjang: 1 - 3
-					NewWall.Orientation = FMath::RandBool() ? EWallOrientation::Horizontal : EWallOrientation::Vertical;
-					RandomWalls.Add(NewWall);
-				}
+                // Tambah tembok acak
+                TArray<FWallDefinition> RandomWalls;
+                for (int32 i = 0; i < 10; ++i)
+                {
+                    FWallDefinition NewWall;
+                    NewWall.Length = FMath::RandRange(1, 3);
+                    NewWall.Orientation = FMath::RandBool() ? EWallOrientation::Horizontal : EWallOrientation::Vertical;
+                    RandomWalls.Add(NewWall);
+                }
 
-				NewPawn->PlayerWalls = RandomWalls;
-				// Initialize orientation in PlayerOrientations
-				PlayerOrientations.Add(NewPawn, EWallOrientation::Horizontal);
-			}
-		}
-	}
-	UE_LOG(LogTemp, Warning, TEXT("Spawning pawn at X:%d Y:%d"), GridPosition.X, GridPosition.Y);
+                NewPawn->PlayerWalls = RandomWalls;
+                PlayerOrientations.Add(NewPawn, EWallOrientation::Horizontal);
+
+                UE_LOG(LogTemp, Warning, TEXT("SpawnPawn Success: Player %d at X:%d Y:%d"), PlayerNumber, GridPosition.X, GridPosition.Y);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("SpawnPawn Failed: Failed to spawn pawn for Player %d at X:%d Y:%d"), PlayerNumber, GridPosition.X, GridPosition.Y);
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("SpawnPawn Failed: Invalid StartTile or PawnClass for Player %d at X:%d Y:%d"), PlayerNumber, GridPosition.X, GridPosition.Y);
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("SpawnPawn Failed: Invalid grid position X:%d Y:%d for Player %d"), GridPosition.X, GridPosition.Y, PlayerNumber);
+    }
 }
 
 void AQuoridorBoard::HandlePawnClick(AQuoridorPawn* ClickedPawn)
@@ -273,7 +284,6 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
         else
             NextY += i;
 
-        // Validasi batas koordinat
         if (Orientation == EWallOrientation::Horizontal && NextX >= GridSize)
         {
             UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Next slot (%d, %d) exceeds horizontal bounds (GridSize: %d)"),
@@ -339,7 +349,8 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
     for (AWallSlot* Slot : AffectedSlots)
     {
         Slot->SetOccupied(true);
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Marked slot (%d, %d) as occupied"), Slot->GridX, Slot->GridY);
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Marked slot (%d, %d, %s) as occupied"),
+            Slot->GridX, Slot->GridY, Slot->Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
     }
 
     for (int32 i = 0; i < WallLength; ++i)
