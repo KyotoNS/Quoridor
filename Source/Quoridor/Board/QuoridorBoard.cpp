@@ -8,6 +8,9 @@
 #include "Quoridor/Tile/Tile.h"
 #include "Engine/World.h"
 #include "Quoridor/Wall/WallPreview.h"
+#include "Containers/Queue.h"
+#include "Containers/Set.h"
+#include "Algo/Reverse.h"
 
 class AWallPreview;
 
@@ -105,6 +108,9 @@ void AQuoridorBoard::BeginPlay()
 			WallSlots.Add(Slot);
 		}
 	}
+
+	UpdateAllTileConnections();
+	
 }
 
 void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
@@ -215,180 +221,114 @@ void AQuoridorBoard::SpawnWall(FVector Location, FRotator Rotation, FVector Scal
 
 bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 {
-    if (!StartSlot)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: StartSlot is nullptr"));
-        return false;
-    }
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: StartSlot at X:%d Y:%d"), StartSlot->GridX, StartSlot->GridY);
+	if (!StartSlot || !bIsPlacingWall || WallLength == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Invalid state or input"));
+		return false;
+	}
 
-    if (!bIsPlacingWall)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Not in wall placement mode (bIsPlacingWall is false)"));
-        return false;
-    }
-    if (WallLength == 0)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: WallLength is 0"));
-        return false;
-    }
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Wall placement mode active, WallLength: %d"), WallLength);
+	if (StartSlot->Orientation != PendingWallOrientation)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Orientation mismatch"));
+		return false;
+	}
 
-    if (StartSlot->Orientation != PendingWallOrientation)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Orientation mismatch. Slot: %s, Player: %s"),
-            StartSlot->Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"),
-            PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
-        return false;
-    }
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Orientation matched. Slot: %s, Player: %s"),
-        StartSlot->Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"),
-        PendingWallOrientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+	SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
+	if (!SelectedPawn || !SelectedPawn->HasWallOfLength(WallLength))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: No wall or no pawn"));
+		return false;
+	}
 
-    SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
-    if (!SelectedPawn)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: No pawn found for Player %d"), CurrentPlayerTurn);
-        return false;
-    }
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Found pawn for Player %d"), CurrentPlayerTurn);
+	if (!StartSlot->CanPlaceWall())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Slot occupied"));
+		return false;
+	}
 
-    if (!SelectedPawn->HasWallOfLength(WallLength))
-    {
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Player %d does not have a wall of length %d"), CurrentPlayerTurn, WallLength);
-        return false;
-    }
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Player %d has a wall of length %d"), CurrentPlayerTurn, WallLength);
+	// Siapkan slot yang akan dipengaruhi
+	int32 StartX = StartSlot->GridX;
+	int32 StartY = StartSlot->GridY;
+	EWallOrientation Orientation = StartSlot->Orientation;
 
-    if (!StartSlot->CanPlaceWall())
-    {
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: StartSlot (%d, %d) is occupied"), StartSlot->GridX, StartSlot->GridY);
-        return false;
-    }
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: StartSlot (%d, %d) is available"), StartSlot->GridX, StartSlot->GridY);
+	TArray<AWallSlot*> AffectedSlots;
+	AffectedSlots.Add(StartSlot);
 
-    int32 StartX = StartSlot->GridX;
-    int32 StartY = StartSlot->GridY;
-    EWallOrientation Orientation = StartSlot->Orientation;
-    TArray<AWallSlot*> AffectedSlots;
-    AffectedSlots.Add(StartSlot);
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Checking adjacent slots for length %d, Orientation: %s"),
-        WallLength, Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+	for (int32 i = 1; i < WallLength; ++i)
+	{
+		int32 NextX = StartX + (Orientation == EWallOrientation::Horizontal ? i : 0);
+		int32 NextY = StartY + (Orientation == EWallOrientation::Vertical ? i : 0);
 
-    for (int32 i = 1; i < WallLength; ++i)
-    {
-        int32 NextX = StartX;
-        int32 NextY = StartY;
-        if (Orientation == EWallOrientation::Horizontal)
-            NextX += i;
-        else
-            NextY += i;
+		if ((Orientation == EWallOrientation::Horizontal && NextX >= GridSize) ||
+			(Orientation == EWallOrientation::Vertical && NextY >= GridSize))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Exceeds bounds"));
+			return false;
+		}
 
-        if (Orientation == EWallOrientation::Horizontal && NextX >= GridSize)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Next slot (%d, %d) exceeds horizontal bounds (GridSize: %d)"),
-                NextX, NextY, GridSize);
-            return false;
-        }
-        if (Orientation == EWallOrientation::Vertical && NextY >= GridSize)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Next slot (%d, %d) exceeds vertical bounds (GridSize: %d)"),
-                NextX, NextY, GridSize);
-            return false;
-        }
+		AWallSlot* NextSlot = FindWallSlotAt(NextX, NextY, Orientation);
+		if (!NextSlot || NextSlot->bIsOccupied)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Next slot invalid or occupied"));
+			return false;
+		}
+		AffectedSlots.Add(NextSlot);
+	}
 
-        AWallSlot* NextSlot = FindWallSlotAt(NextX, NextY, Orientation);
-        if (!NextSlot)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: No slot found at (%d, %d) with Orientation: %s"),
-                NextX, NextY, Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
-            return false;
-        }
-        if (NextSlot->bIsOccupied)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Wall slot (%d, %d) is occupied"), NextX, NextY);
-            return false;
-        }
-        AffectedSlots.Add(NextSlot);
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Slot (%d, %d) is available"), NextX, NextY);
-    }
+	// Simulasi blokade: update koneksi antar tile
+	TMap<TPair<ATile*, ATile*>, bool> RemovedConnections;
+	SimulateWallBlock(AffectedSlots, RemovedConnections);
 
-    FVector BaseLocation = StartSlot->GetActorLocation();
-    FRotator WallRotation = Orientation == EWallOrientation::Horizontal
-        ? FRotator::ZeroRotator
-        : FRotator(0, 90, 0);
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Checking for border wall collisions"));
+	// Jalankan A* cek path
+	bool bPath1 = IsPathAvailableForPawn(GetPawnForPlayer(1));
+	bool bPath2 = IsPathAvailableForPawn(GetPawnForPlayer(2));
 
-    for (int32 i = 0; i < WallLength; ++i)
-    {
-        FVector SegmentLocation = BaseLocation;
-        if (Orientation == EWallOrientation::Horizontal)
-            SegmentLocation.X += i * TileSize;
-        else
-            SegmentLocation.Y += i * TileSize;
+	if (!bPath1 || !bPath2)
+	{
+		RevertWallBlock(RemovedConnections);
+		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Path would be blocked"));
+		return false;
+	}
 
-        FBox SegmentBounds = FBox::BuildAABB(SegmentLocation, FVector(TileSize / 2, TileSize / 2, 10.0f));
-        for (AActor* BorderWall : BorderWalls)
-        {
-            if (!BorderWall) continue;
+	// Tandai slot sebagai occupied
+	for (AWallSlot* Slot : AffectedSlots)
+	{
+		Slot->SetOccupied(true);
+	}
 
-            FVector BorderOrigin, BorderExtent;
-            BorderWall->GetActorBounds(false, BorderOrigin, BorderExtent);
-            FBox BorderBounds = FBox::BuildAABB(BorderOrigin, BorderExtent);
+	// Tempelkan wall ke world
+	FVector BaseLocation = StartSlot->GetActorLocation();
+	FRotator WallRotation = Orientation == EWallOrientation::Horizontal ? FRotator::ZeroRotator : FRotator(0, 90, 0);
 
-            if (SegmentBounds.Intersect(BorderBounds))
-            {
-                UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Wall segment at (%f, %f) overlaps with border wall"),
-                    SegmentLocation.X, SegmentLocation.Y);
-                return false;
-            }
-        }
-    }
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: No border wall collisions detected"));
+	for (int32 i = 0; i < WallLength; ++i)
+	{
+		FVector SegmentLocation = BaseLocation + (Orientation == EWallOrientation::Horizontal
+			? FVector(i * TileSize, 0, 0)
+			: FVector(0, i * TileSize, 0));
 
-    for (AWallSlot* Slot : AffectedSlots)
-    {
-        Slot->SetOccupied(true);
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Marked slot (%d, %d, %s) as occupied"),
-            Slot->GridX, Slot->GridY, Slot->Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
-    }
+		AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, SegmentLocation, WallRotation);
+		if (NewWall)
+		{
+			NewWall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+		}
+	}
 
-    for (int32 i = 0; i < WallLength; ++i)
-    {
-        FVector SegmentLocation = BaseLocation;
-        if (Orientation == EWallOrientation::Horizontal)
-            SegmentLocation.X += i * TileSize;
-        else
-            SegmentLocation.Y += i * TileSize;
+	// Kurangi wall dari pemain
+	if (SelectedPawn)
+	{
+		SelectedPawn->RemoveWallOfLength(WallLength);
+	}
 
-        AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, SegmentLocation, WallRotation);
-        if (NewWall)
-        {
-            NewWall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Spawned wall segment at (%f, %f)"), SegmentLocation.X, SegmentLocation.Y);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Failed to spawn wall segment at (%f, %f)"), SegmentLocation.X, SegmentLocation.Y);
-        }
-    }
+	// Reset state
+	bIsPlacingWall = false;
+	PendingWallLength = 0;
+	HideWallPreview();
 
-    if (SelectedPawn)
-    {
-        SelectedPawn->RemoveWallOfLength(WallLength);
-        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Removed wall of length %d from Player %d"), WallLength, CurrentPlayerTurn);
-    }
+	// Ganti giliran
+	CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
 
-    bIsPlacingWall = false;
-    PendingWallLength = 0;
-    HideWallPreview();
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Reset wall placement state"));
-
-    CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
-    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed by Player %d at (%d, %d), length %d. Switched turn to Player %d"),
-        CurrentPlayerTurn == 1 ? 2 : 1, StartX, StartY, WallLength, CurrentPlayerTurn);
-
-    return true;
+	UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed. Turn now: Player %d"), CurrentPlayerTurn);
+	return true;
 }
 
 AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation)
@@ -582,6 +522,208 @@ EWallOrientation AQuoridorBoard::GetPlayerOrientation(AQuoridorPawn* Pawn) const
 
 	return EWallOrientation::Horizontal; // default jika belum diset
 }
+
+bool AQuoridorBoard::IsPathAvailableForPawn(AQuoridorPawn* Pawn)
+{
+	if (!Pawn || !Pawn->CurrentTile)
+		return false;
+
+	struct FNode
+	{
+		ATile* Tile;
+		int32 GCost;
+		int32 HCost;
+		FNode* Parent;
+
+		FNode(ATile* InTile, int32 InGCost, int32 InHCost, FNode* InParent = nullptr)
+			: Tile(InTile), GCost(InGCost), HCost(InHCost), Parent(InParent) {}
+
+		int32 FCost() const { return GCost + HCost; }
+	};
+
+	ATile* StartTile = Pawn->CurrentTile;
+	const int32 TargetRow = (Pawn->PlayerNumber == 1) ? (GridSize - 1) : 0;
+
+	TArray<FNode*> OpenSet;
+	TSet<ATile*> ClosedSet;
+
+	auto Heuristic = [TargetRow](int32 X, int32 Y)
+	{
+		return FMath::Abs(TargetRow - Y);
+	};
+
+	OpenSet.Add(new FNode(StartTile, 0, Heuristic(StartTile->GridX, StartTile->GridY)));
+
+	while (OpenSet.Num() > 0)
+	{
+		// Ambil node terbaik (lowest F cost)
+		FNode* Current = OpenSet[0];
+		for (FNode* Node : OpenSet)
+		{
+			if (Node->FCost() < Current->FCost() ||
+				(Node->FCost() == Current->FCost() && Node->HCost < Current->HCost))
+			{
+				Current = Node;
+			}
+		}
+		OpenSet.Remove(Current);
+		ClosedSet.Add(Current->Tile);
+
+		// Check goal
+		if ((Pawn->PlayerNumber == 1 && Current->Tile->GridY == TargetRow) ||
+			(Pawn->PlayerNumber == 2 && Current->Tile->GridY == TargetRow))
+		{
+			// Cleanup
+			for (FNode* Node : OpenSet) delete Node;
+			delete Current;
+			return true;
+		}
+
+		for (ATile* Neighbor : Current->Tile->ConnectedTiles)
+		{
+			if (!Neighbor || ClosedSet.Contains(Neighbor) || Neighbor->IsOccupied())
+				continue;
+
+			// Tambahkan jika belum di OpenSet
+			bool bAlreadyInOpenSet = false;
+			for (FNode* Node : OpenSet)
+			{
+				if (Node->Tile == Neighbor)
+				{
+					bAlreadyInOpenSet = true;
+					break;
+				}
+			}
+			if (!bAlreadyInOpenSet)
+			{
+				int32 G = Current->GCost + 1;
+				int32 H = Heuristic(Neighbor->GridX, Neighbor->GridY);
+				OpenSet.Add(new FNode(Neighbor, G, H, Current));
+			}
+		}
+
+		delete Current;
+	}
+
+	for (FNode* Node : OpenSet) delete Node;
+	return false; // Tidak ada jalur
+}
+
+void AQuoridorBoard::UpdateAllTileConnections()
+{
+	for (int32 Y = 0; Y < GridSize; ++Y)
+	{
+		for (int32 X = 0; X < GridSize; ++X)
+		{
+			ATile* Tile = Tiles[Y][X];
+			if (!Tile) continue;
+
+			Tile->ClearConnections();
+
+			// Arah: Atas, Bawah, Kanan, Kiri
+			TArray<FIntPoint> Directions = {
+				{0, 1},   // Atas
+				{0, -1},  // Bawah
+				{1, 0},   // Kanan
+				{-1, 0}   // Kiri
+			};
+
+			for (const FIntPoint& Dir : Directions)
+			{
+				int32 NX = X + Dir.X;
+				int32 NY = Y + Dir.Y;
+
+				if (!Tiles.IsValidIndex(NY) || !Tiles[NY].IsValidIndex(NX))
+					continue;
+
+				ATile* Neighbor = Tiles[NY][NX];
+				if (!Neighbor) continue;
+
+				// Cek apakah ada wall yang memisahkan
+				AWallSlot* WallBetween = nullptr;
+				if (Dir.X == 1) // Kanan
+					WallBetween = FindWallSlotAt(X, Y, EWallOrientation::Vertical);
+				else if (Dir.X == -1) // Kiri
+					WallBetween = FindWallSlotAt(X - 1, Y, EWallOrientation::Vertical);
+				else if (Dir.Y == 1) // Atas
+					WallBetween = FindWallSlotAt(X, Y, EWallOrientation::Horizontal);
+				else if (Dir.Y == -1) // Bawah
+					WallBetween = FindWallSlotAt(X, Y - 1, EWallOrientation::Horizontal);
+
+				if (WallBetween && WallBetween->bIsOccupied)
+					continue;
+
+				// Tambahkan koneksi dua arah
+				Tile->AddConnection(Neighbor);
+			}
+		}
+	}
+}
+
+void AQuoridorBoard::SimulateWallBlock(const TArray<AWallSlot*>& WallSlotsToSimulate, TMap<TPair<ATile*, ATile*>, bool>& OutRemovedConnections)
+{
+	for (AWallSlot* Slot : WallSlotsToSimulate)
+	{
+		if (!Slot) continue;
+
+		int32 X = Slot->GridX;
+		int32 Y = Slot->GridY;
+
+		// Tentukan tile yang terhubung oleh wall ini
+		ATile* TileA = nullptr;
+		ATile* TileB = nullptr;
+
+		if (Slot->Orientation == EWallOrientation::Horizontal)
+		{
+			if (Tiles.IsValidIndex(Y) && Tiles[Y].IsValidIndex(X) &&
+				Tiles.IsValidIndex(Y + 1) && Tiles[Y + 1].IsValidIndex(X))
+			{
+				TileA = Tiles[Y][X];
+				TileB = Tiles[Y + 1][X];
+			}
+		}
+		else // Vertical
+		{
+			if (Tiles.IsValidIndex(Y) && Tiles[Y].IsValidIndex(X) &&
+				Tiles[Y].IsValidIndex(X + 1))
+			{
+				TileA = Tiles[Y][X];
+				TileB = Tiles[Y][X + 1];
+			}
+		}
+
+		if (TileA && TileB)
+		{
+			// Simpan koneksi lama untuk bisa di-revert
+			if (TileA->ConnectedTiles.Contains(TileB))
+			{
+				OutRemovedConnections.Add(TPair<ATile*, ATile*>(TileA, TileB), true);
+				TileA->RemoveConnection(TileB);
+			}
+
+			if (TileB->ConnectedTiles.Contains(TileA))
+			{
+				OutRemovedConnections.Add(TPair<ATile*, ATile*>(TileB, TileA), true);
+				TileB->RemoveConnection(TileA);
+			}
+		}
+	}
+}
+
+void AQuoridorBoard::RevertWallBlock(const TMap<TPair<ATile*, ATile*>, bool>& RemovedConnections)
+{
+	for (const TPair<TPair<ATile*, ATile*>, bool>& Pair : RemovedConnections)
+	{
+		ATile* A = Pair.Key.Key;
+		ATile* B = Pair.Key.Value;
+
+		if (A && B)
+		{
+			A->AddConnection(B);
+		}
+	}
+}
+
 
 
 

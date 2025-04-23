@@ -20,3 +20,24 @@ bool ATile::IsAdjacent(const ATile* OtherTile) const
 	return (FMath::Abs(GridX - OtherTile->GridX) + 
 		   FMath::Abs(GridY - OtherTile->GridY)) == 1;
 }
+
+void ATile::AddConnection(ATile* OtherTile)
+{
+	if (OtherTile && OtherTile != this)
+	{
+		ConnectedTiles.Add(OtherTile);
+	}
+}
+
+void ATile::RemoveConnection(ATile* OtherTile)
+{
+	if (OtherTile)
+	{
+		ConnectedTiles.Remove(OtherTile);
+	}
+}
+
+void ATile::ClearConnections()
+{
+	ConnectedTiles.Empty();
+}

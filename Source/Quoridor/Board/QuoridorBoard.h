@@ -37,13 +37,21 @@ public:
 	// Array untuk menyimpan slot tembok
 	UPROPERTY(VisibleAnywhere)
 	TArray<AWallSlot*> HorizontalWallSlots;
+	
 	UPROPERTY(VisibleAnywhere)
 	TArray<AWallSlot*> VerticalWallSlots;
+	
 	UFUNCTION(BlueprintCallable)
 	AWallSlot* FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation);
+	
+	UFUNCTION(BlueprintCallable)
+	bool IsPathAvailableForPawn(AQuoridorPawn* Pawn);
+
 
 protected:
 	virtual void BeginPlay() override;
+
+	void UpdateAllTileConnections();
 
 	UPROPERTY(EditDefaultsOnly, Category = "Board")
 	TSubclassOf<ATile> TileClass;
@@ -108,6 +116,9 @@ protected:
 	void ShowWallPreviewAtSlot(class AWallSlot* HoveredSlot);
 	void ClearSelection();
 	void SpawnWall(FVector Location, FRotator Rotation, FVector Scale);
+	void SimulateWallBlock(const TArray<AWallSlot*>& WallSlotsToSimulate, TMap<TPair<ATile*, ATile*>, bool>& OutRemovedConnections);
+	void RevertWallBlock(const TMap<TPair<ATile*, ATile*>, bool>& RemovedConnections);
+
 
 private:
 	void SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber);
@@ -115,4 +126,6 @@ private:
 	TMap<AQuoridorPawn*, EWallOrientation> PlayerOrientations;
 
 	void LogAllPlayerOrientations();
+	
+	
 };

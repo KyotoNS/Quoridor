@@ -33,6 +33,19 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool IsAdjacent(const ATile* OtherTile) const;
 	
+	UPROPERTY()
+	TSet<ATile*> ConnectedTiles;
+
+	// Fungsi bantu: Tambahkan dan hapus koneksi
+	UFUNCTION()
+	void AddConnection(ATile* OtherTile);
+
+	UFUNCTION()
+	void RemoveConnection(ATile* OtherTile);
+
+	UFUNCTION()
+	void ClearConnections();
+	
 protected:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* TileMesh;
