@@ -11,12 +11,13 @@ class QUORIDOR_API AMinimaxBoardAI : public AQuoridorBoard
 
 public:
 	AMinimaxBoardAI();
-
+// Jalankan giliran AI (Player 2)
+	void RunMinimaxForPlayer2();
+	
 protected:
 	virtual void BeginPlay() override;
 
-	// Jalankan giliran AI (Player 2)
-	void RunMinimaxForPlayer2();
+	
 
 	// Pilih langkah terbaik (sementara dummy)
 	FIntPoint GetBestMoveForAI();

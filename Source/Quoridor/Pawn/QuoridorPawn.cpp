@@ -2,6 +2,7 @@
 #include "QuoridorPawn.h"
 #include "Quoridor/Tile/Tile.h"
 #include "Quoridor/Board/QuoridorBoard.h"
+#include "Quoridor/Board/MinimaxBoardAI.h"
 #include "Components/BoxComponent.h"
 
 AQuoridorPawn::AQuoridorPawn()
@@ -46,8 +47,6 @@ void AQuoridorPawn::MoveToTile(ATile* NewTile)
 		}
 	}
 }
-
-
 
 bool AQuoridorPawn::CanMoveToTile(const ATile* TargetTile) const
 {
@@ -229,9 +228,8 @@ void AQuoridorPawn::MovePawn(int32 NewX, int32 NewY)
             CurrentTile->SetPawnOnTile(this);
             SetActorLocation(CurrentTile->GetActorLocation() + FVector(0, 0, 50));
 
-            UE_LOG(LogTemp, Warning, TEXT("MovePawn Success: Player %d moved to (%d, %d)"), PlayerNumber, NewX, NewY);
+            UE_LOG(LogTemp, Warning, TEXT("MovePawn Success: Player %d moved to (%d, %d)"), PlayerNumber, NewX, NewY)
 
-            BoardReference->CurrentPlayerTurn = BoardReference->CurrentPlayerTurn == 1 ? 2 : 1;
             UE_LOG(LogTemp, Warning, TEXT("MovePawn: Switched turn to Player %d"), BoardReference->CurrentPlayerTurn);
             BoardReference->SelectedPawn = nullptr;
         }

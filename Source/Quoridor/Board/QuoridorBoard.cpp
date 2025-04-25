@@ -5,6 +5,7 @@
 #include "Quoridor/Pawn/QuoridorPawn.h"
 #include "Quoridor/Wall/WallSlot.h"
 #include "Quoridor/Wall/WallDefinition.h"
+#include "Quoridor/Board/MinimaxBoardAI.h"
 #include "Quoridor/Tile/Tile.h"
 #include "Engine/World.h"
 #include "Quoridor/Wall/WallPreview.h"
@@ -197,6 +198,12 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 		{
 			SelectedPawn->MoveToTile(ClickedTile);
 			CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
+			// Cek: Jika pakai AI dan giliran ke Player 2, jalankan AI
+			if (IsA(AMinimaxBoardAI::StaticClass()) && CurrentPlayerTurn == 2)
+			{
+				Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2();
+			}
+
 		}
 		ClearSelection();
 	}

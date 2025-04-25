@@ -29,9 +29,10 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2()
 	FIntPoint BestMove = GetBestMoveForAI();
 	AI->MovePawn(BestMove.X, BestMove.Y);
 
-	// Schedule AI jalan lagi nanti kalau giliran kembali ke Player 2
-	GetWorldTimerManager().SetTimer(AIDelayHandle, this, &AMinimaxBoardAI::RunMinimaxForPlayer2, 1.0f, false);
+	// 🟢 GANTI GILIRAN KEMBALI KE PLAYER 1
+	CurrentPlayerTurn = 1;
 }
+
 
 FIntPoint AMinimaxBoardAI::GetBestMoveForAI()
 {
