@@ -28,17 +28,26 @@ void AQuoridorPawn::MoveToTile(ATile* NewTile)
 		{
 			CurrentTile->SetPawnOnTile(nullptr);
 		}
-        
+
 		CurrentTile = NewTile;
 		CurrentTile->SetPawnOnTile(this);
-        
-		// Get tile location with vertical offset
-		const FVector NewLocation = CurrentTile->GetActorLocation() + FVector(0, 0, 50);
-		SetActorLocation(NewLocation);
-        
-		UE_LOG(LogTemp, Warning, TEXT("Moved pawn to: %s"), *NewLocation.ToString());
+		SetActorLocation(CurrentTile->GetActorLocation() + FVector(0, 0, 50));
+
+		UE_LOG(LogTemp, Warning, TEXT("Moved pawn to tile (%d, %d)"), GridX, GridY);
+
+		// Cek kemenangan
+		if (BoardReference)
+		{
+			int32 FinalRow = (PlayerNumber == 1) ? BoardReference->GridSize - 1 : 0;
+			if (CurrentTile && CurrentTile->GridY == FinalRow)
+			{
+				BoardReference->HandleWin(PlayerNumber);
+			}
+		}
 	}
 }
+
+
 
 bool AQuoridorPawn::CanMoveToTile(const ATile* TargetTile) const
 {

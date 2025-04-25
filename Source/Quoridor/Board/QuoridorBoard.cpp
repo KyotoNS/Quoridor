@@ -724,6 +724,17 @@ void AQuoridorBoard::RevertWallBlock(const TMap<TPair<ATile*, ATile*>, bool>& Re
 	}
 }
 
+void AQuoridorBoard::HandleWin(int32 WinningPlayer)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+		FString::Printf(TEXT("PLAYER %d WINS!"), WinningPlayer));
+
+	UE_LOG(LogTemp, Warning, TEXT("PLAYER %d WINS!"), WinningPlayer);
+
+	// TODO: Tambahkan logika end game seperti men-disable input, menampilkan UI dsb.
+}
+
+
 
 
 

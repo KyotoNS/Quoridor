@@ -47,7 +47,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool IsPathAvailableForPawn(AQuoridorPawn* Pawn);
 
-
+	UFUNCTION(BlueprintCallable)
+	void HandleWin(int32 WinningPlayer);
+	
 protected:
 	virtual void BeginPlay() override;
 
@@ -118,7 +120,7 @@ protected:
 	void SpawnWall(FVector Location, FRotator Rotation, FVector Scale);
 	void SimulateWallBlock(const TArray<AWallSlot*>& WallSlotsToSimulate, TMap<TPair<ATile*, ATile*>, bool>& OutRemovedConnections);
 	void RevertWallBlock(const TMap<TPair<ATile*, ATile*>, bool>& RemovedConnections);
-
+	
 
 private:
 	void SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber);
