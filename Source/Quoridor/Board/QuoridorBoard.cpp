@@ -334,6 +334,12 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 	// Ganti giliran
 	CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
 
+	// Cek: Jika pakai AI dan giliran ke Player 2, jalankan AI
+	if (IsA(AMinimaxBoardAI::StaticClass()) && CurrentPlayerTurn == 2)
+	{
+		Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2();
+	}
+
 	UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed. Turn now: Player %d"), CurrentPlayerTurn);
 	return true;
 }

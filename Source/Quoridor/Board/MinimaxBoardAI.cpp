@@ -26,11 +26,79 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2()
 	AQuoridorPawn* AI = GetPawnForPlayer(2);
 	if (!AI) return;
 
-	FIntPoint BestMove = GetBestMoveForAI();
-	AI->MovePawn(BestMove.X, BestMove.Y);
+	UE_LOG(LogTemp, Warning, TEXT("AI has wall counts: L1=%d, L2=%d, L3=%d"),
+		AI->GetWallCountOfLength(1), AI->GetWallCountOfLength(2), AI->GetWallCountOfLength(3));
 
-	// 🟢 GANTI GILIRAN KEMBALI KE PLAYER 1
+	bool bDoWall = true; // Force AI to always try placing wall first for testing
+
+	if (bDoWall && AI->PlayerWalls.Num() > 0)
+	{
+		bool bWallPlaced = TryPlaceRandomWallForAI();
+		if (!bWallPlaced)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("AI failed placing wall. Will move pawn instead."));
+			FIntPoint BestMove = GetBestMoveForAI();
+			AI->MovePawn(BestMove.X, BestMove.Y);
+		}
+	}
+	else
+	{
+		FIntPoint BestMove = GetBestMoveForAI();
+		AI->MovePawn(BestMove.X, BestMove.Y);
+	}
+
 	CurrentPlayerTurn = 1;
+	UE_LOG(LogTemp, Warning, TEXT("AI Turn ended. Switching to Player %d"), CurrentPlayerTurn);
+}
+
+
+bool AMinimaxBoardAI::TryPlaceRandomWallForAI()
+{
+	AQuoridorPawn* AI = GetPawnForPlayer(2);
+	if (!AI || AI->PlayerWalls.Num() == 0) return false;
+
+	TArray<AWallSlot*> ValidSlots;
+	for (AWallSlot* Slot : WallSlots)
+	{
+		if (Slot && Slot->CanPlaceWall())
+		{
+			ValidSlots.Add(Slot);
+		}
+	}
+	if (ValidSlots.Num() == 0) return false;
+
+	TArray<int32> AvailableLengths;
+	for (int32 L = 1; L <= 3; ++L)
+	{
+		if (AI->GetWallCountOfLength(L) > 0)
+		{
+			AvailableLengths.Add(L);
+		}
+	}
+	if (AvailableLengths.Num() == 0) return false;
+
+	const int32 MaxAttempts = 20;
+	for (int32 Attempt = 0; Attempt < MaxAttempts; ++Attempt)
+	{
+		AWallSlot* RandomSlot = ValidSlots[FMath::RandRange(0, ValidSlots.Num() - 1)];
+		int32 RandomLength = AvailableLengths[FMath::RandRange(0, AvailableLengths.Num() - 1)];
+
+		UE_LOG(LogTemp, Warning, TEXT("❌ AI TRY: Wall %d at (%d,%d)"),
+			RandomLength, RandomSlot->GridX, RandomSlot->GridY);
+
+		bIsPlacingWall = true;
+		bool bSuccess = TryPlaceWall(RandomSlot, RandomLength);
+		bIsPlacingWall = false;
+
+		if (bSuccess)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("✅ AI SUCCESS: Placed wall length %d at (%d,%d)"),
+				RandomLength, RandomSlot->GridX, RandomSlot->GridY);
+			return true;
+		}
+	}
+	UE_LOG(LogTemp, Warning, TEXT("❌ AI gave up placing wall after all attempts."));
+	return false;
 }
 
 

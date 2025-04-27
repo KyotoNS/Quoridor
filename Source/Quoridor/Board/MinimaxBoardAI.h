@@ -21,6 +21,8 @@ protected:
 
 	// Pilih langkah terbaik (sementara dummy)
 	FIntPoint GetBestMoveForAI();
+	bool TryPlaceRandomWallForAI();
+
 
 	FTimerHandle AIDelayHandle;
 };
