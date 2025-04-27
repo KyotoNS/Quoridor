@@ -1,7 +1,7 @@
 ﻿
 #pragma once
 
-	#include "CoreMinimal.h"
+#include "CoreMinimal.h"
 #include "Quoridor/Tile/Tile.h"
 #include "GameFramework/Actor.h"
 #include "Quoridor/Wall/WallSlot.h"
@@ -10,6 +10,8 @@
 class ATile;
 class AQuoridorPawn;
 class AWallSlot;
+
+
 UCLASS()
 class QUORIDOR_API AQuoridorBoard : public AActor
 {

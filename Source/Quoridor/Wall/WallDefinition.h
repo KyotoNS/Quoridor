@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "WallSlot.h"
+#include "Quoridor/Board/MinimaxBoardAI.h"
 #include "WallDefinition.generated.h"
 
 
@@ -21,4 +22,7 @@ struct FWallDefinition
 		Length = 2;
 		Orientation = EWallOrientation::Horizontal;
 	}
+	FWallDefinition(int32 InLength, EWallOrientation InOrientation)
+		: Length(InLength), Orientation(InOrientation)
+	{}
 };

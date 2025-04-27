@@ -62,7 +62,7 @@ bool AQuoridorPawn::CanMoveToTile(const ATile* TargetTile) const
         return false;
     }
 
-    // Step 1: Periksa apakah TargetTile ada dalam ConnectedTiles (normal move)
+    // Step 1: Periksa langkah normal (ke petak tetangga yang terhubung)
     if (CurrentTile->ConnectedTiles.Contains(TargetTile))
     {
         UE_LOG(LogTemp, Log, TEXT("CanMoveToTile: Normal move to (%d, %d) is valid"), TargetTile->GridX, TargetTile->GridY);
@@ -83,30 +83,51 @@ bool AQuoridorPawn::CanMoveToTile(const ATile* TargetTile) const
         int32 NDeltaX = Neighbor->GridX - CurrentTile->GridX;
         int32 NDeltaY = Neighbor->GridY - CurrentTile->GridY;
 
-        // Cek petak di belakang pion lawan (lompatan lurus)
-        for (ATile* Behind : Neighbor->ConnectedTiles)
-        {
-            if (!Behind || Behind == CurrentTile || Behind->IsOccupied())
-                continue;
+        // Tentukan petak di belakang pion lawan (lompatan lurus)
+        int32 BehindX = Neighbor->GridX + NDeltaX;
+        int32 BehindY = Neighbor->GridY + NDeltaY;
+        bool bJumpPossible = false;
 
-            // Pastikan lompatan lurus (sama sumbu X atau Y dengan CurrentTile dan Neighbor)
-            bool bSameLine = (Behind->GridX == Neighbor->GridX && Neighbor->GridX == CurrentTile->GridX) ||
-                             (Behind->GridY == Neighbor->GridY && Neighbor->GridY == CurrentTile->GridY);
+        // Periksa apakah petak di belakang valid
+        if (BehindX >= 0 && BehindX < BoardReference->GridSize && BehindY >= 0 && BehindY < BoardReference->GridSize)
+        {
+            ATile* BehindTile = BoardReference->Tiles[BehindY][BehindX];
+            if (BehindTile && !BehindTile->IsOccupied() && Neighbor->ConnectedTiles.Contains(BehindTile))
+            {
+                bJumpPossible = true;
+                // Jika TargetTile adalah petak di belakang, lompatan lurus valid
+                if (TargetTile == BehindTile)
+                {
+                    UE_LOG(LogTemp, Log, TEXT("CanMoveToTile: Straight jump to (%d, %d) is valid"), TargetTile->GridX, TargetTile->GridY);
+                    return true;
+                }
+            }
         }
 
-        // Step 3: Periksa side step (jika lompatan lurus tidak memungkinkan)
-        for (ATile* SideTile : Neighbor->ConnectedTiles)
+        // Step 3: Periksa side step jika lompatan lurus tidak memungkinkan
+        if (!bJumpPossible)
         {
-            if (!SideTile || SideTile == CurrentTile || SideTile->IsOccupied())
-                continue;
-
-            // Pastikan side step (berbeda sumbu dengan lompatan lurus)
-            bool bDiffAxis = (SideTile->GridX != CurrentTile->GridX) ^ (SideTile->GridY != CurrentTile->GridY);
-
-            if (bDiffAxis && SideTile == TargetTile)
+            for (ATile* SideTile : Neighbor->ConnectedTiles)
             {
-                UE_LOG(LogTemp, Log, TEXT("CanMoveToTile: Side step to (%d, %d) is valid"), SideTile->GridX, SideTile->GridY);
-                return true;
+                if (!SideTile || SideTile == CurrentTile || SideTile->IsOccupied())
+                    continue;
+
+                // Pastikan side step adalah kiri/kanan relatif terhadap arah lompatan
+                bool bIsSideStep = false;
+                if (NDeltaX != 0) // Lompatan horizontal, side step adalah vertikal (kiri/kanan)
+                {
+                    bIsSideStep = (SideTile->GridX == Neighbor->GridX && SideTile->GridY != Neighbor->GridY);
+                }
+                else if (NDeltaY != 0) // Lompatan vertikal, side step adalah horizontal (kiri/kanan)
+                {
+                    bIsSideStep = (SideTile->GridY == Neighbor->GridY && SideTile->GridX != Neighbor->GridX);
+                }
+
+                if (bIsSideStep && SideTile == TargetTile)
+                {
+                    UE_LOG(LogTemp, Log, TEXT("CanMoveToTile: Side step to (%d, %d) is valid"), SideTile->GridX, SideTile->GridY);
+                    return true;
+                }
             }
         }
     }
