@@ -36,7 +36,7 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2()
     {
         Player2->SimulateMovePawn(Tile->GridX, Tile->GridY);
         int32 Score = Minimax(2, false);
-        Player2->RevertSimulatedMove(OriginalX, OriginalY);
+        Player2->RevertSimulatedMove();
 
         if (Score > BestScore)
         {
@@ -117,7 +117,7 @@ int32 AMinimaxBoardAI::Minimax(int32 Depth, bool bMaximizingPlayer)
             Player2->SimulateMovePawn(Tile->GridX, Tile->GridY);
 
             int32 Eval = Minimax(Depth - 1, false);
-            Player2->RevertSimulatedMove(OriginalX, OriginalY);
+            Player2->RevertSimulatedMove();
             MaxEval = FMath::Max(MaxEval, Eval);
         }
         return MaxEval;
@@ -133,7 +133,7 @@ int32 AMinimaxBoardAI::Minimax(int32 Depth, bool bMaximizingPlayer)
         {
             Player1->SimulateMovePawn(Tile->GridX, Tile->GridY);
             int32 Eval = Minimax(Depth - 1, true);
-            Player1->RevertSimulatedMove(OriginalX, OriginalY);
+            Player1->RevertSimulatedMove();
             MinEval = FMath::Min(MinEval, Eval);
         }
         return MinEval;
@@ -252,36 +252,39 @@ int32 AMinimaxBoardAI::CalculateShortestPathLength(AQuoridorPawn* Pawn)
 
 void AQuoridorPawn::SimulateMovePawn(int32 NewX, int32 NewY)
 {
-    // 1) detach from old tile
+    // 1) push old
+    SimulationStack.Push({ GridX, GridY, CurrentTile });
+
+    // 2) detach from the old tile
     if (CurrentTile)
     {
         CurrentTile->SetPawnOnTile(nullptr);
     }
 
-    // 2) update grid coords + pointer
-    GridX = NewX;
-    GridY = NewY;
+    // 3) update to the new tile
+    GridX       = NewX;
+    GridY       = NewY;
     CurrentTile = BoardReference->Tiles[NewY][NewX];
-
-    // 3) re-attach logically (no teleport)
     CurrentTile->SetPawnOnTile(this);
 }
 
-void AQuoridorPawn::RevertSimulatedMove(int32 OldX, int32 OldY)
+void AQuoridorPawn::RevertSimulatedMove()
 {
-    // detach from simulated tile
-    if (CurrentTile)
+    if (SimulationStack.Num() == 0)
     {
-        CurrentTile->SetPawnOnTile(nullptr);
+        UE_LOG(LogTemp, Error, TEXT(
+            "RevertSimulatedMove called with empty SimulationStack!"));
+        return;
     }
 
-    // restore coords + pointer
-    GridX = OldX;
-    GridY = OldY;
-    CurrentTile = BoardReference->Tiles[OldY][OldX];
+    // Pop and restore
+    FPawnSimulationState Old = SimulationStack.Pop();
 
-    // re-attach back
-    CurrentTile->SetPawnOnTile(this);
+    if (CurrentTile) CurrentTile->SetPawnOnTile(nullptr);
+    GridX       = Old.X;
+    GridY       = Old.Y;
+    CurrentTile = Old.Tile;
+    if (CurrentTile) CurrentTile->SetPawnOnTile(this);
 }
 
 

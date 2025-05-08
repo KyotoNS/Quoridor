@@ -32,7 +32,16 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool HasWallOfLength(int32 Length) const;
 	void SimulateMovePawn(int32 NewX, int32 NewY);
-	void RevertSimulatedMove(int32 OldX, int32 OldY);
+	void RevertSimulatedMove();
+	struct FPawnSimulationState
+	{
+		int32    X;
+		int32    Y;
+		ATile*   Tile;
+	};
+
+	// A stack of snapshots
+	TArray<FPawnSimulationState> SimulationStack;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 GridX;
