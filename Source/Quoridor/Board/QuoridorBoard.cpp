@@ -17,9 +17,17 @@ class AWallPreview;
 
 AQuoridorBoard::AQuoridorBoard()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 	CurrentPlayerTurn = 1;
 }
+void AQuoridorBoard::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	GEngine->AddOnScreenDebugMessage(1, 0.0f, FColor::Cyan,
+		FString::Printf(TEXT("Turn: Player %d"), CurrentPlayerTurn));
+}
+
 
 void AQuoridorBoard::BeginPlay()
 {
@@ -145,32 +153,17 @@ void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
 
                 NewPawn->PlayerWalls = RandomWalls;
                 PlayerOrientations.Add(NewPawn, EWallOrientation::Horizontal);
-
-                UE_LOG(LogTemp, Warning, TEXT("SpawnPawn Success: Player %d at X:%d Y:%d"), PlayerNumber, GridPosition.X, GridPosition.Y);
+            	
             }
-            else
-            {
-                UE_LOG(LogTemp, Error, TEXT("SpawnPawn Failed: Failed to spawn pawn for Player %d at X:%d Y:%d"), PlayerNumber, GridPosition.X, GridPosition.Y);
-            }
+          
         }
-        else
-        {
-            UE_LOG(LogTemp, Error, TEXT("SpawnPawn Failed: Invalid StartTile or PawnClass for Player %d at X:%d Y:%d"), PlayerNumber, GridPosition.X, GridPosition.Y);
-        }
+       
     }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("SpawnPawn Failed: Invalid grid position X:%d Y:%d for Player %d"), GridPosition.X, GridPosition.Y, PlayerNumber);
-    }
+   
 }
 
 void AQuoridorBoard::HandlePawnClick(AQuoridorPawn* ClickedPawn)
 {
-	if (!ClickedPawn)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("HandlePawnClick: ClickedPawn is nullptr"));
-		return;
-	}
 
 	// Periksa apakah giliran saat ini sesuai dengan nomor pemain pion yang diklik
 	if (ClickedPawn->PlayerNumber != CurrentPlayerTurn)
@@ -197,7 +190,7 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 		if (SelectedPawn->CanMoveToTile(ClickedTile))
 		{
 			SelectedPawn->MoveToTile(ClickedTile);
-			CurrentPlayerTurn = CurrentPlayerTurn == 1 ? 2 : 1;
+			CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
 			// Cek: Jika pakai AI dan giliran ke Player 2, jalankan AI
 			if (IsA(AMinimaxBoardAI::StaticClass()) && CurrentPlayerTurn == 2)
 			{
@@ -230,26 +223,22 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 {
 	if (!StartSlot || !bIsPlacingWall || WallLength == 0)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Invalid state or input"));
 		return false;
 	}
 
 	if (StartSlot->Orientation != PendingWallOrientation)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Orientation mismatch"));
 		return false;
 	}
 
 	SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
 	if (!SelectedPawn || !SelectedPawn->HasWallOfLength(WallLength))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: No wall or no pawn"));
 		return false;
 	}
 
 	if (!StartSlot->CanPlaceWall())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Slot occupied"));
 		return false;
 	}
 

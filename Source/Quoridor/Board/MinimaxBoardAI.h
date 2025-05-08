@@ -19,8 +19,9 @@ public:
 	AMinimaxBoardAI();
 	// Jalankan giliran AI (Pemain 2)
 	void RunMinimaxForPlayer2();
-
+	virtual void Tick(float DeltaTime) override;
 protected:
+
 	int32 EvaluateBoard(); // scoring function
 	int32 Minimax(int Depth, bool bIsMaximizing);
 	TArray<ATile*> GetAllValidMoves(AQuoridorPawn* Pawn);

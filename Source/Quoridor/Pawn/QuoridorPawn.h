@@ -31,6 +31,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	bool HasWallOfLength(int32 Length) const;
+	void SimulateMovePawn(int32 NewX, int32 NewY);
+	void RevertSimulatedMove(int32 OldX, int32 OldY);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 GridX;

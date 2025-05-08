@@ -103,7 +103,7 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere)
 	TArray<AActor*> WallPreviewActors; // New: Store multiple preview actors
-	
+	virtual void Tick(float DeltaTime) override;
 	UFUNCTION(BlueprintCallable)
 	EWallOrientation GetPlayerOrientation(AQuoridorPawn* Pawn) const;
 	

@@ -6,30 +6,37 @@
 
 AMinimaxBoardAI::AMinimaxBoardAI()
 {
-    PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = true;
+}
+void AMinimaxBoardAI::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    GEngine->AddOnScreenDebugMessage(1, 0.0f, FColor::Cyan,
+        FString::Printf(TEXT("Turn: Player %d"), CurrentPlayerTurn));
 }
 void AMinimaxBoardAI::RunMinimaxForPlayer2()
 {
-    
+
     int32 BestScore = -999999;
     FIntPoint BestMove;
     FWallDefinition BestWall;
-    bool bShouldPlaceWall = false;
     AWallSlot* LastWallSlot = nullptr;
+    bool bShouldPlaceWall = false;
 
     AQuoridorPawn* Player2 = GetPawnForPlayer(2);
-    if (!Player2) return;
+    if (!Player2 || !Player2->CurrentTile) return;
 
     int32 OriginalX = Player2->GridX;
     int32 OriginalY = Player2->GridY;
 
-    // --- Try all valid pawn moves ---
+    // Try all valid pawn moves
     TArray<ATile*> ValidMoves = GetAllValidMoves(Player2);
     for (ATile* Tile : ValidMoves)
     {
-        Player2->MovePawn(Tile->GridX, Tile->GridY);
-        int32 Score = Minimax(3, false);
-        Player2->MovePawn(OriginalX, OriginalY);
+        Player2->SimulateMovePawn(Tile->GridX, Tile->GridY);
+        int32 Score = Minimax(2, false);
+        Player2->RevertSimulatedMove(OriginalX, OriginalY);
 
         if (Score > BestScore)
         {
@@ -39,11 +46,11 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2()
         }
     }
 
-    // --- Try all valid wall placements ---
+    // Try all valid wall placements
     if (Player2->HasRemainingWalls())
     {
         TArray<TPair<AWallSlot*, int32>> Walls = GetAllValidWalls();
-        for (auto& Pair : Walls)
+        for (const TPair<AWallSlot*, int32>& Pair : Walls)
         {
             TMap<TPair<ATile*, ATile*>, bool> RemovedConnections;
             SimulateWallBlock({ Pair.Key }, RemovedConnections);
@@ -63,16 +70,33 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2()
         }
     }
 
-    // --- Execute Best Action ---
-    if (bShouldPlaceWall && LastWallSlot)
+    // --- Instead of executing, display the chosen action ---
+    if (GEngine)
     {
-        TryPlaceWall(LastWallSlot, BestWall.Length);
+        FString Message;
+
+        if (bShouldPlaceWall && LastWallSlot)
+        {
+            Message = FString::Printf(TEXT("AI Action: Place Wall at (%d, %d), Length: %d, Orientation: %s"),
+                LastWallSlot->GridX,
+                LastWallSlot->GridY,
+                BestWall.Length,
+                BestWall.Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+        }
+        else
+        {
+            Message = FString::Printf(TEXT("AI Action: Move to (%d, %d)"), BestMove.X, BestMove.Y);
+        }
+
+        FString ScoreMsg = FString::Printf(TEXT("Best Minimax Score: %d"), BestScore);
+
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
+        GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, ScoreMsg);
     }
-    else
-    {
-        Player2->MovePawn(BestMove.X, BestMove.Y);
-    }
+    CurrentPlayerTurn = 1; // Return control to Player 1
+
 }
+
 
 int32 AMinimaxBoardAI::Minimax(int32 Depth, bool bMaximizingPlayer)
 {
@@ -90,9 +114,10 @@ int32 AMinimaxBoardAI::Minimax(int32 Depth, bool bMaximizingPlayer)
 
         for (ATile* Tile : GetAllValidMoves(Player2))
         {
-            Player2->MovePawn(Tile->GridX, Tile->GridY);
+            Player2->SimulateMovePawn(Tile->GridX, Tile->GridY);
+
             int32 Eval = Minimax(Depth - 1, false);
-            Player2->MovePawn(OriginalX, OriginalY);
+            Player2->RevertSimulatedMove(OriginalX, OriginalY);
             MaxEval = FMath::Max(MaxEval, Eval);
         }
         return MaxEval;
@@ -106,9 +131,9 @@ int32 AMinimaxBoardAI::Minimax(int32 Depth, bool bMaximizingPlayer)
 
         for (ATile* Tile : GetAllValidMoves(Player1))
         {
-            Player1->MovePawn(Tile->GridX, Tile->GridY);
+            Player1->SimulateMovePawn(Tile->GridX, Tile->GridY);
             int32 Eval = Minimax(Depth - 1, true);
-            Player1->MovePawn(OriginalX, OriginalY);
+            Player1->RevertSimulatedMove(OriginalX, OriginalY);
             MinEval = FMath::Min(MinEval, Eval);
         }
         return MinEval;
@@ -224,4 +249,39 @@ int32 AMinimaxBoardAI::CalculateShortestPathLength(AQuoridorPawn* Pawn)
 
     return 10000; // No path found
 }
+
+void AQuoridorPawn::SimulateMovePawn(int32 NewX, int32 NewY)
+{
+    // 1) detach from old tile
+    if (CurrentTile)
+    {
+        CurrentTile->SetPawnOnTile(nullptr);
+    }
+
+    // 2) update grid coords + pointer
+    GridX = NewX;
+    GridY = NewY;
+    CurrentTile = BoardReference->Tiles[NewY][NewX];
+
+    // 3) re-attach logically (no teleport)
+    CurrentTile->SetPawnOnTile(this);
+}
+
+void AQuoridorPawn::RevertSimulatedMove(int32 OldX, int32 OldY)
+{
+    // detach from simulated tile
+    if (CurrentTile)
+    {
+        CurrentTile->SetPawnOnTile(nullptr);
+    }
+
+    // restore coords + pointer
+    GridX = OldX;
+    GridY = OldY;
+    CurrentTile = BoardReference->Tiles[OldY][OldX];
+
+    // re-attach back
+    CurrentTile->SetPawnOnTile(this);
+}
+
 
