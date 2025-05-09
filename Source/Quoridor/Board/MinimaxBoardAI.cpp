@@ -100,45 +100,89 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2()
 
 int32 AMinimaxBoardAI::Minimax(int32 Depth, bool bMaximizingPlayer)
 {
-    if (Depth == 0)
+
+    // 2) Terminal test
+    if (Depth <= 0)
     {
         return EvaluateBoard();
     }
 
     if (bMaximizingPlayer)
     {
-        int32 MaxEval = -999999;
-        AQuoridorPawn* Player2 = GetPawnForPlayer(2);
-        int32 OriginalX = Player2->GridX;
-        int32 OriginalY = Player2->GridY;
+        // MAX node: Player 2
+        int32 BestEval = TNumericLimits<int32>::Min();
+        AQuoridorPawn* P2 = GetPawnForPlayer(2);
 
-        for (ATile* Tile : GetAllValidMoves(Player2))
+        // 2a) Pawn moves
+        for (ATile* Dest : GetAllValidMoves(P2))
         {
-            Player2->SimulateMovePawn(Tile->GridX, Tile->GridY);
+            P2->SimulateMovePawn(Dest->GridX, Dest->GridY);
+            int32 Eval = Minimax(Depth - 1, /*bMaximizing=*/false);
+            P2->RevertSimulatedMove();
 
-            int32 Eval = Minimax(Depth - 1, false);
-            Player2->RevertSimulatedMove();
-            MaxEval = FMath::Max(MaxEval, Eval);
+            BestEval = FMath::Max(BestEval, Eval);
         }
-        return MaxEval;
+
+        // 2b) Wall placements
+        if (P2->HasRemainingWalls())
+        {
+            for (auto& Pair : GetAllValidWalls())
+            {
+                AWallSlot* Slot = Pair.Key;
+                int32      Len  = Pair.Value;
+                // simulate placing a wall of length Len at Slot
+                TMap<TPair<ATile*,ATile*>,bool> RemovedConns;
+                SimulateWallBlock({ Slot }, RemovedConns);
+
+                int32 Eval = Minimax(Depth - 1, /*bMaximizing=*/false);
+
+                // undo
+                RevertWallBlock(RemovedConns);
+
+                BestEval = FMath::Max(BestEval, Eval);
+            }
+        }
+
+        return BestEval;
     }
     else
     {
-        int32 MinEval = 999999;
-        AQuoridorPawn* Player1 = GetPawnForPlayer(1);
-        int32 OriginalX = Player1->GridX;
-        int32 OriginalY = Player1->GridY;
+        // MIN node: Player 1
+        int32 BestEval = TNumericLimits<int32>::Max();
+        AQuoridorPawn* P1 = GetPawnForPlayer(1);
 
-        for (ATile* Tile : GetAllValidMoves(Player1))
+        // 3a) Pawn moves
+        for (ATile* Dest : GetAllValidMoves(P1))
         {
-            Player1->SimulateMovePawn(Tile->GridX, Tile->GridY);
-            int32 Eval = Minimax(Depth - 1, true);
-            Player1->RevertSimulatedMove();
-            MinEval = FMath::Min(MinEval, Eval);
+            P1->SimulateMovePawn(Dest->GridX, Dest->GridY);
+            int32 Eval = Minimax(Depth - 1, /*bMaximizing=*/true);
+            P1->RevertSimulatedMove();
+
+            BestEval = FMath::Min(BestEval, Eval);
         }
-        return MinEval;
+
+        // 3b) Wall placements
+        if (P1->HasRemainingWalls())
+        {
+            for (auto& Pair : GetAllValidWalls())
+            {
+                AWallSlot* Slot = Pair.Key;
+                int32      Len  = Pair.Value;
+                TMap<TPair<ATile*,ATile*>,bool> RemovedConns;
+                SimulateWallBlock({ Slot }, RemovedConns);
+
+                int32 Eval = Minimax(Depth - 1, /*bMaximizing=*/true);
+
+                RevertWallBlock(RemovedConns);
+
+                BestEval = FMath::Min(BestEval, Eval);
+            }
+        }
+
+        return BestEval;
     }
 }
+
 
 int32 AMinimaxBoardAI::EvaluateBoard()
 {
