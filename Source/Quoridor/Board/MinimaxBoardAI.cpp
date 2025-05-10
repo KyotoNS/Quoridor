@@ -35,7 +35,7 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2()
     for (ATile* Tile : ValidMoves)
     {
         Player2->SimulateMovePawn(Tile->GridX, Tile->GridY);
-        int32 Score = Minimax(1, false);
+        int32 Score = Minimax(2, false);
         Player2->RevertSimulatedMove();
 
         if (Score > BestScore)
@@ -55,7 +55,7 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2()
             TMap<TPair<ATile*, ATile*>, bool> RemovedConnections;
             SimulateWallBlock({ Pair.Key }, RemovedConnections);
 
-            int32 Score = Minimax(1, false);
+            int32 Score = Minimax(2, false);
 
             RevertWallBlock(RemovedConnections);
 
@@ -200,59 +200,15 @@ TArray<ATile*> AMinimaxBoardAI::GetAllValidMoves(AQuoridorPawn* Pawn)
     TArray<ATile*> ValidMoves;
     if (!Pawn || !Pawn->CurrentTile) return ValidMoves;
 
-    ATile* Curr = Pawn->CurrentTile;
-
-    // quick alias to your board’s tile grid
-    auto& Grid = Tiles;  
-
-    for (ATile* Neighbor : Curr->ConnectedTiles)
+    for (ATile* Neighbor : Pawn->CurrentTile->ConnectedTiles)
     {
-        // 1) Simple one‐step if empty
-        if (!Neighbor->IsOccupied())  // uses PawnOnTile != nullptr :contentReference[oaicite:2]{index=2}:contentReference[oaicite:3]{index=3}
+        if (Pawn->CanMoveToTile(Neighbor))
         {
-            if (Pawn->CanMoveToTile(Neighbor))
-                ValidMoves.Add(Neighbor);
-        }
-        else
-        {
-            // 2) Straight jump over an occupied neighbor
-            int dx = Neighbor->GridX - Curr->GridX;
-            int dy = Neighbor->GridY - Curr->GridY;
-            int  jumpX = Neighbor->GridX + dx;
-            int  jumpY = Neighbor->GridY + dy;
-
-            if (jumpX >= 0 && jumpX < Grid.Num() &&
-                jumpY >= 0 && jumpY < Grid[jumpY].Num())
-            {
-                ATile* JumpTile = Grid[jumpY][jumpX];
-                if (Neighbor->ConnectedTiles.Contains(JumpTile) &&
-                    Pawn->CanMoveToTile(JumpTile))
-                {
-                    ValidMoves.Add(JumpTile);
-                    continue;
-                }
-            }
-
-            // 3) Side‐steps around the blocker
-            for (ATile* Side : Neighbor->ConnectedTiles)
-            {
-                if (Side == Curr || Side->IsOccupied())
-                    continue;
-
-                // side‐step must be orthogonal relative to Curr
-                bool isSide = (Side->GridX == Curr->GridX) ^ (Side->GridY == Curr->GridY);
-                if (isSide && Pawn->CanMoveToTile(Side))
-                {
-                    ValidMoves.Add(Side);
-                }
-            }
+            ValidMoves.Add(Neighbor);
         }
     }
-
     return ValidMoves;
 }
-
-
 
 TArray<TPair<AWallSlot*, int32>> AMinimaxBoardAI::GetAllValidWalls()
 {
