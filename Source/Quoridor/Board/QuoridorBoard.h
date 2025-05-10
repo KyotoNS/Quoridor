@@ -52,9 +52,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void HandleWin(int32 WinningPlayer);
 	
-	UFUNCTION(BlueprintCallable)
-	AQuoridorPawn* GetPawnForPlayer(int32 PlayerNumber);
-	
 protected:
 	virtual void BeginPlay() override;
 
@@ -117,7 +114,8 @@ protected:
 	int32 GetCurrentPlayerWallCount(int32 WallLength) const;
 	UFUNCTION(BlueprintCallable)
 	void HideWallPreview();
-	
+	UFUNCTION(BlueprintCallable)
+	AQuoridorPawn* GetPawnForPlayer(int32 PlayerNumber);
 	UFUNCTION(BlueprintCallable)
 	void ShowWallPreviewAtSlot(class AWallSlot* HoveredSlot);
 	void ClearSelection();
