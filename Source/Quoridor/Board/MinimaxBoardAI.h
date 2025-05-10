@@ -2,14 +2,13 @@
 
 #include "CoreMinimal.h"
 #include "Quoridor/Board/QuoridorBoard.h"
+#include "MinimaxEngine.h"
 #include "MinimaxBoardAI.generated.h"
 
-struct FNode
-{
-	ATile* Tile;
-	int32 G;
-	FNode(ATile* InTile, int32 InG) : Tile(InTile), G(InG) {}
-};
+/**
+ * A minimal AI subclass that captures board state, calls the pure-data
+ * engine, then executes the returned action.
+ */
 UCLASS()
 class QUORIDOR_API AMinimaxBoardAI : public AQuoridorBoard
 {
@@ -17,15 +16,8 @@ class QUORIDOR_API AMinimaxBoardAI : public AQuoridorBoard
 
 public:
 	AMinimaxBoardAI();
-	// Jalankan giliran AI (Pemain 2)
+	UFUNCTION(BlueprintCallable, Category="AI")
 	void RunMinimaxForPlayer2();
+
 	virtual void Tick(float DeltaTime) override;
-protected:
-
-	int32 EvaluateBoard(); // scoring function
-	int32 Minimax(int Depth, bool bIsMaximizing);
-	TArray<ATile*> GetAllValidMoves(AQuoridorPawn* Pawn);
-	TArray<TPair<AWallSlot*, int32>> GetAllValidWalls();
-	int32 CalculateShortestPathLength(AQuoridorPawn* Pawn);
-
 };
