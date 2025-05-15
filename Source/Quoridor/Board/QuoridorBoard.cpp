@@ -194,7 +194,7 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 			// Cek: Jika pakai AI dan giliran ke Player 2, jalankan AI
 			if (IsA(AMinimaxBoardAI::StaticClass()) && CurrentPlayerTurn == 2)
 			{
-				Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2();
+				Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2Async();
 			}
 
 		}
@@ -326,7 +326,7 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 	// Cek: Jika pakai AI dan giliran ke Player 2, jalankan AI
 	if (IsA(AMinimaxBoardAI::StaticClass()) && CurrentPlayerTurn == 2)
 	{
-		Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2();
+		Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2Async();
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed. Turn now: Player %d"), CurrentPlayerTurn);

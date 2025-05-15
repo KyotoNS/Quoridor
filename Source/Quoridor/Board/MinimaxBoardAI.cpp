@@ -17,76 +17,85 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
     GEngine->AddOnScreenDebugMessage(1, 0.0f, FColor::Cyan,
         FString::Printf(TEXT("Turn: Player %d"), CurrentPlayerTurn));
 }
-void AMinimaxBoardAI::RunMinimaxForPlayer2()
+void AMinimaxBoardAI::RunMinimaxForPlayer2Async()
 {
-    FMinimaxState State = FMinimaxState::FromBoard(this);
-    UE_LOG(LogTemp,Warning,TEXT(">> SNAP: P1=(%d,%d) P2=(%d,%d) Walls=[%d,%d]"),
-        State.PawnX[0],State.PawnY[0],State.PawnX[1],State.PawnY[1],
-        State.WallsRemaining[0],State.WallsRemaining[1]);
+    if (bMinimaxInProgress)
+        return;
 
-    FMinimaxAction Act = MinimaxEngine::Solve(State,1);
+    bMinimaxInProgress = true;
 
+    // Snapshot the board into a thread-safe struct
+    FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
+    int32 Depth = 1;
+
+    // Launch background thread
+    Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth]()
+    {
+        // Solve in background
+        FMinimaxAction Action = MinimaxEngine::Solve(StateSnapshot, Depth);
+
+        // Return to game thread to apply the move
+        AsyncTask(ENamedThreads::GameThread, [this, Action]()
+        {
+            ExecuteAction(Action);
+            CurrentPlayerTurn = 1;
+            SelectedPawn = GetPawnForPlayer(1);
+            bMinimaxInProgress = false;
+
+            UE_LOG(LogTemp, Warning, TEXT("=> Engine chose: %s (score=%d)"),
+                Action.bIsWall ?
+                    *FString::Printf(TEXT("Wall @(%d,%d) %s"), Action.SlotX, Action.SlotY, Action.bHorizontal ? TEXT("H") : TEXT("V")) :
+                    *FString::Printf(TEXT("Move to (%d,%d)"), Action.MoveX, Action.MoveY),
+                Action.Score);
+        });
+    });
+}
+
+void AMinimaxBoardAI::ExecuteAction(const FMinimaxAction& Act)
+{
     if (Act.bIsWall)
     {
-        // Place wall based on the chosen action
-        AWallSlot* SlotToUse = nullptr;
-        if (Act.bHorizontal)
+        // Find the correct wall slot based on coordinates and orientation
+        EWallOrientation Orientation = Act.bHorizontal ? EWallOrientation::Horizontal : EWallOrientation::Vertical;
+        AWallSlot* SlotToUse = FindWallSlotAt(Act.SlotX, Act.SlotY, Orientation);
+
+        if (SlotToUse)
         {
-            // Search horizontal slots
-            for (AWallSlot* Slot : HorizontalWallSlots)
-            {
-                if (Slot->GridX == Act.SlotX && Slot->GridY == Act.SlotY)
-                {
-                    SlotToUse = Slot;
-                    break;
-                }
-            }
+            // Set parameters for wall placement
+            PendingWallLength = Act.WallLength;
+            PendingWallOrientation = Orientation;
+
+            // Try placing the wall
+            TryPlaceWall(SlotToUse, Act.WallLength);
         }
         else
         {
-            // Search vertical slots
-            for (AWallSlot* Slot : VerticalWallSlots)
-            {
-                if (Slot->GridX == Act.SlotX && Slot->GridY == Act.SlotY)
-                {
-                    SlotToUse = Slot;
-                    break;
-                }
-            }
-        }
-    
-        if (SlotToUse)
-        {
-            // Configure pending wall parameters
-            PendingWallLength = Act.WallLength;
-            PendingWallOrientation = Act.bHorizontal
-                ? EWallOrientation::Horizontal
-                : EWallOrientation::Vertical;
-
-            // Execute wall placement
-            TryPlaceWall(SlotToUse, Act.WallLength);
+            UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Failed to find wall slot at (%d,%d) [%s]"),
+                Act.SlotX, Act.SlotY, *UEnum::GetValueAsString(Orientation));
         }
     }
     else
     {
-        // Move pawn to the chosen tile
-        if (Act.MoveY >= 0 && Act.MoveY < Tiles.Num())
+        // Handle pawn move
+        if (Act.MoveY >= 0 && Act.MoveY < Tiles.Num() &&
+            Act.MoveX >= 0 && Act.MoveX < Tiles[Act.MoveY].Num())
         {
-            ATile* Dest = Tiles[Act.MoveY][Act.MoveX];
-            if (Dest)
+            ATile* TargetTile = Tiles[Act.MoveY][Act.MoveX];
+            if (TargetTile)
             {
-                HandleTileClick(Dest);
+                HandleTileClick(TargetTile);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Target tile at (%d,%d) is null"), Act.MoveX, Act.MoveY);
             }
         }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Move position out of bounds (%d,%d)"), Act.MoveX, Act.MoveY);
+        }
     }
-
-    CurrentPlayerTurn = 1;
-    SelectedPawn      = GetPawnForPlayer(1);
-
-    UE_LOG(LogTemp,Warning,TEXT("=> Engine chose: %s (score=%d)"),
-        Act.bIsWall?
-           *FString::Printf(TEXT("Wall @(%d,%d) %s"),Act.SlotX,Act.SlotY,Act.bHorizontal?TEXT("H"):TEXT("V")):
-           *FString::Printf(TEXT("Move to (%d,%d)"),Act.MoveX,Act.MoveY),
-        Act.Score);
 }
+
+
 
