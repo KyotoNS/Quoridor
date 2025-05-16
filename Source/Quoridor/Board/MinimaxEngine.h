@@ -74,5 +74,9 @@ namespace MinimaxEngine
     void ApplyWall    (FMinimaxState& S, int32 PlayerNum, const FWallData& W);
     int32 Minimax(FMinimaxState& S, int32 Depth, bool bMaximizing);
     FMinimaxAction Solve(const FMinimaxState& Initial, int32 Depth);
+    static TArray<FIntPoint> ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength = nullptr);
+    static bool WallTouchesPath(const FWallData& w, const TArray<FIntPoint>& Path);
+    TArray<FWallData>GetTargetedWallPlacements(const FMinimaxState& S, int32 PlayerNum);
+
 }
 

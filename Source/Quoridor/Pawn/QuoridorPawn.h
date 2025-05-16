@@ -78,6 +78,10 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	void MovePawn(int32 NewX, int32 NewY);
+	
+	UFUNCTION(BlueprintCallable)
+	ATile* GetTile() const { return CurrentTile; }
+
 
 protected:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category = "Pawn")

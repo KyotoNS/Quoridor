@@ -26,7 +26,7 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2Async()
 
     // Snapshot the board into a thread-safe struct
     FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-    int32 Depth = 1;
+    int32 Depth = 3;
 
     // Launch background thread
     Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth]()
@@ -103,6 +103,7 @@ void AMinimaxBoardAI::ExecuteAction(const FMinimaxAction& Act)
             if (TargetTile)
             {
                 UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Moving to tile (%d, %d)"), Act.MoveX, Act.MoveY);
+                SelectedPawn = GetPawnForPlayer(2);
                 HandleTileClick(TargetTile);
             }
             else
