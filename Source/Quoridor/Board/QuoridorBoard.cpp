@@ -187,20 +187,23 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 {
 	if (SelectedPawn && ClickedTile)
 	{
-		if (SelectedPawn->CanMoveToTile(ClickedTile))
+		bool bIsAI = (SelectedPawn == GetPawnForPlayer(2));
+
+		if (bIsAI || SelectedPawn->CanMoveToTile(ClickedTile))
 		{
 			SelectedPawn->MoveToTile(ClickedTile);
 			CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
-			// Cek: Jika pakai AI dan giliran ke Player 2, jalankan AI
+
 			if (IsA(AMinimaxBoardAI::StaticClass()) && CurrentPlayerTurn == 2)
 			{
 				Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2Async();
 			}
-
 		}
+
 		ClearSelection();
 	}
 }
+
 
 void AQuoridorBoard::ClearSelection()
 {

@@ -24,10 +24,9 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
             S.VerticalBlocked[y][x] = false;
 
     // Get pawns
-    AQuoridorPawn* P1 = Board->GetPawnForPlayer(1); // Player (Red)
-    AQuoridorPawn* P2 = Board->GetPawnForPlayer(2); // AI (Green)
+    AQuoridorPawn* P1 = Board->GetPawnForPlayer(1); // Player
+    AQuoridorPawn* P2 = Board->GetPawnForPlayer(2); // AI
 
-    // Use actual tile locations to avoid stale GridX/GridY
     if (P1 && P1->GetTile())
     {
         S.PawnX[0] = P1->GetTile()->GridX;
@@ -43,17 +42,38 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
     S.WallsRemaining[0] = P1 ? P1->PlayerWalls.Num() : 0;
     S.WallsRemaining[1] = P2 ? P2->PlayerWalls.Num() : 0;
 
-    // Mark occupied wall slots
+    // === Mark Horizontal Wall Segments ===
     for (AWallSlot* Slot : Board->HorizontalWallSlots)
-        S.HorizontalBlocked[Slot->GridY][Slot->GridX] = Slot->bIsOccupied;
+    {
+        if (Slot && Slot->bIsOccupied)
+        {
+            int x = Slot->GridX;
+            int y = Slot->GridY;
 
+            if (x >= 0 && x < 8 && y >= 0 && y < 9)
+            {
+                S.HorizontalBlocked[y][x] = true;
+            }
+        }
+    }
+
+    // === Mark Vertical Wall Segments ===
     for (AWallSlot* Slot : Board->VerticalWallSlots)
-        S.VerticalBlocked[Slot->GridY][Slot->GridX] = Slot->bIsOccupied;
+    {
+        if (Slot && Slot->bIsOccupied)
+        {
+            int x = Slot->GridX;
+            int y = Slot->GridY;
+
+            if (x >= 0 && x < 9 && y >= 0 && y < 8)
+            {
+                S.VerticalBlocked[y][x] = true;
+            }
+        }
+    }
 
     return S;
 }
-
-
 
 //-----------------------------------------------------------------------------
 // A* helper for distance-to-goal (100=no path)
@@ -191,34 +211,74 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S)
 TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 PlayerNum)
 {
     TArray<FIntPoint> Out;
-    int idx=PlayerNum-1, x=S.PawnX[idx], y=S.PawnY[idx];
-    auto CanStep=[&](int ax,int ay,int bx,int by){
-        if(bx<0||bx>8||by<0||by>8) return false;
-        if(bx==ax+1&&S.VerticalBlocked[ay][ax]) return false;
-        if(bx==ax-1&&S.VerticalBlocked[ay][bx]) return false;
-        if(by==ay+1&&S.HorizontalBlocked[ay][ax]) return false;
-        if(by==ay-1&&S.HorizontalBlocked[by][ax]) return false;
+    int idx = PlayerNum - 1;
+    int x = S.PawnX[idx];
+    int y = S.PawnY[idx];
+
+    auto CanStep = [&](int ax, int ay, int bx, int by)
+    {
+        if (bx < 0 || bx > 8 || by < 0 || by > 8)
+            return false;
+
+        if (bx == ax + 1 && S.VerticalBlocked[ay][ax]) return false;
+        if (bx == ax - 1 && S.VerticalBlocked[ay][bx]) return false;
+        if (by == ay + 1 && S.HorizontalBlocked[ay][ax]) return false;
+        if (by == ay - 1 && S.HorizontalBlocked[by][ax]) return false;
+
         return true;
     };
-    const FIntPoint dirs[4]={{1,0},{-1,0},{0,1},{0,-1}};
-    for(auto& d:dirs){ int nx=x+d.X, ny=y+d.Y;
-        bool occ=((S.PawnX[0]==nx&&S.PawnY[0]==ny)||(S.PawnX[1]==nx&&S.PawnY[1]==ny));
-        if(!occ && CanStep(x,y,nx,ny)) Out.Add({nx,ny});
-        else if(occ && CanStep(x,y,nx,ny)){
-            int jx=nx+d.X, jy=ny+d.Y;
-            if(CanStep(nx,ny,jx,jy)&& !((S.PawnX[0]==jx&&S.PawnY[0]==jy)||(S.PawnX[1]==jx&&S.PawnY[1]==jy)))
-                Out.Add({jx,jy});
-            else{
-                FIntPoint perp[2]={{d.Y,d.X},{-d.Y,-d.X}};
-                for(auto& p:perp){ int sx=nx+p.X, sy=ny+p.Y;
-                    if(CanStep(nx,ny,sx,sy)&& !((S.PawnX[0]==sx&&S.PawnY[0]==sy)||(S.PawnX[1]==sx&&S.PawnY[1]==sy)))
-                        Out.Add({sx,sy});
+
+    const FIntPoint dirs[4] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1} };
+
+    for (const auto& d : dirs)
+    {
+        int nx = x + d.X;
+        int ny = y + d.Y;
+
+        // Skip if blocked or out of bounds
+        if (!CanStep(x, y, nx, ny))
+            continue;
+
+        bool occupied = (S.PawnX[0] == nx && S.PawnY[0] == ny) || (S.PawnX[1] == nx && S.PawnY[1] == ny);
+        if (!occupied)
+        {
+            Out.Add({ nx, ny }); // Normal move
+        }
+        else
+        {
+            // Attempt jump straight
+            int jx = nx + d.X;
+            int jy = ny + d.Y;
+
+            if (CanStep(nx, ny, jx, jy) &&
+                !(S.PawnX[0] == jx && S.PawnY[0] == jy) &&
+                !(S.PawnX[1] == jx && S.PawnY[1] == jy))
+            {
+                Out.Add({ jx, jy }); // Straight jump
+            }
+            else
+            {
+                // Try side steps if blocked behind
+                FIntPoint perp[2] = { { d.Y, d.X }, { -d.Y, -d.X } };
+                for (const auto& p : perp)
+                {
+                    int sx = nx + p.X;
+                    int sy = ny + p.Y;
+
+                    if (CanStep(nx, ny, sx, sy) &&
+                        !(S.PawnX[0] == sx && S.PawnY[0] == sy) &&
+                        !(S.PawnX[1] == sx && S.PawnY[1] == sy))
+                    {
+                        Out.Add({ sx, sy }); // Side step
+                    }
                 }
             }
         }
     }
+
     return Out;
 }
+
 
 TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32 PlayerNum)
 {
