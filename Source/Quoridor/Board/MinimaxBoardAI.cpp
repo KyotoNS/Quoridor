@@ -55,47 +55,68 @@ void AMinimaxBoardAI::ExecuteAction(const FMinimaxAction& Act)
 {
     if (Act.bIsWall)
     {
-        // Find the correct wall slot based on coordinates and orientation
+        // Determine orientation
         EWallOrientation Orientation = Act.bHorizontal ? EWallOrientation::Horizontal : EWallOrientation::Vertical;
-        AWallSlot* SlotToUse = FindWallSlotAt(Act.SlotX, Act.SlotY, Orientation);
 
+        // Log intent
+        UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Trying to place wall at (%d, %d) [%s]"),
+            Act.SlotX, Act.SlotY,
+            *UEnum::GetValueAsString(Orientation));
+
+        // Find the matching wall slot
+        AWallSlot* SlotToUse = FindWallSlotAt(Act.SlotX, Act.SlotY, Orientation);
         if (SlotToUse)
         {
-            // Set parameters for wall placement
+            // Set wall intent
             PendingWallLength = Act.WallLength;
             PendingWallOrientation = Orientation;
 
-            // Try placing the wall
-            TryPlaceWall(SlotToUse, Act.WallLength);
+            // Try placing it
+            bool bSuccess = TryPlaceWall(SlotToUse, Act.WallLength);
+            if (!bSuccess)
+            {
+                UE_LOG(LogTemp, Error, TEXT("ExecuteAction: TryPlaceWall failed for wall at (%d, %d) [%s]"),
+                    Act.SlotX, Act.SlotY,
+                    *UEnum::GetValueAsString(Orientation));
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Wall placed at (%d, %d) [%s]"),
+                    Act.SlotX, Act.SlotY,
+                    *UEnum::GetValueAsString(Orientation));
+            }
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Failed to find wall slot at (%d,%d) [%s]"),
-                Act.SlotX, Act.SlotY, *UEnum::GetValueAsString(Orientation));
+            UE_LOG(LogTemp, Error, TEXT("ExecuteAction: Failed to find wall slot at (%d, %d) [%s]"),
+                Act.SlotX, Act.SlotY,
+                *UEnum::GetValueAsString(Orientation));
         }
     }
     else
     {
-        // Handle pawn move
+        // Validate coordinates
         if (Act.MoveY >= 0 && Act.MoveY < Tiles.Num() &&
             Act.MoveX >= 0 && Act.MoveX < Tiles[Act.MoveY].Num())
         {
             ATile* TargetTile = Tiles[Act.MoveY][Act.MoveX];
             if (TargetTile)
             {
+                UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Moving to tile (%d, %d)"), Act.MoveX, Act.MoveY);
                 HandleTileClick(TargetTile);
             }
             else
             {
-                UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Target tile at (%d,%d) is null"), Act.MoveX, Act.MoveY);
+                UE_LOG(LogTemp, Error, TEXT("ExecuteAction: Target tile (%d, %d) is null"), Act.MoveX, Act.MoveY);
             }
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Move position out of bounds (%d,%d)"), Act.MoveX, Act.MoveY);
+            UE_LOG(LogTemp, Error, TEXT("ExecuteAction: Invalid move coordinates (%d, %d)"), Act.MoveX, Act.MoveY);
         }
     }
 }
+
 
 
 

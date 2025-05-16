@@ -221,8 +221,18 @@ void AQuoridorBoard::SpawnWall(FVector Location, FRotator Rotation, FVector Scal
 
 bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 {
-	if (!StartSlot || !bIsPlacingWall || WallLength == 0)
+
+	if (!StartSlot || WallLength == 0)
 	{
+		return false;
+	}
+
+	const bool bIsHumanPlacing = bIsPlacingWall;
+	const bool bIsAIPlacing = !bIsHumanPlacing && IsA(AMinimaxBoardAI::StaticClass());
+
+	if (!bIsHumanPlacing && !bIsAIPlacing)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Blocked — neither human nor AI placement active"));
 		return false;
 	}
 
