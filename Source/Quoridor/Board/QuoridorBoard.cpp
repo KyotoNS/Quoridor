@@ -226,7 +226,6 @@ void AQuoridorBoard::SpawnWall(FVector Location, FRotator Rotation, FVector Scal
 
 bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 {
-
 	if (!StartSlot || WallLength == 0)
 	{
 		return false;
@@ -257,13 +256,19 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 		return false;
 	}
 
-	// Siapkan slot yang akan dipengaruhi
+	// Collect all wall slots that will be affected
 	int32 StartX = StartSlot->GridX;
 	int32 StartY = StartSlot->GridY;
 	EWallOrientation Orientation = StartSlot->Orientation;
 
 	TArray<AWallSlot*> AffectedSlots;
-	AffectedSlots.Add(StartSlot);
+	AWallSlot* FirstSlot = FindWallSlotAt(StartX, StartY, Orientation);
+	if (!FirstSlot || FirstSlot->bIsOccupied)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: First slot invalid or occupied"));
+		return false;
+	}
+	AffectedSlots.Add(FirstSlot);
 
 	for (int32 i = 1; i < WallLength; ++i)
 	{
@@ -276,7 +281,7 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 			UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Exceeds bounds"));
 			return false;
 		}
-
+      
 		AWallSlot* NextSlot = FindWallSlotAt(NextX, NextY, Orientation);
 		if (!NextSlot || NextSlot->bIsOccupied)
 		{
@@ -286,11 +291,10 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 		AffectedSlots.Add(NextSlot);
 	}
 
-	// Simulasi blokade: update koneksi antar tile
+	// Simulate wall block
 	TMap<TPair<ATile*, ATile*>, bool> RemovedConnections;
 	SimulateWallBlock(AffectedSlots, RemovedConnections);
 
-	// Jalankan A* cek path
 	bool bPath1 = IsPathAvailableForPawn(GetPawnForPlayer(1));
 	bool bPath2 = IsPathAvailableForPawn(GetPawnForPlayer(2));
 
@@ -301,15 +305,16 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 		return false;
 	}
 
-	// Tandai slot sebagai occupied
+	// Mark all slots as occupied
 	for (AWallSlot* Slot : AffectedSlots)
 	{
 		Slot->SetOccupied(true);
-		
-
+		UE_LOG(LogTemp, Warning, TEXT("Wall segment occupied at (%d, %d) [%s] => Ptr: %p"),
+			Slot->GridX, Slot->GridY,
+			*UEnum::GetValueAsString(Slot->Orientation), Slot);
 	}
 
-	// Tempelkan wall ke world
+	// Visual wall placement
 	FVector BaseLocation = StartSlot->GetActorLocation();
 	FRotator WallRotation = Orientation == EWallOrientation::Horizontal ? FRotator::ZeroRotator : FRotator(0, 90, 0);
 
@@ -326,46 +331,47 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 		}
 	}
 
-	// Kurangi wall dari pemain
 	if (SelectedPawn)
 	{
 		SelectedPawn->RemoveWallOfLength(WallLength);
 	}
 
-	// Reset state
+	// Cleanup
 	bIsPlacingWall = false;
 	PendingWallLength = 0;
 	HideWallPreview();
 
-	// Ganti giliran
 	CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
 
-	// Cek: Jika pakai AI dan giliran ke Player 2, jalankan AI
 	if (IsA(AMinimaxBoardAI::StaticClass()) && CurrentPlayerTurn == 2)
 	{
 		Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2Async();
 	}
-	
 
 	UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed. Turn now: Player %d"), CurrentPlayerTurn);
 	return true;
 }
 
+
 AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation)
 {
-	for (AWallSlot* Slot : WallSlots)
+	const TArray<AWallSlot*>& SlotList = (Orientation == EWallOrientation::Horizontal) ? HorizontalWallSlots : VerticalWallSlots;
+
+	for (AWallSlot* Slot : SlotList)
 	{
-		if (Slot && Slot->GridX == X && Slot->GridY == Y && Slot->Orientation == Orientation)
+		if (Slot && Slot->GridX == X && Slot->GridY == Y)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Found WallSlot at X:%d Y:%d, Orientation: %s"),
-				X, Y, Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+			UE_LOG(LogTemp, Warning, TEXT("FindWallSlotAt => Found Slot at (%d, %d) [%s] => Ptr: %p"),
+				X, Y, *UEnum::GetValueAsString(Orientation), Slot);
 			return Slot;
 		}
 	}
-	UE_LOG(LogTemp, Warning, TEXT("No WallSlot found at X:%d Y:%d, Orientation: %s"),
-		X, Y, Orientation == EWallOrientation::Horizontal ? TEXT("Horizontal") : TEXT("Vertical"));
+
+	UE_LOG(LogTemp, Warning, TEXT("FindWallSlotAt => No slot found at (%d, %d) [%s]"),
+		X, Y, *UEnum::GetValueAsString(Orientation));
 	return nullptr;
 }
+
 
 void AQuoridorBoard::StartWallPlacement(int32 WallLength)
 {

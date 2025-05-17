@@ -47,14 +47,6 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
     // === Horizontal Wall Segments (with bIsOccupied printout) ===
     for (AWallSlot* Slot : Board->HorizontalWallSlots)
     {
-        if (Slot)
-        {
-            int x = Slot->GridX;
-            int y = Slot->GridY;
-
-            UE_LOG(LogTemp, Warning, TEXT("Slot (%d,%d), bIsOccupied=%s"),
-                x, y, Slot->bIsOccupied ? TEXT("true") : TEXT("false"));
-        }
         if (Slot && Slot->bIsOccupied)
         {
             int x = Slot->GridX;
@@ -72,7 +64,6 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
     // === Vertical Wall Segments (with bIsOccupied printout) ===
     for (AWallSlot* Slot : Board->VerticalWallSlots)
     {
-        
         if (Slot && Slot->bIsOccupied)
         {
             int x = Slot->GridX;
@@ -338,8 +329,9 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
 
         int distToOpponent = FMath::Abs(W.X - oppX) + FMath::Abs(W.Y - oppY);
         bool bTouchesPath = WallTouchesPath(W, OpponentPath);
-        bool bIsNearPawn = (distToOpponent <= 1);
+        bool bIsNearPawn = (distToOpponent <= 2);
 
+        // Only keep walls that are near the path or pawn and have some positive impact
         if (!bTouchesPath && !bIsNearPawn)
             return false;
 
@@ -387,8 +379,12 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
         }
     }
 
+    // Log number of walls found for debugging
+    UE_LOG(LogTemp, Warning, TEXT("GetWallPlacements: Returning %d candidate walls"), Walls.Num());
+
     return Walls;
 }
+
 
 
 // Suggests smart wall placements around the enemy pawn
@@ -601,7 +597,21 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth)
     // === WALL MOVES (targeted near opponent) ===
     if (Initial.WallsRemaining[idx] > 0)
     {
-        for (auto w : GetTargetedWallPlacements(Initial, root))
+        TArray<FWallData> WallCandidates = GetTargetedWallPlacements(Initial, root);
+        UE_LOG(LogTemp, Warning, TEXT("WallCandidates.Num() = %d"), WallCandidates.Num());
+
+        if (WallCandidates.Num() == 0)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("No wall candidates generated. Adding fallback wall"));
+            FWallData Fallback;
+            Fallback.X = Initial.PawnX[Opponent - 1];
+            Fallback.Y = Initial.PawnY[Opponent - 1];
+            Fallback.Length = 1;
+            Fallback.bHorizontal = true;
+            WallCandidates.Add(Fallback);
+        }
+
+        for (auto w : WallCandidates)
         {
             FMinimaxState SS = Initial;
             ApplyWall(SS, root, w);
@@ -634,6 +644,7 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth)
 
     return bestAct;
 }
+
 
 
 
