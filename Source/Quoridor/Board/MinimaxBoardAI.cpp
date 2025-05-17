@@ -24,29 +24,29 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2Async()
 
     bMinimaxInProgress = true;
 
-    // Snapshot the board into a thread-safe struct
-    FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-    int32 Depth = 3;
-
-    // Launch background thread
-    Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth]()
+    GetWorld()->GetTimerManager().SetTimerForNextTick([this]()
     {
-        // Solve in background
-        FMinimaxAction Action = MinimaxEngine::Solve(StateSnapshot, Depth);
+        // OR use a small delay like 0.1f if needed
+        FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
+        int32 Depth = 1;
 
-        // Return to game thread to apply the move
-        AsyncTask(ENamedThreads::GameThread, [this, Action]()
+        Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth]()
         {
-            ExecuteAction(Action);
-            CurrentPlayerTurn = 1;
-            SelectedPawn = GetPawnForPlayer(1);
-            bMinimaxInProgress = false;
+            FMinimaxAction Action = MinimaxEngine::Solve(StateSnapshot, Depth);
 
-            UE_LOG(LogTemp, Warning, TEXT("=> Engine chose: %s (score=%d)"),
-                Action.bIsWall ?
-                    *FString::Printf(TEXT("Wall @(%d,%d) %s"), Action.SlotX, Action.SlotY, Action.bHorizontal ? TEXT("H") : TEXT("V")) :
-                    *FString::Printf(TEXT("Move to (%d,%d)"), Action.MoveX, Action.MoveY),
-                Action.Score);
+            AsyncTask(ENamedThreads::GameThread, [this, Action]()
+            {
+                ExecuteAction(Action);
+                CurrentPlayerTurn = 1;
+                SelectedPawn = GetPawnForPlayer(1);
+                bMinimaxInProgress = false;
+
+                UE_LOG(LogTemp, Warning, TEXT("=> Engine chose: %s (score=%d)"),
+                    Action.bIsWall ?
+                        *FString::Printf(TEXT("Wall @(%d,%d) %s"), Action.SlotX, Action.SlotY, Action.bHorizontal ? TEXT("H") : TEXT("V")) :
+                        *FString::Printf(TEXT("Move to (%d,%d)"), Action.MoveX, Action.MoveY),
+                    Action.Score);
+            });
         });
     });
 }

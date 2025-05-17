@@ -12,6 +12,7 @@
 //-----------------------------------------------------------------------------
 FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
 {
+   
     FMinimaxState S;
 
     // Initialize blocked arrays
@@ -24,8 +25,8 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
             S.VerticalBlocked[y][x] = false;
 
     // Get pawns
-    AQuoridorPawn* P1 = Board->GetPawnForPlayer(1); // Player
-    AQuoridorPawn* P2 = Board->GetPawnForPlayer(2); // AI
+    AQuoridorPawn* P1 = Board->GetPawnForPlayer(1);
+    AQuoridorPawn* P2 = Board->GetPawnForPlayer(2);
 
     if (P1 && P1->GetTile())
     {
@@ -41,14 +42,25 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
     // Walls remaining
     S.WallsRemaining[0] = P1 ? P1->PlayerWalls.Num() : 0;
     S.WallsRemaining[1] = P2 ? P2->PlayerWalls.Num() : 0;
+    
 
-    // === Mark Horizontal Wall Segments ===
+    // === Horizontal Wall Segments (with bIsOccupied printout) ===
     for (AWallSlot* Slot : Board->HorizontalWallSlots)
     {
+        if (Slot)
+        {
+            int x = Slot->GridX;
+            int y = Slot->GridY;
+
+            UE_LOG(LogTemp, Warning, TEXT("Slot (%d,%d), bIsOccupied=%s"),
+                x, y, Slot->bIsOccupied ? TEXT("true") : TEXT("false"));
+        }
         if (Slot && Slot->bIsOccupied)
         {
             int x = Slot->GridX;
             int y = Slot->GridY;
+
+            UE_LOG(LogTemp, Warning, TEXT("Occupied HWall at (%d, %d)"), x, y);
 
             if (x >= 0 && x < 8 && y >= 0 && y < 9)
             {
@@ -57,13 +69,16 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
         }
     }
 
-    // === Mark Vertical Wall Segments ===
+    // === Vertical Wall Segments (with bIsOccupied printout) ===
     for (AWallSlot* Slot : Board->VerticalWallSlots)
     {
+        
         if (Slot && Slot->bIsOccupied)
         {
             int x = Slot->GridX;
             int y = Slot->GridY;
+
+            UE_LOG(LogTemp, Warning, TEXT("Occupied VWall at (%d, %d)"), x, y);
 
             if (x >= 0 && x < 9 && y >= 0 && y < 8)
             {
@@ -72,8 +87,10 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
         }
     }
 
+
     return S;
 }
+
 
 //-----------------------------------------------------------------------------
 // A* helper for distance-to-goal (100=no path)

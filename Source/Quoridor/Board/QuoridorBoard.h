@@ -51,7 +51,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void HandleWin(int32 WinningPlayer);
-	
+	void LogBoardState();
+
 	UFUNCTION(BlueprintCallable)
 	AQuoridorPawn* GetPawnForPlayer(int32 PlayerNumber);
 	

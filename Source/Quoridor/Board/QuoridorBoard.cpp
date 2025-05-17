@@ -101,6 +101,7 @@ void AQuoridorBoard::BeginPlay()
 			Slot->SetGridPosition(x, y);
 			Slot->Board = this;
 			WallSlots.Add(Slot);
+			HorizontalWallSlots.Add(Slot); 
 		}
 	}
 
@@ -115,6 +116,7 @@ void AQuoridorBoard::BeginPlay()
 			Slot->SetGridPosition(x, y);
 			Slot->Board = this;
 			WallSlots.Add(Slot);
+			VerticalWallSlots.Add(Slot); 
 		}
 	}
 
@@ -303,6 +305,8 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 	for (AWallSlot* Slot : AffectedSlots)
 	{
 		Slot->SetOccupied(true);
+		
+
 	}
 
 	// Tempelkan wall ke world
@@ -341,6 +345,7 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 	{
 		Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2Async();
 	}
+	
 
 	UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed. Turn now: Player %d"), CurrentPlayerTurn);
 	return true;
@@ -748,6 +753,7 @@ void AQuoridorBoard::HandleWin(int32 WinningPlayer)
 
 	// TODO: Tambahkan logika end game seperti men-disable input, menampilkan UI dsb.
 }
+
 
 
 
