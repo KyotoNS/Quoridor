@@ -77,6 +77,7 @@ namespace MinimaxEngine
     static TArray<FIntPoint> ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength = nullptr);
     static bool WallTouchesPath(const FWallData& w, const TArray<FIntPoint>& Path);
     TArray<FWallData>GetTargetedWallPlacements(const FMinimaxState& S, int32 PlayerNum);
+    static bool IsWallLegal(const FMinimaxState& S, const FWallData& W);
 
 }
 
