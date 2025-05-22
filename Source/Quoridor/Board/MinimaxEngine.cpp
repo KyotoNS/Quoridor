@@ -100,8 +100,18 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
         }
     }
 
+    // === AI Wall Inventory Debug ===
+    if (P2)
+    {
+        int32 L1 = P2->GetWallCountOfLength(1);
+        int32 L2 = P2->GetWallCountOfLength(2);
+        int32 L3 = P2->GetWallCountOfLength(3);
+        int32 Total = L1 + L2 + L3;
 
-
+        UE_LOG(LogTemp, Warning, TEXT("AI Wall Inventory: L1=%d, L2=%d, L3=%d (Total=%d)"),
+            L1, L2, L3, Total);
+    }
+    
     return S;
 }
 
@@ -336,20 +346,18 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
 
             if (x < 0 || x >= 9 || y < 0 || y >= 9)
             {
-                UE_LOG(LogTemp, Warning, TEXT("[Illegal] Out of bounds: Wall@(%d,%d)L%d %s"),
-                    W.X, W.Y, W.Length, W.bHorizontal ? TEXT("H") : TEXT("V"));
                 return false;
             }
 
             if (W.bHorizontal && (x >= 8 || State.HorizontalBlocked[y][x]))
             {
-                UE_LOG(LogTemp, Warning, TEXT("[Illegal] HWall blocked: (%d,%d)"), x, y);
+
                 return false;
             }
 
             if (!W.bHorizontal && (y >= 8 || State.VerticalBlocked[y][x]))
             {
-                UE_LOG(LogTemp, Warning, TEXT("[Illegal] VWall blocked: (%d,%d)"), x, y);
+
                 return false;
             }
         }
@@ -366,8 +374,6 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
 
             if (x >= 9 || y >= 9)
             {
-                UE_LOG(LogTemp, Warning, TEXT("[Simulate FAIL] Wall@(%d,%d)L%d %s — out of bounds"),
-                    W.X, W.Y, W.Length, W.bHorizontal ? TEXT("H") : TEXT("V"));
                 return false;
             }
 
@@ -379,8 +385,6 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
 
         if (ComputePathToGoal(State, 1).Num() == 0 || ComputePathToGoal(State, 2).Num() == 0)
         {
-            UE_LOG(LogTemp, Warning, TEXT("[Simulate FAIL] Wall@(%d,%d)L%d %s — path blocked"),
-                W.X, W.Y, W.Length, W.bHorizontal ? TEXT("H") : TEXT("V"));
             return false;
         }
 
@@ -399,20 +403,15 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
 
         if (!bTouchesPath && !bIsNearPawn)
         {
-            UE_LOG(LogTemp, Warning, TEXT("[Not Useful] Wall@(%d,%d)L%d %s — not near pawn or path"),
-                W.X, W.Y, W.Length, W.bHorizontal ? TEXT("H") : TEXT("V"));
+
             return false;
         }
 
         if (delta <= 0 && distToOpponent > 2)
         {
-            UE_LOG(LogTemp, Warning, TEXT("[Not Useful] Wall@(%d,%d)L%d %s — no delay"),
-                W.X, W.Y, W.Length, W.bHorizontal ? TEXT("H") : TEXT("V"));
             return false;
         }
-
-        UE_LOG(LogTemp, Warning, TEXT("[Useful] Wall@(%d,%d)L%d %s => Δ=%d, dist=%d"),
-            W.X, W.Y, W.Length, W.bHorizontal ? TEXT("H") : TEXT("V"), delta, distToOpponent);
+        
         return true;
     };
 
@@ -432,7 +431,6 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
                 if (!SimulateWall(SS, W)) continue;
 
                 if (IsWallUseful(SS, W)) {
-                    UE_LOG(LogTemp, Warning, TEXT("[CAND] Wall(%d,%d)H len=%d — Accepted"), x, y, length);
                     Walls.Add(W);
                 }
             }
@@ -455,7 +453,6 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
                 if (!SimulateWall(SS, W)) continue;
 
                 if (IsWallUseful(SS, W)) {
-                    UE_LOG(LogTemp, Warning, TEXT("[CAND] Wall(%d,%d)V len=%d — Accepted"), x, y, length);
                     Walls.Add(W);
                 }
             }

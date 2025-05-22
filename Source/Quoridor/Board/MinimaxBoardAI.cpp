@@ -28,7 +28,7 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2Async()
     {
         // OR use a small delay like 0.1f if needed
         FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-        int32 Depth = 1;
+        int32 Depth = 3;
 
         Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth]()
         {
