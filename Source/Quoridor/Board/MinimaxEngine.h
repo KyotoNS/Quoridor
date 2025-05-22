@@ -37,6 +37,8 @@ struct FMinimaxState
     int32 PawnX[2];               // [0]=Player1, [1]=Player2
     int32 PawnY[2];
     int32 WallsRemaining[2];      // walls left per player
+    TArray<int32> AvailableWallLengthsForPlayer[2]; // [0] = Player 1, [1] = Player 2
+
 
     // Blocked edges by walls:
     // Horizontal[y][x]: between (x,y)<->(x,y+1)
@@ -69,14 +71,14 @@ namespace MinimaxEngine
 {
     int32 Evaluate(const FMinimaxState& S);
     TArray<FIntPoint> GetPawnMoves(const FMinimaxState& S, int32 PlayerNum);
-    TArray<FWallData>  GetWallPlacements(const FMinimaxState& S, int32 PlayerNum);
+    TArray<FWallData> GetWallPlacements(const FMinimaxState& S, int32 PlayerNum, const TArray<int32>& AvailableLengths);
     void ApplyPawnMove(FMinimaxState& S, int32 PlayerNum, int32 X, int32 Y);
     void ApplyWall    (FMinimaxState& S, int32 PlayerNum, const FWallData& W);
     int32 Minimax(FMinimaxState& S, int32 Depth, bool bMaximizing);
     FMinimaxAction Solve(const FMinimaxState& Initial, int32 Depth);
     static TArray<FIntPoint> ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength = nullptr);
     static bool WallTouchesPath(const FWallData& w, const TArray<FIntPoint>& Path);
-    TArray<FWallData>GetTargetedWallPlacements(const FMinimaxState& S, int32 PlayerNum);
+    TArray<FWallData> GetTargetedWallPlacements(const FMinimaxState& S, int32 PlayerNum, const TArray<int32>& AvailableLengths);
     static bool IsWallLegal(const FMinimaxState& S, const FWallData& W);
 
 }
