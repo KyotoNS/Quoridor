@@ -256,15 +256,20 @@ TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 Play
     int x = S.PawnX[idx];
     int y = S.PawnY[idx];
 
+    auto IsOccupied = [&](int tx, int ty) -> bool
+    {
+        return (S.PawnX[0] == tx && S.PawnY[0] == ty) || (S.PawnX[1] == tx && S.PawnY[1] == ty);
+    };
+
     auto CanStep = [&](int ax, int ay, int bx, int by)
     {
         if (bx < 0 || bx > 8 || by < 0 || by > 8)
             return false;
 
         if (bx == ax + 1 && S.VerticalBlocked[ay][ax]) return false;
-        if (bx == ax - 1 && S.VerticalBlocked[ay][bx]) return false;
+        if (bx == ax - 1 && ax - 1 >= 0 && S.VerticalBlocked[ay][ax - 1]) return false;
         if (by == ay + 1 && S.HorizontalBlocked[ay][ax]) return false;
-        if (by == ay - 1 && S.HorizontalBlocked[by][ax]) return false;
+        if (by == ay - 1 && ay - 1 >= 0 && S.HorizontalBlocked[ay - 1][ax]) return false;
 
         return true;
     };
@@ -276,49 +281,47 @@ TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 Play
         int nx = x + d.X;
         int ny = y + d.Y;
 
-        // Skip if blocked or out of bounds
         if (!CanStep(x, y, nx, ny))
             continue;
 
-        bool occupied = (S.PawnX[0] == nx && S.PawnY[0] == ny) || (S.PawnX[1] == nx && S.PawnY[1] == ny);
-        if (!occupied)
+        if (!IsOccupied(nx, ny))
         {
-            Out.Add({ nx, ny }); // Normal move
+            Out.Add({ nx, ny });
+            UE_LOG(LogTemp, Warning, TEXT("Generated Move: Normal (%d,%d)"), nx, ny);
         }
         else
         {
-            // Attempt jump straight
             int jx = nx + d.X;
             int jy = ny + d.Y;
 
-            if (CanStep(nx, ny, jx, jy) &&
-                !(S.PawnX[0] == jx && S.PawnY[0] == jy) &&
-                !(S.PawnX[1] == jx && S.PawnY[1] == jy))
+            if (CanStep(nx, ny, jx, jy) && !IsOccupied(jx, jy))
             {
-                Out.Add({ jx, jy }); // Straight jump
+                Out.Add({ jx, jy });
+                UE_LOG(LogTemp, Warning, TEXT("Generated Move: Jump (%d,%d)"), jx, jy);
             }
             else
             {
-                // Try side steps if blocked behind
                 FIntPoint perp[2] = { { d.Y, d.X }, { -d.Y, -d.X } };
+
                 for (const auto& p : perp)
                 {
                     int sx = nx + p.X;
                     int sy = ny + p.Y;
 
-                    if (CanStep(nx, ny, sx, sy) &&
-                        !(S.PawnX[0] == sx && S.PawnY[0] == sy) &&
-                        !(S.PawnX[1] == sx && S.PawnY[1] == sy))
+                    if (CanStep(nx, ny, sx, sy) && !IsOccupied(sx, sy))
                     {
-                        Out.Add({ sx, sy }); // Side step
+                        Out.Add({ sx, sy });
+                        UE_LOG(LogTemp, Warning, TEXT("Generated Move: Side (%d,%d)"), sx, sy);
                     }
                 }
             }
         }
     }
 
+    UE_LOG(LogTemp, Warning, TEXT("Total pawn moves generated for Player %d: %d"), PlayerNum, Out.Num());
     return Out;
 }
+
 
 
 TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32 PlayerNum, const TArray<int32>& AvailableLengths)
@@ -662,74 +665,47 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth)
     const int idx = root - 1;
     const int Opponent = 1;
 
-    // === WALL MOVES ===
-    if (Initial.WallsRemaining[idx] > 0)
+    // === PAWN MOVES ===
     {
-        const TArray<int32>& AvailableLengths = Initial.AvailableWallLengthsForPlayer[idx];
-        TArray<FWallData> WallCandidates = GetTargetedWallPlacements(Initial, root, AvailableLengths);
+        int32 beforeLen = 0;
+        ComputePathToGoal(Initial, root, &beforeLen);
 
-        UE_LOG(LogTemp, Warning, TEXT("=== Raw Wall Candidates (%d total) ==="), WallCandidates.Num());
-        for (const auto& w : WallCandidates)
+        for (const auto& mv : GetPawnMoves(Initial, root))
         {
-            UE_LOG(LogTemp, Warning, TEXT("Candidate Wall: (%d,%d) %s L=%d"),
-                w.X, w.Y, w.bHorizontal ? TEXT("H") : TEXT("V"), w.Length);
-        }
-
-        if (WallCandidates.Num() == 0)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("No wall candidates generated. Skipping wall move."));
-        }
-
-        for (const auto& w : WallCandidates)
-        {
-            if (!IsWallLegal(Initial, w))
-            {
-                UE_LOG(LogTemp, Warning, TEXT("[SKIP] Illegal wall candidate (%d,%d)L%d %s"),
-                    w.X, w.Y, w.Length, w.bHorizontal ? TEXT("H") : TEXT("V"));
-                continue;
-            }
-
             FMinimaxState SS = Initial;
-            ApplyWall(SS, root, w);
+            ApplyPawnMove(SS, root, mv.X, mv.Y);
 
-            int32 beforeLen = 0, afterLen = 0;
-            ComputePathToGoal(Initial, Opponent, &beforeLen);
-            TArray<FIntPoint> path = ComputePathToGoal(SS, Opponent, &afterLen);
+            int32 afterLen = 0;
+            ComputePathToGoal(SS, root, &afterLen);
 
-            if (afterLen >= 100)
-            {
-                UE_LOG(LogTemp, Warning, TEXT("[SKIP] Wall@(%d,%d)%s L=%d — would block path"),
-                    w.X, w.Y, w.bHorizontal ? TEXT("H") : TEXT("V"), w.Length);
-                continue;
-            }
-
-            int delta = afterLen - beforeLen;
+            int delta = beforeLen - afterLen;
             int32 v = Minimax(SS, Depth, false);
-            v += delta * 10;
+            v += delta * 15;  // reward shortening path
 
-            // Additional heuristics
-            if (!w.bHorizontal && w.Y >= 7) v += 5;
-            if ( w.bHorizontal && w.Y >= 7) v += 8;
+            UE_LOG(LogTemp, Warning, TEXT("[CAND] Move to (%d,%d) => Score=%d (Δ=%d)"),
+                mv.X, mv.Y, v, delta);
 
-            UE_LOG(LogTemp, Warning, TEXT("[CAND] Wall@(%d,%d)%s L=%d => Score=%d (Δ=%d)"),
-                w.X, w.Y, w.bHorizontal ? TEXT("H") : TEXT("V"), w.Length, v, delta);
-
-            if (v > bestAct.Score)
+            // Prefer higher score
+            // Break ties with closer-to-goal Y (greater Y)
+            // Break further ties with leftmost X (smaller X)
+            if (v > bestAct.Score ||
+                (v == bestAct.Score && mv.Y > bestAct.MoveY) ||
+                (v == bestAct.Score && mv.Y == bestAct.MoveY && mv.X < bestAct.MoveX))
             {
                 bestAct = FMinimaxAction{
-                    .bIsWall = true,
-                    .SlotX = w.X,
-                    .SlotY = w.Y,
-                    .WallLength = w.Length,
-                    .bHorizontal = w.bHorizontal,
+                    .bIsWall = false,
+                    .MoveX = mv.X,
+                    .MoveY = mv.Y,
                     .Score = v
                 };
             }
         }
     }
+    
 
     return bestAct;
 }
+
 
 
 
