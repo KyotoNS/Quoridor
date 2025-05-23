@@ -331,11 +331,12 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
         return Walls;
     }
 
-    int oppX = S.PawnX[0];
-    int oppY = S.PawnY[0];
+    const int32 Opponent = 3 - PlayerNum;
+    const int oppX = S.PawnX[Opponent - 1];
+    const int oppY = S.PawnY[Opponent - 1];
 
     int32 beforeDist = 0;
-    TArray<FIntPoint> OpponentPath = ComputePathToGoal(S, 1, &beforeDist);
+    TArray<FIntPoint> OpponentPath = ComputePathToGoal(S, Opponent, &beforeDist);
 
     auto IsWallLegal = [](const FMinimaxState& State, const FWallData& W)
     {
@@ -345,27 +346,18 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
             int y = W.bHorizontal ? W.Y : W.Y + offset;
 
             if (x < 0 || x >= 9 || y < 0 || y >= 9)
-            {
                 return false;
-            }
 
             if (W.bHorizontal && (x >= 8 || State.HorizontalBlocked[y][x]))
-            {
-
                 return false;
-            }
 
             if (!W.bHorizontal && (y >= 8 || State.VerticalBlocked[y][x]))
-            {
-
                 return false;
-            }
         }
-
         return true;
     };
 
-    auto SimulateWall = [](FMinimaxState& State, const FWallData& W)
+    auto SimulateWall = [](FMinimaxState& State, const FWallData& W) -> bool
     {
         for (int offset = 0; offset < W.Length; ++offset)
         {
@@ -373,9 +365,7 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
             int y = W.bHorizontal ? W.Y : W.Y + offset;
 
             if (x >= 9 || y >= 9)
-            {
                 return false;
-            }
 
             if (W.bHorizontal)
                 State.HorizontalBlocked[y][x] = true;
@@ -383,18 +373,13 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
                 State.VerticalBlocked[y][x] = true;
         }
 
-        if (ComputePathToGoal(State, 1).Num() == 0 || ComputePathToGoal(State, 2).Num() == 0)
-        {
-            return false;
-        }
-
-        return true;
+        return ComputePathToGoal(State, 1).Num() > 0 && ComputePathToGoal(State, 2).Num() > 0;
     };
 
     auto IsWallUseful = [&](const FMinimaxState& SimState, const FWallData& W)
     {
         int32 afterDist = 0;
-        ComputePathToGoal(SimState, 1, &afterDist);
+        ComputePathToGoal(SimState, Opponent, &afterDist);
         int delta = afterDist - beforeDist;
 
         int distToOpponent = FMath::Abs(W.X - oppX) + FMath::Abs(W.Y - oppY);
@@ -402,20 +387,15 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
         bool bIsNearPawn = (distToOpponent <= 2);
 
         if (!bTouchesPath && !bIsNearPawn)
-        {
-
             return false;
-        }
 
         if (delta <= 0 && distToOpponent > 2)
-        {
             return false;
-        }
-        
+
         return true;
     };
 
-    // Horizontal Walls
+    // === Horizontal Walls ===
     for (int length : AvailableLengths)
     {
         for (int y = 0; y < 9; ++y)
@@ -423,21 +403,21 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
             for (int x = 0; x <= 8 - length; ++x)
             {
                 FWallData W{ x, y, length, true };
+
                 if (!IsWallLegal(S, W)) continue;
 
                 FMinimaxState SS = S;
                 SS.WallsRemaining[PlayerNum - 1]--;
 
                 if (!SimulateWall(SS, W)) continue;
+                if (!IsWallUseful(SS, W)) continue;
 
-                if (IsWallUseful(SS, W)) {
-                    Walls.Add(W);
-                }
+                Walls.Add(W);
             }
         }
     }
 
-    // Vertical Walls
+    // === Vertical Walls ===
     for (int length : AvailableLengths)
     {
         for (int y = 0; y <= 8 - length; ++y)
@@ -445,16 +425,16 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
             for (int x = 0; x < 9; ++x)
             {
                 FWallData W{ x, y, length, false };
+
                 if (!IsWallLegal(S, W)) continue;
 
                 FMinimaxState SS = S;
                 SS.WallsRemaining[PlayerNum - 1]--;
 
                 if (!SimulateWall(SS, W)) continue;
+                if (!IsWallUseful(SS, W)) continue;
 
-                if (IsWallUseful(SS, W)) {
-                    Walls.Add(W);
-                }
+                Walls.Add(W);
             }
         }
     }
@@ -463,68 +443,68 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
     return Walls;
 }
 
-
 // Suggests smart wall placements around the enemy pawn
 TArray<FWallData> MinimaxEngine::GetTargetedWallPlacements(const FMinimaxState& S, int32 PlayerNum, const TArray<int32>& AvailableLengths)
 {
     TArray<FWallData> Results;
+
     const int32 Opponent = 3 - PlayerNum;
     const int oppX = S.PawnX[Opponent - 1];
     const int oppY = S.PawnY[Opponent - 1];
 
     UE_LOG(LogTemp, Warning, TEXT("Targeting walls around opponent at (%d, %d)"), oppX, oppY);
 
+    if (AvailableLengths.Num() == 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Player %d has no available wall lengths. Returning empty."), PlayerNum);
+        return Results;
+    }
+
     int32 beforeLen = 0;
     TArray<FIntPoint> pathBefore = ComputePathToGoal(S, Opponent, &beforeLen);
 
-    struct ScoredWall {
+    struct ScoredWall
+    {
         FWallData Wall;
         int Delta;
     };
-
     TArray<ScoredWall> Candidates;
 
-    auto SimulateAndScore = [&](FWallData W) -> bool
+    auto SimulateAndScore = [&](const FWallData& W) -> bool
     {
         if (!IsWallLegal(S, W))
             return false;
 
-        FMinimaxState SS = S;
+        FMinimaxState Simulated = S;
 
         for (int i = 0; i < W.Length; ++i)
         {
+            int x = W.bHorizontal ? W.X + i : W.X;
+            int y = W.bHorizontal ? W.Y : W.Y + i;
+
+            if (x >= 9 || y >= 9) return false;
+
             if (W.bHorizontal)
-            {
-                int x = W.X + i;
-                if (x >= 9 || W.Y >= 9) return false;
-                SS.HorizontalBlocked[W.Y][x] = true;
-            }
+                Simulated.HorizontalBlocked[y][x] = true;
             else
-            {
-                int y = W.Y + i;
-                if (y >= 9 || W.X >= 9) return false;
-                SS.VerticalBlocked[y][W.X] = true;
-            }
+                Simulated.VerticalBlocked[y][x] = true;
         }
 
-        if (ComputePathToGoal(SS, PlayerNum).Num() == 0) return false;
-        int32 lenAfter = 0;
-        TArray<FIntPoint> afterPath = ComputePathToGoal(SS, Opponent, &lenAfter);
+        if (ComputePathToGoal(Simulated, PlayerNum).Num() == 0)
+            return false;
+
+        int32 afterLen = 0;
+        TArray<FIntPoint> afterPath = ComputePathToGoal(Simulated, Opponent, &afterLen);
         if (afterPath.Num() == 0) return false;
 
-        int delta = lenAfter - beforeLen;
+        int delta = afterLen - beforeLen;
         if (delta <= 0) return false;
 
         Candidates.Add({W, delta});
         return true;
     };
 
-    if (AvailableLengths.Num() == 0)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Player %d has no wall lengths available."), PlayerNum);
-        return Results;
-    }
-
+    // Try placing walls of each allowed length near the opponent's pawn
     for (int len : AvailableLengths)
     {
         for (int dy = -2; dy <= 2; ++dy)
@@ -540,12 +520,14 @@ TArray<FWallData> MinimaxEngine::GetTargetedWallPlacements(const FMinimaxState& 
                 if (cx < 2 && oppX >= 3)
                     continue;
 
+                // Try horizontal
                 if (cx + len - 1 < 9)
                 {
                     FWallData W = {cx, cy, len, true};
                     SimulateAndScore(W);
                 }
 
+                // Try vertical
                 if (cy + len - 1 < 9)
                 {
                     FWallData W = {cx, cy, len, false};
@@ -555,7 +537,9 @@ TArray<FWallData> MinimaxEngine::GetTargetedWallPlacements(const FMinimaxState& 
         }
     }
 
-    Candidates.Sort([](const ScoredWall& A, const ScoredWall& B) {
+    // Sort by highest delta first (more delay = better)
+    Candidates.Sort([](const ScoredWall& A, const ScoredWall& B)
+    {
         return A.Delta > B.Delta;
     });
 
@@ -564,9 +548,9 @@ TArray<FWallData> MinimaxEngine::GetTargetedWallPlacements(const FMinimaxState& 
         Results.Add(Entry.Wall);
     }
 
+    UE_LOG(LogTemp, Warning, TEXT("GetTargetedWallPlacements: Returning %d walls"), Results.Num());
     return Results;
 }
-
 
 
 
@@ -641,13 +625,6 @@ int32 MinimaxEngine::Minimax(FMinimaxState& S, int32 Depth, bool bMax)
 
             for (const auto& w : GetWallPlacements(S, player, AvailableLengths))
             {
-                if (!AvailableLengths.Contains(w.Length))
-                {
-                    UE_LOG(LogTemp, Warning, TEXT("[Minimax SKIP] Wall@(%d,%d)L%d %s — not owned"),
-                        w.X, w.Y, w.Length, w.bHorizontal ? TEXT("H") : TEXT("V"));
-                    continue;
-                }
-
                 if (!WallTouchesPath(w, beforePath))
                     continue;
 
@@ -659,7 +636,6 @@ int32 MinimaxEngine::Minimax(FMinimaxState& S, int32 Depth, bool bMax)
                 int32 delta = afterLen - beforeLen;
 
                 int distToOpponent = FMath::Abs(w.X - oppX) + FMath::Abs(w.Y - oppY);
-
                 if (delta <= 0 && distToOpponent > 2)
                     continue;
 
@@ -675,12 +651,10 @@ int32 MinimaxEngine::Minimax(FMinimaxState& S, int32 Depth, bool bMax)
     return best;
 }
 
-        
-
 FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth)
 {
     UE_LOG(LogTemp, Warning, TEXT("=== MinimaxEngine::Solve depth=%d ==="), Depth);
-    
+
     FMinimaxAction bestAct;
     bestAct.Score = INT_MIN;
 
@@ -693,7 +667,7 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth)
     {
         const TArray<int32>& AvailableLengths = Initial.AvailableWallLengthsForPlayer[idx];
         TArray<FWallData> WallCandidates = GetTargetedWallPlacements(Initial, root, AvailableLengths);
-        
+
         UE_LOG(LogTemp, Warning, TEXT("=== Raw Wall Candidates (%d total) ==="), WallCandidates.Num());
         for (const auto& w : WallCandidates)
         {
@@ -703,33 +677,11 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth)
 
         if (WallCandidates.Num() == 0)
         {
-            UE_LOG(LogTemp, Warning, TEXT("No wall candidates generated. Trying fallback wall."));
-
-            FWallData Fallback;
-            Fallback.X = Initial.PawnX[Opponent - 1];
-            Fallback.Y = Initial.PawnY[Opponent - 1];
-            Fallback.Length = 1;
-            Fallback.bHorizontal = true;
-
-            if (AvailableLengths.Contains(Fallback.Length))
-            {
-                WallCandidates.Add(Fallback);
-            }
-            else
-            {
-                UE_LOG(LogTemp, Warning, TEXT("Fallback wall length L=1 not available — skipped"));
-            }
+            UE_LOG(LogTemp, Warning, TEXT("No wall candidates generated. Skipping wall move."));
         }
 
         for (const auto& w : WallCandidates)
         {
-            if (!AvailableLengths.Contains(w.Length))
-            {
-                UE_LOG(LogTemp, Warning, TEXT("[SKIP] Wall@(%d,%d)L%d %s — not in inventory"),
-                    w.X, w.Y, w.Length, w.bHorizontal ? TEXT("H") : TEXT("V"));
-                continue;
-            }
-
             if (!IsWallLegal(Initial, w))
             {
                 UE_LOG(LogTemp, Warning, TEXT("[SKIP] Illegal wall candidate (%d,%d)L%d %s"),
@@ -752,7 +704,6 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth)
             }
 
             int delta = afterLen - beforeLen;
-
             int32 v = Minimax(SS, Depth, false);
             v += delta * 10;
 
@@ -779,6 +730,7 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth)
 
     return bestAct;
 }
+
 
 
 
