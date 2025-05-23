@@ -701,7 +701,72 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth)
             }
         }
     }
-    
+
+    // === WALL MOVES ===
+    if (Initial.WallsRemaining[idx] > 0)
+    {
+        const TArray<int32>& AvailableLengths = Initial.AvailableWallLengthsForPlayer[idx];
+        TArray<FWallData> WallCandidates = GetTargetedWallPlacements(Initial, root, AvailableLengths);
+
+        UE_LOG(LogTemp, Warning, TEXT("=== Raw Wall Candidates (%d total) ==="), WallCandidates.Num());
+        for (const auto& w : WallCandidates)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Candidate Wall: (%d,%d) %s L=%d"),
+                w.X, w.Y, w.bHorizontal ? TEXT("H") : TEXT("V"), w.Length);
+        }
+
+        if (WallCandidates.Num() == 0)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("No wall candidates generated. Skipping wall move."));
+        }
+
+        for (const auto& w : WallCandidates)
+        {
+            if (!IsWallLegal(Initial, w))
+            {
+                UE_LOG(LogTemp, Warning, TEXT("[SKIP] Illegal wall candidate (%d,%d)L%d %s"),
+                    w.X, w.Y, w.Length, w.bHorizontal ? TEXT("H") : TEXT("V"));
+                continue;
+            }
+
+            FMinimaxState SS = Initial;
+            ApplyWall(SS, root, w);
+
+            int32 beforeLen = 0, afterLen = 0;
+            ComputePathToGoal(Initial, Opponent, &beforeLen);
+            TArray<FIntPoint> path = ComputePathToGoal(SS, Opponent, &afterLen);
+
+            if (afterLen >= 100)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("[SKIP] Wall@(%d,%d)%s L=%d — would block path"),
+                    w.X, w.Y, w.bHorizontal ? TEXT("H") : TEXT("V"), w.Length);
+                continue;
+            }
+
+            int delta = afterLen - beforeLen;
+            int32 v = Minimax(SS, Depth, false);
+            v += delta * 10;
+
+            // Additional heuristics
+            if (!w.bHorizontal && w.Y >= 7) v += 5;
+            if ( w.bHorizontal && w.Y >= 7) v += 8;
+
+            UE_LOG(LogTemp, Warning, TEXT("[CAND] Wall@(%d,%d)%s L=%d => Score=%d (Δ=%d)"),
+                w.X, w.Y, w.bHorizontal ? TEXT("H") : TEXT("V"), w.Length, v, delta);
+
+            if (v > bestAct.Score)
+            {
+                bestAct = FMinimaxAction{
+                    .bIsWall = true,
+                    .SlotX = w.X,
+                    .SlotY = w.Y,
+                    .WallLength = w.Length,
+                    .bHorizontal = w.bHorizontal,
+                    .Score = v
+                };
+            }
+        }
+    }
 
     return bestAct;
 }
