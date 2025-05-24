@@ -265,7 +265,6 @@ TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 Play
         if (!IsOccupied(nx, ny))
         {
             Out.Add({ nx, ny });
-            UE_LOG(LogTemp, Warning, TEXT("Generated Move: Normal (%d,%d)"), nx, ny);
         }
         else
         {
@@ -275,7 +274,6 @@ TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 Play
             if (CanStep(nx, ny, jx, jy) && !IsOccupied(jx, jy))
             {
                 Out.Add({ jx, jy });
-                UE_LOG(LogTemp, Warning, TEXT("Generated Move: Jump (%d,%d)"), jx, jy);
             }
             else
             {
@@ -289,14 +287,12 @@ TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 Play
                     if (CanStep(nx, ny, sx, sy) && !IsOccupied(sx, sy))
                     {
                         Out.Add({ sx, sy });
-                        UE_LOG(LogTemp, Warning, TEXT("Generated Move: Side (%d,%d)"), sx, sy);
                     }
                 }
             }
         }
     }
-
-    UE_LOG(LogTemp, Warning, TEXT("Total pawn moves generated for Player %d: %d"), PlayerNum, Out.Num());
+    
     return Out;
 }
 
@@ -417,8 +413,7 @@ TArray<FWallData> MinimaxEngine::GetWallPlacements(const FMinimaxState& S, int32
             }
         }
     }
-
-    UE_LOG(LogTemp, Warning, TEXT("GetWallPlacements: Returning %d candidate walls"), Walls.Num());
+    
     return Walls;
 }
 
