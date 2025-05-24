@@ -12,6 +12,13 @@ class AQuoridorPawn;
 class AWallSlot;
 
 
+UENUM(BlueprintType)
+enum class EPlayerType : uint8
+{
+	Human UMETA(DisplayName = "Human"),
+	AI UMETA(DisplayName = "AI")
+};
+
 UCLASS()
 class QUORIDOR_API AQuoridorBoard : public AActor
 {
@@ -22,11 +29,14 @@ public:
 	UPROPERTY(BlueprintReadWrite, VisibleInstanceOnly)
 	AQuoridorPawn* SelectedPawn;
 	
+	UPROPERTY(BlueprintReadOnly)
+	TArray<EPlayerType> PlayerTypes;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 CurrentPlayerTurn = 1;
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Board")
 	int32 GridSize = 9;
-	
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Gameplay")
-	int32 CurrentPlayerTurn = 1;
 	
 	TArray<TArray<ATile*>> Tiles;
 	

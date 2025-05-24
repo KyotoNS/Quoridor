@@ -32,7 +32,7 @@ void AMinimaxBoardAI::RunMinimaxForPlayer2Async()
 
         Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth]()
         {
-            FMinimaxAction Action = MinimaxEngine::Solve(StateSnapshot, Depth);
+            FMinimaxAction Action = MinimaxEngine::Solve(StateSnapshot, Depth, 2);
 
             AsyncTask(ENamedThreads::GameThread, [this, Action]()
             {
