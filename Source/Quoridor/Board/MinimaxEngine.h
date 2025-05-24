@@ -69,12 +69,12 @@ struct FWallData
 //-----------------------------------------------------------------------------
 namespace MinimaxEngine
 {
-    int32 Evaluate(const FMinimaxState& S);
+    int32 Evaluate(const FMinimaxState& S, int32 RootPlayer);
     TArray<FIntPoint> GetPawnMoves(const FMinimaxState& S, int32 PlayerNum);
     TArray<FWallData> GetWallPlacements(const FMinimaxState& S, int32 PlayerNum, const TArray<int32>& AvailableLengths);
     void ApplyPawnMove(FMinimaxState& S, int32 PlayerNum, int32 X, int32 Y);
     void ApplyWall    (FMinimaxState& S, int32 PlayerNum, const FWallData& W);
-    int32 Minimax(FMinimaxState& S, int32 Depth, bool bMaximizing);
+    int32 Minimax(FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer);
     FMinimaxAction Solve(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
     FMinimaxAction SolveParallel(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
     static TArray<FIntPoint> ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength = nullptr);

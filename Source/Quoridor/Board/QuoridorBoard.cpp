@@ -195,11 +195,6 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 		{
 			SelectedPawn->MoveToTile(ClickedTile);
 			CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
-
-			if (IsA(AMinimaxBoardAI::StaticClass()) && CurrentPlayerTurn == 2)
-			{
-				Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2Async();
-			}
 		}
 
 		ClearSelection();
@@ -342,11 +337,6 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 	HideWallPreview();
 
 	CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
-
-	if (IsA(AMinimaxBoardAI::StaticClass()) && CurrentPlayerTurn == 2)
-	{
-		Cast<AMinimaxBoardAI>(this)->RunMinimaxForPlayer2Async();
-	}
 
 	UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed. Turn now: Player %d"), CurrentPlayerTurn);
 	return true;

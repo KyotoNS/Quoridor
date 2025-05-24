@@ -19,9 +19,11 @@ public:
 	AMinimaxBoardAI();
 	
 	virtual void Tick(float DeltaTime) override;
-	void RunMinimaxForPlayer2();
 
-	void RunMinimaxForPlayer2Async();
+	void RunMinimaxForCurrentPlayerAsync();
+	UPROPERTY()
+	bool bIsAITurnRunning = false;
+
 
 private:
 	// Future to hold the async result
