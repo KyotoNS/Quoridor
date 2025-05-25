@@ -670,11 +670,10 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth, i
 {
     UE_LOG(LogTemp, Warning, TEXT("=== MinimaxEngine::Solve | Root=%d | Depth=%d ==="), RootPlayer, Depth);
 
-    FMinimaxAction bestAct;
-    bestAct.Score = INT_MIN;
-
     const int idx = RootPlayer - 1;
     const int Opponent = 3 - RootPlayer;
+
+    TArray<FMinimaxAction> Candidates;
 
     int32 AILength = 0, OppLength = 0;
     ComputePathToGoal(Initial, RootPlayer, &AILength);
@@ -682,87 +681,119 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth, i
 
     UE_LOG(LogTemp, Warning, TEXT("AI Path: %d | Opponent Path: %d"), AILength, OppLength);
 
-    // === PAWN MOVES ===
-    int32 beforeLen = AILength;
+    // === Generate all possible candidate moves ===
     for (const auto& mv : GetPawnMoves(Initial, RootPlayer))
     {
-        FMinimaxState SS = Initial;
-        ApplyPawnMove(SS, RootPlayer, mv.X, mv.Y);
-
-        int32 afterLen = 0;
-        ComputePathToGoal(SS, RootPlayer, &afterLen);
-        int delta = beforeLen - afterLen;
-
-        bool bIsJump = false;
-        int dx = FMath::Abs(mv.X - Initial.PawnX[idx]);
-        int dy = FMath::Abs(mv.Y - Initial.PawnY[idx]);
-        if ((dx == 2 && dy == 0) || (dy == 2 && dx == 0))
-        {
-            bIsJump = true;
-        }
-
-        int32 v = Minimax(SS, Depth, RootPlayer, Opponent);
-        v += delta * 15;
-        if (bIsJump) v += 10;
-
-        UE_LOG(LogTemp, Warning, TEXT("[CAND] Move to (%d,%d) => Score=%d (Δ=%d)%s"),
-            mv.X, mv.Y, v, delta, bIsJump ? TEXT(" [JUMP]") : TEXT(""));
-
-        if (v > bestAct.Score ||
-            (v == bestAct.Score && mv.Y > bestAct.MoveY) ||
-            (v == bestAct.Score && mv.Y == bestAct.MoveY && mv.X < bestAct.MoveX))
-        {
-            bestAct = FMinimaxAction{ false, mv.X, mv.Y, 0, false, v };
-        }
+        Candidates.Add(FMinimaxAction{
+            .bIsWall = false,
+            .MoveX = mv.X,
+            .MoveY = mv.Y
+        });
     }
 
-    // === WALL MOVES ===
     if (Initial.WallsRemaining[idx] > 0)
     {
         const TArray<int32>& AvailableLengths = Initial.AvailableWallLengthsForPlayer[idx];
-        TArray<FWallData> WallCandidates = GetTargetedWallPlacements(Initial, RootPlayer, AvailableLengths);
+        TArray<FWallData> WallMoves = GetTargetedWallPlacements(Initial, RootPlayer, AvailableLengths);
 
-        for (const auto& w : WallCandidates)
+        for (const auto& w : WallMoves)
         {
-            if (!IsWallLegal(Initial, w)) continue;
+            Candidates.Add(FMinimaxAction{
+                .bIsWall = true,
+                .SlotX = w.X,
+                .SlotY = w.Y,
+                .WallLength = w.Length,
+                .bHorizontal = w.bHorizontal
+            });
+        }
+    }
 
-            FMinimaxState SS = Initial;
+    // === Score each candidate ===
+    TArray<int32> Scores;
+    Scores.SetNumZeroed(Candidates.Num());
+
+    for (int32 i = 0; i < Candidates.Num(); ++i)
+    {
+        const FMinimaxAction& act = Candidates[i];
+        FMinimaxState SS = Initial;
+        int32 score = INT_MIN;
+
+        if (act.bIsWall)
+        {
+            FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
+            if (!IsWallLegal(Initial, w))
+            {
+                Scores[i] = INT_MIN;
+                continue;
+            }
+
             ApplyWall(SS, RootPlayer, w);
 
             int32 OppBefore = 0, OppAfter = 0;
             int32 SelfBefore = 0, SelfAfter = 0;
-
             ComputePathToGoal(Initial, Opponent, &OppBefore);
             ComputePathToGoal(Initial, RootPlayer, &SelfBefore);
-
             ComputePathToGoal(SS, Opponent, &OppAfter);
             ComputePathToGoal(SS, RootPlayer, &SelfAfter);
 
-            if (OppAfter >= 100) continue;
-
-            int32 OppDelta = OppAfter - OppBefore;
-            int32 SelfDelta = SelfAfter - SelfBefore;
-            int32 NetGain = OppDelta - SelfDelta;
-
-            int32 v = Minimax(SS, Depth, RootPlayer, Opponent);
-            v += NetGain * 12; // Strategic scoring based on path impact
-
-            // Positional bonuses
-            if (!w.bHorizontal && w.Y >= 7) v += 5;
-            if (w.bHorizontal && w.Y >= 7) v += 8;
-
-            UE_LOG(LogTemp, Warning, TEXT("[CAND] Wall@(%d,%d)%s L=%d => Score=%d (NetGain=%d)"),
-                w.X, w.Y, w.bHorizontal ? TEXT("H") : TEXT("V"), w.Length, v, NetGain);
-
-            if (v > bestAct.Score)
+            if (OppAfter >= 100)
             {
-                bestAct = FMinimaxAction{ true, w.X, w.Y, w.Length, w.bHorizontal, v };
+                Scores[i] = INT_MIN;
+                continue;
             }
+
+            int OppDelta = OppAfter - OppBefore;
+            int SelfDelta = SelfAfter - SelfBefore;
+            int NetGain = OppDelta - SelfDelta;
+
+            score = Minimax(SS, Depth, RootPlayer, Opponent) + NetGain * 12;
+
+            if (!w.bHorizontal && w.Y >= 7) score += 5;
+            if ( w.bHorizontal && w.Y >= 7) score += 8;
+        }
+        else
+        {
+            ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
+
+            int32 afterLen = 0;
+            ComputePathToGoal(SS, RootPlayer, &afterLen);
+            int delta = AILength - afterLen;
+
+            bool bIsJump = false;
+            int dx = FMath::Abs(act.MoveX - Initial.PawnX[idx]);
+            int dy = FMath::Abs(act.MoveY - Initial.PawnY[idx]);
+            if ((dx == 2 && dy == 0) || (dy == 2 && dx == 0))
+                bIsJump = true;
+
+            score = Minimax(SS, Depth, RootPlayer, Opponent) + delta * 15;
+            if (bIsJump) score += 10;
+        }
+
+        Scores[i] = score;
+    }
+
+    // === Select best scored action ===
+    FMinimaxAction BestAct;
+    BestAct.Score = INT_MIN;
+
+    for (int32 i = 0; i < Candidates.Num(); ++i)
+    {
+        if (Scores[i] > BestAct.Score)
+        {
+            BestAct = Candidates[i];
+            BestAct.Score = Scores[i];
         }
     }
 
-    return bestAct;
+    UE_LOG(LogTemp, Warning, TEXT("=> Solve selected: %s (Score=%d)"),
+        BestAct.bIsWall ?
+            *FString::Printf(TEXT("Wall @(%d,%d) %s"), BestAct.SlotX, BestAct.SlotY, BestAct.bHorizontal ? TEXT("H") : TEXT("V")) :
+            *FString::Printf(TEXT("Move to (%d,%d)"), BestAct.MoveX, BestAct.MoveY),
+        BestAct.Score);
+
+    return BestAct;
 }
+
 
 
 FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer)
