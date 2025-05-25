@@ -20,12 +20,15 @@ public:
 	void BeginPlay();
 
 	virtual void Tick(float DeltaTime) override;
+	void RunMinimaxForCurrentPlayerAsync2(int32 Player);
 
-	void RunMinimaxForCurrentPlayerAsync();
+	void RunMinimaxForCurrentPlayerAsync(int32 Player);
 	UPROPERTY()
 	bool bIsAITurnRunning = false;
 	float ElapsedTime;
 	bool bDelayPassed;
+	int AI1Player;
+	int AI2Player;
 
 private:
 	// Future to hold the async result

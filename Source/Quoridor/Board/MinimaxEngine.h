@@ -77,7 +77,7 @@ namespace MinimaxEngine
     int32 Minimax(FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer);
     FMinimaxAction Solve(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
     FMinimaxAction SolveParallel(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
-    static TArray<FIntPoint> ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength = nullptr);
+    static TArray<FIntPoint> ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength = false);
     static bool WallTouchesPath(const FWallData& w, const TArray<FIntPoint>& Path);
     TArray<FWallData> GetTargetedWallPlacements(const FMinimaxState& S, int32 PlayerNum, const TArray<int32>& AvailableLengths);
     static bool IsWallLegal(const FMinimaxState& S, const FWallData& W);
