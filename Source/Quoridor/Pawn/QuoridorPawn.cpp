@@ -21,9 +21,9 @@ AQuoridorPawn::AQuoridorPawn()
 	PlayerNumber = 1;
 }
 
-void AQuoridorPawn::MoveToTile(ATile* NewTile)
+void AQuoridorPawn::MoveToTile(ATile* NewTile, bool bForceMove)
 {
-	if (NewTile && CanMoveToTile(NewTile))
+	if (NewTile && (bForceMove || CanMoveToTile(NewTile)))
 	{
 		if (CurrentTile) 
 		{
@@ -34,19 +34,20 @@ void AQuoridorPawn::MoveToTile(ATile* NewTile)
 		CurrentTile->SetPawnOnTile(this);
 		SetActorLocation(CurrentTile->GetActorLocation() + FVector(0, 0, 50));
 
-		UE_LOG(LogTemp, Warning, TEXT("Moved pawn to tile (%d, %d)"), GridX, GridY);
+		UE_LOG(LogTemp, Warning, TEXT("Moved pawn to tile (%d, %d)"), CurrentTile->GridX, CurrentTile->GridY);
 
 		// Cek kemenangan
 		if (BoardReference)
 		{
 			int32 FinalRow = (PlayerNumber == 1) ? BoardReference->GridSize - 1 : 0;
-			if (CurrentTile && CurrentTile->GridY == FinalRow)
+			if (CurrentTile->GridY == FinalRow)
 			{
 				BoardReference->HandleWin(PlayerNumber);
 			}
 		}
 	}
 }
+
 
 bool AQuoridorPawn::CanMoveToTile(const ATile* TargetTile) const
 {

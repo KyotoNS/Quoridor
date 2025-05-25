@@ -21,7 +21,7 @@ public:
 	AQuoridorBoard* BoardReference;
 
 	UFUNCTION(BlueprintCallable)
-	void MoveToTile(ATile* NewTile);
+	void MoveToTile(ATile* NewTile, bool bForceMove);
 
 	UFUNCTION(BlueprintCallable)
 	bool CanMoveToTile(const ATile* TargetTile) const;

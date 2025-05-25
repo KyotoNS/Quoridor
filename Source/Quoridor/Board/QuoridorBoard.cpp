@@ -193,7 +193,7 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 
 		if (bIsAI || SelectedPawn->CanMoveToTile(ClickedTile))
 		{
-			SelectedPawn->MoveToTile(ClickedTile);
+			SelectedPawn->MoveToTile(ClickedTile, false);
 			CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
 		}
 

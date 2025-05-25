@@ -17,13 +17,15 @@ class QUORIDOR_API AMinimaxBoardAI : public AQuoridorBoard
 
 public:
 	AMinimaxBoardAI();
-	
+	void BeginPlay();
+
 	virtual void Tick(float DeltaTime) override;
 
 	void RunMinimaxForCurrentPlayerAsync();
 	UPROPERTY()
 	bool bIsAITurnRunning = false;
-
+	float ElapsedTime;
+	bool bDelayPassed;
 
 private:
 	// Future to hold the async result
