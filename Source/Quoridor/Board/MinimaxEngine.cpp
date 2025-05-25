@@ -76,7 +76,7 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
         {
             int x = Slot->GridX;
             int y = Slot->GridY;
-            if (x >= 0 && x < 8 && y >= 0 && y < 9)
+            if (x >= 0 && x <= 8 && y >= 0 && y < 9)
             {
                 S.HorizontalBlocked[y][x] = true;
                 UE_LOG(LogTemp, Warning, TEXT("Occupied HWall at (%d, %d)"), x, y);
@@ -91,7 +91,7 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
         {
             int x = Slot->GridX;
             int y = Slot->GridY;
-            if (x >= 0 && x < 9 && y >= 0 && y < 8)
+            if (x >= 0 && x < 9 && y >= 0 && y <= 8)
             {
                 S.VerticalBlocked[y][x] = true;
                 UE_LOG(LogTemp, Warning, TEXT("Occupied VWall at (%d, %d)"), x, y);
@@ -679,13 +679,8 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth, i
     int32 AILength = 0, OppLength = 0;
     ComputePathToGoal(Initial, RootPlayer, &AILength);
     ComputePathToGoal(Initial, Opponent, &OppLength);
-    bool bBehind = (AILength > OppLength);
 
-    UE_LOG(LogTemp, Warning, TEXT("AI Path: %d | Opponent Path: %d | Behind? %s"),
-        AILength, OppLength, bBehind ? TEXT("YES") : TEXT("NO"));
-
-    const int WallBonusBase = 12;
-    const int WallBonusPerDelta = 5;
+    UE_LOG(LogTemp, Warning, TEXT("AI Path: %d | Opponent Path: %d"), AILength, OppLength);
 
     // === PAWN MOVES ===
     int32 beforeLen = AILength;
@@ -696,7 +691,6 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth, i
 
         int32 afterLen = 0;
         ComputePathToGoal(SS, RootPlayer, &afterLen);
-
         int delta = beforeLen - afterLen;
 
         bool bIsJump = false;
@@ -709,8 +703,6 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth, i
 
         int32 v = Minimax(SS, Depth, RootPlayer, Opponent);
         v += delta * 15;
-
-        if (bBehind) v -= 6;
         if (bIsJump) v += 10;
 
         UE_LOG(LogTemp, Warning, TEXT("[CAND] Move to (%d,%d) => Score=%d (Δ=%d)%s"),
@@ -730,7 +722,6 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth, i
         const TArray<int32>& AvailableLengths = Initial.AvailableWallLengthsForPlayer[idx];
         TArray<FWallData> WallCandidates = GetTargetedWallPlacements(Initial, RootPlayer, AvailableLengths);
 
-        int32 wallBeforeLen = OppLength;
         for (const auto& w : WallCandidates)
         {
             if (!IsWallLegal(Initial, w)) continue;
@@ -738,20 +729,30 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth, i
             FMinimaxState SS = Initial;
             ApplyWall(SS, RootPlayer, w);
 
-            int32 afterLen = 0;
-            ComputePathToGoal(SS, Opponent, &afterLen);
-            if (afterLen >= 100) continue;
+            int32 OppBefore = 0, OppAfter = 0;
+            int32 SelfBefore = 0, SelfAfter = 0;
 
-            int delta = afterLen - wallBeforeLen;
+            ComputePathToGoal(Initial, Opponent, &OppBefore);
+            ComputePathToGoal(Initial, RootPlayer, &SelfBefore);
+
+            ComputePathToGoal(SS, Opponent, &OppAfter);
+            ComputePathToGoal(SS, RootPlayer, &SelfAfter);
+
+            if (OppAfter >= 100) continue;
+
+            int32 OppDelta = OppAfter - OppBefore;
+            int32 SelfDelta = SelfAfter - SelfBefore;
+            int32 NetGain = OppDelta - SelfDelta;
+
             int32 v = Minimax(SS, Depth, RootPlayer, Opponent);
-            v += delta * 10;
+            v += NetGain * 12; // Strategic scoring based on path impact
 
-            if (bBehind) v += WallBonusBase + delta * WallBonusPerDelta;
+            // Positional bonuses
             if (!w.bHorizontal && w.Y >= 7) v += 5;
             if (w.bHorizontal && w.Y >= 7) v += 8;
 
-            UE_LOG(LogTemp, Warning, TEXT("[CAND] Wall@(%d,%d)%s L=%d => Score=%d (Δ=%d)"),
-                w.X, w.Y, w.bHorizontal ? TEXT("H") : TEXT("V"), w.Length, v, delta);
+            UE_LOG(LogTemp, Warning, TEXT("[CAND] Wall@(%d,%d)%s L=%d => Score=%d (NetGain=%d)"),
+                w.X, w.Y, w.bHorizontal ? TEXT("H") : TEXT("V"), w.Length, v, NetGain);
 
             if (v > bestAct.Score)
             {
@@ -764,6 +765,7 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth, i
 }
 
 
+
 FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer)
 {
     UE_LOG(LogTemp, Warning, TEXT("=== SolveParallel: Root Player = %d | Depth = %d ==="), RootPlayer, Depth);
@@ -773,17 +775,11 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
 
     TArray<FMinimaxAction> Candidates;
 
-    // === Path length evaluation ===
     int32 AILength = 0, OppLength = 0;
     ComputePathToGoal(Initial, RootPlayer, &AILength);
     ComputePathToGoal(Initial, Opponent, &OppLength);
-    bool bBehind = (AILength > OppLength);
 
-    UE_LOG(LogTemp, Warning, TEXT("AI Path: %d | Opponent Path: %d | Behind? %s"),
-        AILength, OppLength, bBehind ? TEXT("YES") : TEXT("NO"));
-
-    const int WallBonusBase = 12;
-    const int WallBonusPerDelta = 5;
+    UE_LOG(LogTemp, Warning, TEXT("AI Path: %d | Opponent Path: %d"), AILength, OppLength);
 
     // === Generate pawn move candidates ===
     for (const auto& mv : GetPawnMoves(Initial, RootPlayer))
@@ -829,18 +825,23 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
 
             ApplyWall(SS, RootPlayer, w);
 
-            int32 afterLen = 0;
-            ComputePathToGoal(SS, Opponent, &afterLen);
-            if (afterLen >= 100) return;
+            int32 OppBefore = 0, OppAfter = 0;
+            int32 SelfBefore = 0, SelfAfter = 0;
+            ComputePathToGoal(Initial, Opponent, &OppBefore);
+            ComputePathToGoal(Initial, RootPlayer, &SelfBefore);
+            ComputePathToGoal(SS, Opponent, &OppAfter);
+            ComputePathToGoal(SS, RootPlayer, &SelfAfter);
 
-            int delta = afterLen - OppLength;
-            score = Minimax(SS, Depth, RootPlayer, Opponent) + delta * 10;
+            if (OppAfter >= 100) return;
 
-            if (bBehind)
-                score += WallBonusBase + delta * WallBonusPerDelta;
+            int OppDelta = OppAfter - OppBefore;
+            int SelfDelta = SelfAfter - SelfBefore;
+            int NetGain = OppDelta - SelfDelta;
+
+            score = Minimax(SS, Depth, RootPlayer, Opponent) + NetGain * 12;
 
             if (!w.bHorizontal && w.Y >= 7) score += 5;
-            if (w.bHorizontal && w.Y >= 7)  score += 8;
+            if ( w.bHorizontal && w.Y >= 7) score += 8;
         }
         else
         {
@@ -857,7 +858,6 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
                 bIsJump = true;
 
             score = Minimax(SS, Depth, RootPlayer, Opponent) + delta * 15;
-            if (bBehind) score -= 6;
             if (bIsJump) score += 10;
         }
 
@@ -879,6 +879,7 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
 
     return BestAct;
 }
+
 
 
 
