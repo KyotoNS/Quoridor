@@ -54,19 +54,19 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         UE_LOG(LogTemp, Warning, TEXT("AI logic delay passed, starting AI..."));
     }
     
-    if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
-    {
-        AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
-        if (P && P->GetTile())
-        {
-            bIsAITurnRunning = true;
-            RunMinimaxForCurrentPlayerAsync(AI1Player);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
-        }
-    }
+    // if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
+    // {
+    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
+    //     if (P && P->GetTile())
+    //     {
+    //         bIsAITurnRunning = true;
+    //         RunMinimaxForCurrentPlayerAsync(AI1Player);
+    //     }
+    //     else
+    //     {
+    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
+    //     }
+    // }
     if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
     {
         AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
@@ -83,42 +83,42 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
 }
 
 
-void AMinimaxBoardAI::RunMinimaxForCurrentPlayerAsync(int32 Player)
-{
-    if (bMinimaxInProgress)
-        return;
-
-    const int32 AIPlayer = Player;  // Determine which player is AI right now
-
-    bMinimaxInProgress = true;
-
-    GetWorld()->GetTimerManager().SetTimerForNextTick([this, AIPlayer]()
-    {
-        FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-        int32 Depth = 3;
-
-        Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
-        {
-            FMinimaxAction Action = MinimaxEngine::SolveParallel(StateSnapshot, Depth, AIPlayer);
-
-            AsyncTask(ENamedThreads::GameThread, [this, Action, AIPlayer]()
-            {
-                ExecuteAction(Action);
-
-                // Swap turn after action is done
-                CurrentPlayerTurn = (AIPlayer == 1) ? 2 : 1;
-                SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);  // Now it's the next player's turn
-                bMinimaxInProgress = false;
-
-                UE_LOG(LogTemp, Warning, TEXT("=> Engine chose: %s (score=%d)"),
-                    Action.bIsWall ?
-                        *FString::Printf(TEXT("Wall @(%d,%d) %s"), Action.SlotX, Action.SlotY, Action.bHorizontal ? TEXT("H") : TEXT("V")) :
-                        *FString::Printf(TEXT("Move to (%d,%d)"), Action.MoveX, Action.MoveY),
-                    Action.Score);
-            });
-        });
-    });
-}
+// void AMinimaxBoardAI::RunMinimaxForCurrentPlayerAsync(int32 Player)
+// {
+//     if (bMinimaxInProgress)
+//         return;
+//
+//     const int32 AIPlayer = Player;  // Determine which player is AI right now
+//
+//     bMinimaxInProgress = true;
+//
+//     GetWorld()->GetTimerManager().SetTimerForNextTick([this, AIPlayer]()
+//     {
+//         FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
+//         int32 Depth = 3;
+//
+//         Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
+//         {
+//             FMinimaxAction Action = MinimaxEngine::SolveParallel(StateSnapshot, Depth, AIPlayer);
+//
+//             AsyncTask(ENamedThreads::GameThread, [this, Action, AIPlayer]()
+//             {
+//                 ExecuteAction(Action);
+//
+//                 // Swap turn after action is done
+//                 CurrentPlayerTurn = (AIPlayer == 1) ? 2 : 1;
+//                 SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);  // Now it's the next player's turn
+//                 bMinimaxInProgress = false;
+//
+//                 UE_LOG(LogTemp, Warning, TEXT("=> Engine chose: %s (score=%d)"),
+//                     Action.bIsWall ?
+//                         *FString::Printf(TEXT("Wall @(%d,%d) %s"), Action.SlotX, Action.SlotY, Action.bHorizontal ? TEXT("H") : TEXT("V")) :
+//                         *FString::Printf(TEXT("Move to (%d,%d)"), Action.MoveX, Action.MoveY),
+//                     Action.Score);
+//             });
+//         });
+//     });
+// }
 
 void AMinimaxBoardAI::RunMinimaxForCurrentPlayerAsync2(int32 Player)
 {

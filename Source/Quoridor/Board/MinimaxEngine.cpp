@@ -765,7 +765,6 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth, i
 }
 
 
-
 FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer)
 {
     UE_LOG(LogTemp, Warning, TEXT("=== SolveParallel: Root Player = %d | Depth = %d ==="), RootPlayer, Depth);
@@ -838,10 +837,12 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
             int SelfDelta = SelfAfter - SelfBefore;
             int NetGain = OppDelta - SelfDelta;
 
-            score = Minimax(SS, Depth, RootPlayer, Opponent) + NetGain * 12;
+            score = Minimax(SS, Depth, RootPlayer, Opponent);
+            score += NetGain * 12;
 
+            // Positional bonus (like in Solve)
             if (!w.bHorizontal && w.Y >= 7) score += 5;
-            if ( w.bHorizontal && w.Y >= 7) score += 8;
+            if (w.bHorizontal && w.Y >= 7) score += 8;
         }
         else
         {
@@ -857,7 +858,8 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
             if ((dx == 2 && dy == 0) || (dy == 2 && dx == 0))
                 bIsJump = true;
 
-            score = Minimax(SS, Depth, RootPlayer, Opponent) + delta * 15;
+            score = Minimax(SS, Depth, RootPlayer, Opponent);
+            score += delta * 15;
             if (bIsJump) score += 10;
         }
 
@@ -877,8 +879,34 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
         }
     }
 
+    // === Final legality check for wall ===
+    if (BestAct.bIsWall)
+    {
+        FWallData FinalWall{ BestAct.SlotX, BestAct.SlotY, BestAct.WallLength, BestAct.bHorizontal };
+        if (!IsWallLegal(Initial, FinalWall))
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[SolveParallel] Best wall (%d,%d)%s is now illegal — falling back"),
+                BestAct.SlotX, BestAct.SlotY, BestAct.bHorizontal ? TEXT("H") : TEXT("V"));
+
+            // Optional fallback: choose best pawn move instead
+            BestAct = FMinimaxAction{};
+            BestAct.Score = INT_MIN;
+
+            for (int32 i = 0; i < Candidates.Num(); ++i)
+            {
+                if (!Candidates[i].bIsWall && Scores[i] > BestAct.Score)
+                {
+                    BestAct = Candidates[i];
+                    BestAct.Score = Scores[i];
+                }
+            }
+        }
+    }
+
     return BestAct;
 }
+
+
 
 
 
