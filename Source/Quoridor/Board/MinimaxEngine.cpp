@@ -822,8 +822,14 @@ FMinimaxAction MinimaxEngine::Solve(const FMinimaxState& Initial, int32 Depth, i
 
             score = Minimax(SS, Depth, RootPlayer, Opponent) + NetGain * 12;
 
-            if (!w.bHorizontal && w.Y >= 7) score += 5;
-            if ( w.bHorizontal && w.Y >= 7) score += 8;
+            const int32 OppGoalY = (Opponent == 1) ? 8 : 0;
+
+            if (!w.bHorizontal && w.Y == OppGoalY)
+                score += 8;
+
+            if ( w.bHorizontal && w.Y == OppGoalY - 1)
+                score += 8;
+
         }
         else
         {
@@ -943,9 +949,14 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
             int NetGain = OppDelta - SelfDelta;
 
             score = Minimax(SS, Depth, RootPlayer, Opponent) + NetGain * 12;
+            const int32 OppGoalY = (Opponent == 1) ? 8 : 0;
 
-            if (!w.bHorizontal && w.Y >= 7) score += 5;
-            if ( w.bHorizontal && w.Y >= 7) score += 8;
+            if (!w.bHorizontal && w.Y == OppGoalY)
+                score += 8;
+
+            if ( w.bHorizontal && w.Y == OppGoalY - 1)
+                score += 8;
+
         }
         else
         {
@@ -1043,8 +1054,14 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial, int32
             int NetGain = OppDelta - SelfDelta;
 
             score = MinimaxAlphaBeta(SS, Depth, RootPlayer, Opponent, INT_MIN, INT_MAX) + NetGain * 12;
-            if (!w.bHorizontal && w.Y >= 7) score += 5;
-            if ( w.bHorizontal && w.Y >= 7) score += 8;
+            const int32 OppGoalY = (Opponent == 1) ? 8 : 0;
+
+            if (!w.bHorizontal && w.Y == OppGoalY)
+                score += 8;
+
+            if ( w.bHorizontal && w.Y == OppGoalY - 1)
+                score += 8;
+
         }
         else
         {
