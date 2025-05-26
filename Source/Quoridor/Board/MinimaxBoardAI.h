@@ -30,11 +30,12 @@ public:
 	bool bDelayPassed;
 	int AI1Player;
 	int AI2Player;
-
+	bool bMinimaxInProgress = false;
+	
 private:
 	// Future to hold the async result
 	TFuture<FMinimaxAction> MinimaxFuture;
-	bool bMinimaxInProgress = false;
+	
 
 	// Execute the chosen action on the board
 	void ExecuteAction(const FMinimaxAction& Act);

@@ -742,13 +742,42 @@ void AQuoridorBoard::RevertWallBlock(const TMap<TPair<ATile*, ATile*>, bool>& Re
 
 void AQuoridorBoard::HandleWin(int32 WinningPlayer)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-		FString::Printf(TEXT("PLAYER %d WINS!"), WinningPlayer));
+	if (!IsValid(this) || GetWorld() == nullptr)
+		return;
 
-	UE_LOG(LogTemp, Warning, TEXT("PLAYER %d WINS!"), WinningPlayer);
+	FString Message = FString::Printf(TEXT("PLAYER %d WINS!"), WinningPlayer);
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *Message);
 
-	// TODO: Tambahkan logika end game seperti men-disable input, menampilkan UI dsb.
+	// === Stop AI logic if we're running a MinimaxBoardAI ===
+	if (AMinimaxBoardAI* AI = Cast<AMinimaxBoardAI>(this))
+	{
+		AI->bMinimaxInProgress = false;
+		AI->bIsAITurnRunning = false;
+		AI->SetActorTickEnabled(false);
+	}
+
+	// Disable player input
+	for (int32 Player = 1; Player <= 2; ++Player)
+	{
+		if (AQuoridorPawn* P = GetPawnForPlayer(Player))
+		{
+			if (APlayerController* PC = Cast<APlayerController>(P->GetController()))
+			{
+				P->DisableInput(PC);
+			}
+		}
+	}
+
+	// Delay and do end-of-game action
+	FTimerHandle EndTimerHandle;
+	GetWorld()->GetTimerManager().SetTimer(EndTimerHandle, [this]()
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Game Over. Add end UI or return to menu here."));
+		// UGameplayStatics::OpenLevel(this, FName("MainMenu"));
+	}, 2.0f, false);
 }
+
 
 
 

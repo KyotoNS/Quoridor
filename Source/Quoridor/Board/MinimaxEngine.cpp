@@ -1009,9 +1009,38 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial, int32
         if (act.bIsWall)
         {
             FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
-            if (!IsWallLegal(Initial, w)) continue;
+            if (!IsWallLegal(Initial, w))
+                continue;
 
-            ApplyWall(SS, RootPlayer, w);
+            // Simulate the wall safely instead of blindly applying it
+            bool bLegal = true;
+            for (int offset = 0; offset < w.Length; ++offset)
+            {
+                int x = w.bHorizontal ? w.X + offset : w.X;
+                int y = w.bHorizontal ? w.Y : w.Y + offset;
+
+                if (x >= 9 || y >= 9)
+                {
+                    bLegal = false;
+                    break;
+                }
+
+                if (w.bHorizontal)
+                    SS.HorizontalBlocked[y][x] = true;
+                else
+                    SS.VerticalBlocked[y][x] = true;
+            }
+
+            // Verify both players still have valid paths
+            if (bLegal)
+            {
+                if (ComputePathToGoal(SS, RootPlayer).Num() == 0 || ComputePathToGoal(SS, Opponent).Num() == 0)
+                    continue;
+            }
+            else
+            {
+                continue;
+            }
 
             int32 OppBefore = 0, OppAfter = 0;
             int32 SelfBefore = 0, SelfAfter = 0;
@@ -1020,19 +1049,19 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial, int32
             ComputePathToGoal(SS, Opponent, &OppAfter);
             ComputePathToGoal(SS, RootPlayer, &SelfAfter);
 
-            if (OppAfter >= 100) continue;
-
             int OppDelta = OppAfter - OppBefore;
             int SelfDelta = SelfAfter - SelfBefore;
             int NetGain = OppDelta - SelfDelta;
 
             score = MinimaxAlphaBeta(SS, Depth, RootPlayer, Opponent, INT_MIN, INT_MAX) + NetGain * 12;
+
             if (!w.bHorizontal && w.Y >= 7) score += 5;
             if ( w.bHorizontal && w.Y >= 7) score += 8;
         }
         else
         {
             ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
+
             int32 afterLen = 0;
             ComputePathToGoal(SS, RootPlayer, &afterLen);
             int delta = AILength - afterLen;
@@ -1057,6 +1086,7 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial, int32
 
     return BestAct;
 }
+
 
 
 
