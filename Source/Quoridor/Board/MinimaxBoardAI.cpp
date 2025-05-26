@@ -54,13 +54,26 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         UE_LOG(LogTemp, Warning, TEXT("AI logic delay passed, starting AI..."));
     }
     
+    // if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
+    // {
+    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
+    //     if (P && P->GetTile())
+    //     {
+    //         bIsAITurnRunning = true;
+    //         RunMinimax(AI1Player);
+    //     }
+    //     else
+    //     {
+    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
+    //     }
+    // }
     if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
     {
         AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimaxForCurrentPlayerAsync(AI1Player);
+            RunMinimaxForParallel(AI1Player);
         }
         else
         {
@@ -73,7 +86,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimaxForCurrentPlayerAsync2(AI2Player);
+            RunMinimaxForAlphaBeta(AI2Player);
         }
         else
         {
@@ -82,8 +95,8 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
     }
 }
 
-
-void AMinimaxBoardAI::RunMinimaxForCurrentPlayerAsync(int32 Player)
+// Parallel
+void AMinimaxBoardAI::RunMinimaxForParallel(int32 Player)
 {
     if (bMinimaxInProgress)
         return;
@@ -120,7 +133,47 @@ void AMinimaxBoardAI::RunMinimaxForCurrentPlayerAsync(int32 Player)
     });
 }
 
-void AMinimaxBoardAI::RunMinimaxForCurrentPlayerAsync2(int32 Player)
+// Alpha Beta
+void AMinimaxBoardAI::RunMinimaxForAlphaBeta(int32 Player)
+{
+    if (bMinimaxInProgress)
+        return;
+
+    const int32 AIPlayer = Player;
+
+    bMinimaxInProgress = true;
+
+    GetWorld()->GetTimerManager().SetTimerForNextTick([this, AIPlayer]()
+    {
+        FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
+        int32 Depth = 3;
+
+        Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
+        {
+            // === Use Alpha-Beta pruning version ===
+            FMinimaxAction Action = MinimaxEngine::SolveAlphaBeta(StateSnapshot, Depth, AIPlayer);
+
+            AsyncTask(ENamedThreads::GameThread, [this, Action, AIPlayer]()
+            {
+                ExecuteAction(Action);
+
+                // Swap turn after action is done
+                CurrentPlayerTurn = (AIPlayer == 1) ? 2 : 1;
+                SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
+                bMinimaxInProgress = false;
+
+                UE_LOG(LogTemp, Warning, TEXT("=> [AlphaBeta] Engine chose: %s (score=%d)"),
+                    Action.bIsWall ?
+                        *FString::Printf(TEXT("Wall @(%d,%d) %s"), Action.SlotX, Action.SlotY, Action.bHorizontal ? TEXT("H") : TEXT("V")) :
+                        *FString::Printf(TEXT("Move to (%d,%d)"), Action.MoveX, Action.MoveY),
+                    Action.Score);
+            });
+        });
+    });
+}
+
+// solve
+void AMinimaxBoardAI::RunMinimax(int32 Player)
 {
     if (bMinimaxInProgress)
         return;

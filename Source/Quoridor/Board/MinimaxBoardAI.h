@@ -20,9 +20,10 @@ public:
 	void BeginPlay();
 
 	virtual void Tick(float DeltaTime) override;
-	void RunMinimaxForCurrentPlayerAsync2(int32 Player);
+	void RunMinimax(int32 Player);
 
-	void RunMinimaxForCurrentPlayerAsync(int32 Player);
+	void RunMinimaxForParallel(int32 Player);
+	void RunMinimaxForAlphaBeta(int32 Player);
 	UPROPERTY()
 	bool bIsAITurnRunning = false;
 	float ElapsedTime;
