@@ -255,7 +255,7 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
 
     for (int x = 0; x < 9; ++x)
     {
-        if (S.VerticalBlocked[wallRowIdx][x]) Score += 2;
+        if (S.VerticalBlocked[wallRowIdx][x]) Score += 4;
     }
 
     Score += (S.WallsRemaining[idxAI] - S.WallsRemaining[idxOpponent]) * 2;
