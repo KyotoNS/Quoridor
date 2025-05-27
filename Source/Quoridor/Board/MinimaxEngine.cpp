@@ -355,22 +355,25 @@ TArray<FWallData> MinimaxEngine::GetAllUsefulWallPlacements(const FMinimaxState&
 TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 PlayerNum)
 {
     TArray<FIntPoint> Out;
-    TArray<FIntPoint> Temp;
-
     int idx = PlayerNum - 1;
-    int oppIdx = 1 - idx;
-
     int x = S.PawnX[idx];
     int y = S.PawnY[idx];
-    int ox = S.PawnX[oppIdx];
-    int oy = S.PawnY[oppIdx];
 
-    auto CanMove = [&](int ax, int ay, int bx, int by) -> bool {
-        if (bx < 0 || bx > 8 || by < 0 || by > 8) return false;
+    auto IsOccupied = [&](int tx, int ty) -> bool
+    {
+        return (S.PawnX[0] == tx && S.PawnY[0] == ty) || (S.PawnX[1] == tx && S.PawnY[1] == ty);
+    };
+
+    auto CanStep = [&](int ax, int ay, int bx, int by)
+    {
+        if (bx < 0 || bx > 8 || by < 0 || by > 8)
+            return false;
+
         if (bx == ax + 1 && S.VerticalBlocked[ay][ax]) return false;
-        if (bx == ax - 1 && ax > 0 && S.VerticalBlocked[ay][ax - 1]) return false;
+        if (bx == ax - 1 && ax - 1 >= 0 && S.VerticalBlocked[ay][ax - 1]) return false;
         if (by == ay + 1 && S.HorizontalBlocked[ay][ax]) return false;
-        if (by == ay - 1 && ay > 0 && S.HorizontalBlocked[ay - 1][ax]) return false;
+        if (by == ay - 1 && ay - 1 >= 0 && S.HorizontalBlocked[ay - 1][ax]) return false;
+
         return true;
     };
 
@@ -380,47 +383,41 @@ TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 Play
     {
         int nx = x + d.X;
         int ny = y + d.Y;
-        if (!CanMove(x, y, nx, ny)) continue;
 
-        if (nx != ox || ny != oy)
+        if (!CanStep(x, y, nx, ny))
+            continue;
+
+        if (!IsOccupied(nx, ny))
         {
-            Temp.Add({ nx, ny });
+            Out.Add({ nx, ny });
         }
         else
         {
-            // Direct jump
             int jx = nx + d.X;
             int jy = ny + d.Y;
-            if (CanMove(nx, ny, jx, jy))
+
+            if (CanStep(nx, ny, jx, jy) && !IsOccupied(jx, jy))
             {
-                Temp.Add({ jx, jy });
+                Out.Add({ jx, jy });
             }
             else
             {
-                // Side jumps
                 FIntPoint perp[2] = { { d.Y, d.X }, { -d.Y, -d.X } };
+
                 for (const auto& p : perp)
                 {
-                    int sideX = nx + p.X;
-                    int sideY = ny + p.Y;
-                    if (CanMove(nx, ny, sideX, sideY))
+                    int sx = nx + p.X;
+                    int sy = ny + p.Y;
+
+                    if (CanStep(nx, ny, sx, sy) && !IsOccupied(sx, sy))
                     {
-                        Temp.Add({ sideX, sideY });
+                        Out.Add({ sx, sy });
                     }
                 }
             }
         }
     }
-
-    // Sort by vertical proximity to the goal row
-    const int goalY = (PlayerNum == 1 ? 8 : 0);
-    Temp.Sort([&](const FIntPoint& A, const FIntPoint& B) {
-        int da = FMath::Abs(goalY - A.Y);
-        int db = FMath::Abs(goalY - B.Y);
-        return da < db; // prioritize closer to goal row
-    });
-
-    Out = Temp;
+    
     return Out;
 }
 
