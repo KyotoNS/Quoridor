@@ -64,68 +64,91 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
 TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength)
 {
     const int goalY = (PlayerNum == 1 ? 8 : 0);
-    const int idx = PlayerNum - 1; const int oppIdx = 1 - idx;
-    int sx = S.PawnX[idx]; int sy = S.PawnY[idx];
-    int ox = S.PawnX[oppIdx]; int oy = S.PawnY[oppIdx];
+    const int idx = PlayerNum - 1;
 
-    if (sx < 0 || sy < 0) { if (OutLength) *OutLength = 100; return {}; }
+    int sx = S.PawnX[idx];
+    int sy = S.PawnY[idx];
 
-    struct Node { int f, g, x, y; FIntPoint parent; bool operator>(const Node& other) const { return f > other.f; } };
-    std::priority_queue<Node, std::vector<Node>, std::greater<Node>> open;
-    bool closed[9][9] = {}; int gCost[9][9]; FIntPoint cameFrom[9][9];
-    for (int y = 0; y < 9; ++y) for (int x = 0; x < 9; ++x) { gCost[y][x] = INT_MAX; cameFrom[y][x] = FIntPoint(-1, -1); }
+    // === Validate pawn position ===
+    if (sx < 0 || sx > 8 || sy < 0 || sy > 8)
+    {
+        UE_LOG(LogTemp, Error, TEXT("ComputePathToGoal: Invalid pawn position for Player %d => (%d, %d)"),
+               PlayerNum, sx, sy);
+        if (OutLength) *OutLength = 100;
+        return {};
+    }
 
-    auto Heuristic = [&](int x, int y) {
-        // Favor vertical progress (to goalY) and penalize sideways motion
-        int dx = FMath::Abs(x - sx); // discourage lateral deviation
-        int dy = FMath::Abs(goalY - y); // prioritize progress toward goal
-        return dy * 10 + dx * 2; // bias toward vertical movement
-    };
+    struct Node { int f, g, x, y; FIntPoint parent; };
+    struct Cmp { bool operator()(const Node& a, const Node& b) const { return a.f > b.f; } };
 
-    auto CanMove = [&](int ax, int ay, int bx, int by) -> bool {
-        if (bx < 0 || bx > 8 || by < 0 || by > 8) return false;
-        if (bx == ax + 1 && S.VerticalBlocked[ay][ax]) return false;
-        if (bx == ax - 1 && ax > 0 && S.VerticalBlocked[ay][ax - 1]) return false;
-        if (by == ay + 1 && S.HorizontalBlocked[ay][ax]) return false;
-        if (by == ay - 1 && ay > 0 && S.HorizontalBlocked[ay - 1][ax]) return false;
-        return true;
-    };
+    std::priority_queue<Node, std::vector<Node>, Cmp> open;
+    bool closed[9][9] = {};
+    int gCost[9][9];
+    FIntPoint cameFrom[9][9];
 
-    gCost[sy][sx] = 0; open.push({ Heuristic(sx, sy), 0, sx, sy, FIntPoint(-1, -1) });
+    for (int y = 0; y < 9; ++y)
+    {
+        for (int x = 0; x < 9; ++x)
+        {
+            gCost[y][x] = INT_MAX;
+            cameFrom[y][x] = FIntPoint(-1, -1);
+        }
+    }
+
+    auto Heuristic = [&](int x, int y) { return FMath::Abs(goalY - y); };
+
+    gCost[sy][sx] = 0;
+    open.push({ Heuristic(sx, sy), 0, sx, sy, FIntPoint(-1, -1) });
+
     const FIntPoint dirs[4] = { {1,0}, {-1,0}, {0,1}, {0,-1} };
 
-    while (!open.empty()) {
+    while (!open.empty())
+    {
         Node n = open.top(); open.pop();
         if (closed[n.y][n.x]) continue;
-        closed[n.y][n.x] = true; cameFrom[n.y][n.x] = n.parent;
-        if (n.y == goalY) {
-            if (OutLength) *OutLength = n.g; TArray<FIntPoint> Path; int cx = n.x, cy = n.y;
-            while (cx != -1) { Path.Insert(FIntPoint(cx, cy), 0); FIntPoint p = cameFrom[cy][cx]; cx = p.X; cy = p.Y; }
+        closed[n.y][n.x] = true;
+        cameFrom[n.y][n.x] = n.parent;
+
+        if (n.y == goalY)
+        {
+            if (OutLength) *OutLength = n.g;
+
+            // Reconstruct path
+            TArray<FIntPoint> Path;
+            int cx = n.x, cy = n.y;
+            while (cx != -1 && cy != -1)
+            {
+                Path.Insert(FIntPoint(cx, cy), 0);
+                FIntPoint p = cameFrom[cy][cx];
+                cx = p.X;
+                cy = p.Y;
+            }
             return Path;
         }
-        for (const auto& d : dirs) {
-            int nx = n.x + d.X; int ny = n.y + d.Y;
-            if (!CanMove(n.x, n.y, nx, ny)) continue;
+
+        for (const auto& d : dirs)
+        {
+            int nx = n.x + d.X;
+            int ny = n.y + d.Y;
+            if (nx < 0 || nx > 8 || ny < 0 || ny > 8) continue;
+
+            // Check walls
+            if (d.X == 1 && S.VerticalBlocked[n.y][n.x]) continue;
+            if (d.X == -1 && S.VerticalBlocked[n.y][nx]) continue;
+            if (d.Y == 1 && S.HorizontalBlocked[n.y][n.x]) continue;
+            if (d.Y == -1 && S.HorizontalBlocked[ny][n.x]) continue;
+
             int ng = n.g + 1;
-            if (nx != ox || ny != oy) {
-                if (ng < gCost[ny][nx]) { gCost[ny][nx] = ng; open.push({ ng + Heuristic(nx, ny), ng, nx, ny, FIntPoint(n.x, n.y) }); }
-            } else {
-                int jx = nx + d.X; int jy = ny + d.Y;
-                if (CanMove(nx, ny, jx, jy)) {
-                    if (ng < gCost[jy][jx]) { gCost[jy][jx] = ng; open.push({ ng + Heuristic(jx, jy), ng, jx, jy, FIntPoint(n.x, n.y) }); }
-                } else {
-                    FIntPoint perp[2] = { { d.Y, d.X }, { -d.Y, -d.X } };
-                    for (const auto& p : perp) {
-                        int sideX = nx + p.X; int sideY = ny + p.Y;
-                        if (CanMove(nx, ny, sideX, sideY)) {
-                            if (ng < gCost[sideY][sideX]) { gCost[sideY][sideX] = ng; open.push({ ng + Heuristic(sideX, sideY), ng, sideX, sideY, FIntPoint(n.x, n.y) }); }
-                        }
-                    }
-                }
+            if (ng < gCost[ny][nx])
+            {
+                gCost[ny][nx] = ng;
+                open.push({ ng + Heuristic(nx, ny), ng, nx, ny, FIntPoint(n.x, n.y) });
             }
         }
     }
-    if (OutLength) *OutLength = 100; return {};
+
+    if (OutLength) *OutLength = 100;
+    return {}; // No path found
 }
 
 
