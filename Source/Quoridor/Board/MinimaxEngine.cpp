@@ -745,13 +745,6 @@ int32 MinimaxEngine::MinimaxAlphaBeta(FMinimaxState S, int32 Depth, int32 RootPl
 FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer)
 {
     UE_LOG(LogTemp, Warning, TEXT("=== SolveParallel (Plain Minimax) | Root=%d | Depth=%d ==="), RootPlayer, Depth);
-
-    // Assuming RecentMoves is accessible (e.g., static member or member of an instantiated MinimaxEngine)
-    // You'll need to select the correct RecentMoves list if you have one per player.
-    // For this example, let's assume 'RecentMoves' refers to the correct player's history.
-    // e.g., TArray<FIntPoint>& CurrentPlayerRecentMoves = (RootPlayer == 1) ? RecentMoves_P1 : RecentMoves_P2;
-    // For simplicity, I'll just use 'RecentMoves' but you need to ensure it's the right one.
-
     PrintInventory(Initial, TEXT("Start SolveParallel"));
     PrintBlockedWalls(Initial, TEXT("Start SolveParallel"));
 
