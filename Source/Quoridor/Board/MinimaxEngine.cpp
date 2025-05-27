@@ -75,7 +75,13 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S, int32
     bool closed[9][9] = {}; int gCost[9][9]; FIntPoint cameFrom[9][9];
     for (int y = 0; y < 9; ++y) for (int x = 0; x < 9; ++x) { gCost[y][x] = INT_MAX; cameFrom[y][x] = FIntPoint(-1, -1); }
 
-    auto Heuristic = [&](int x, int y) { return FMath::Abs(goalY - y); };
+    auto Heuristic = [&](int x, int y) {
+        // Favor vertical progress (to goalY) and penalize sideways motion
+        int dx = FMath::Abs(x - sx); // discourage lateral deviation
+        int dy = FMath::Abs(goalY - y); // prioritize progress toward goal
+        return dy * 10 + dx * 2; // bias toward vertical movement
+    };
+
     auto CanMove = [&](int ax, int ay, int bx, int by) -> bool {
         if (bx < 0 || bx > 8 || by < 0 || by > 8) return false;
         if (bx == ax + 1 && S.VerticalBlocked[ay][ax]) return false;
@@ -326,8 +332,11 @@ TArray<FWallData> MinimaxEngine::GetAllUsefulWallPlacements(const FMinimaxState&
 TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 PlayerNum)
 {
     TArray<FIntPoint> Out;
+    TArray<FIntPoint> Temp;
+
     int idx = PlayerNum - 1;
     int oppIdx = 1 - idx;
+
     int x = S.PawnX[idx];
     int y = S.PawnY[idx];
     int ox = S.PawnX[oppIdx];
@@ -344,29 +353,54 @@ TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 Play
 
     const FIntPoint dirs[4] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1} };
 
-    for (const auto& d : dirs) {
-        int nx = x + d.X; int ny = y + d.Y;
+    for (const auto& d : dirs)
+    {
+        int nx = x + d.X;
+        int ny = y + d.Y;
         if (!CanMove(x, y, nx, ny)) continue;
 
-        if (nx != ox || ny != oy) { // Standard Move
-            Out.Add({ nx, ny });
-        } else { // Jump Move
-            int jx = nx + d.X; int jy = ny + d.Y;
-            if (CanMove(nx, ny, jx, jy)) { // Direct Jump
-                Out.Add({ jx, jy });
-            } else { // Side Jumps
+        if (nx != ox || ny != oy)
+        {
+            Temp.Add({ nx, ny });
+        }
+        else
+        {
+            // Direct jump
+            int jx = nx + d.X;
+            int jy = ny + d.Y;
+            if (CanMove(nx, ny, jx, jy))
+            {
+                Temp.Add({ jx, jy });
+            }
+            else
+            {
+                // Side jumps
                 FIntPoint perp[2] = { { d.Y, d.X }, { -d.Y, -d.X } };
-                for (const auto& p : perp) {
-                    int sideX = nx + p.X; int sideY = ny + p.Y;
-                    if (CanMove(nx, ny, sideX, sideY)) {
-                        Out.Add({ sideX, sideY });
+                for (const auto& p : perp)
+                {
+                    int sideX = nx + p.X;
+                    int sideY = ny + p.Y;
+                    if (CanMove(nx, ny, sideX, sideY))
+                    {
+                        Temp.Add({ sideX, sideY });
                     }
                 }
             }
         }
     }
+
+    // Sort by vertical proximity to the goal row
+    const int goalY = (PlayerNum == 1 ? 8 : 0);
+    Temp.Sort([&](const FIntPoint& A, const FIntPoint& B) {
+        int da = FMath::Abs(goalY - A.Y);
+        int db = FMath::Abs(goalY - B.Y);
+        return da < db; // prioritize closer to goal row
+    });
+
+    Out = Temp;
     return Out;
 }
+
 
 //-----------------------------------------------------------------------------
 // Board Control Heuristic
@@ -484,6 +518,8 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
     if (OppDistToMyPath <= 2) {
         Score += (OppDistToMyPath - 3) * W_PathDefense;
     }
+    
+    Score += (8 - FMath::Abs(S.PawnY[idxAI] - (RootPlayer == 1 ? 8 : 0))) * 2; // reward being closer to goal row
 
     return Score;
 }
