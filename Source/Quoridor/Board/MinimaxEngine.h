@@ -107,6 +107,8 @@ public:
 
     /** Gets a scored/filtered list of useful wall placements */
     static TArray<FWallData> GetAllUsefulWallPlacements(const FMinimaxState& S, int32 PlayerNum);
+    
+    static TArray<FIntPoint> RecentMoves;
 
 
 private: // These are primarily internal helpers - could be in .cpp as static
@@ -137,4 +139,5 @@ private: // These are primarily internal helpers - could be in .cpp as static
     /** Helper to check if a wall is near a path (proximity) */
     static bool WallTouchesPath(const FWallData& w, const TArray<FIntPoint>& Path);
 
+    
 };
