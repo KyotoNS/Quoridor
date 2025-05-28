@@ -1019,4 +1019,133 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial, int32
     return BestAct;
 }
 
+FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer)
+{
+    UE_LOG(LogTemp, Warning, TEXT("=== SolveParallelAlphaBeta | Root=%d | Depth=%d ==="), RootPlayer, Depth);
+
+    // Using the single static MinimaxEngine::RecentMoves
+    // WARNING: This shared list will cause issues if two AIs use this Solve function simultaneously
+    // or in sequence without clearing/managing the history per player turn.
+
+    PrintInventory(Initial, TEXT("Start SolveParallelAlphaBeta"));
+    PrintBlockedWalls(Initial, TEXT("Start SolveParallelAlphaBeta"));
+
+    const int idx = RootPlayer - 1;
+    const int Opponent = 3 - RootPlayer;
+    int32 InitialAILength = 0, InitialOppLength = 0;
+    ComputePathToGoal(Initial, RootPlayer, &InitialAILength);
+    ComputePathToGoal(Initial, Opponent, &InitialOppLength);
+    UE_LOG(LogTemp, Warning, TEXT("Initial Paths: AI=%d | Opp=%d"), InitialAILength, InitialOppLength);
+
+    TArray<FMinimaxAction> Candidates;
+
+    // === Generate Candidate Moves ===
+    TArray<FIntPoint> PawnMoves = GetPawnMoves(Initial, RootPlayer);
+    for (const auto& mv : PawnMoves) {
+        Candidates.Add(FMinimaxAction(mv.X, mv.Y));
+    }
+
+    if (Initial.WallsRemaining[idx] > 0) {
+        TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(Initial, RootPlayer);
+        for (const auto& w : WallMoves) {
+            Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
+        }
+    }
+
+    if (Candidates.Num() == 0) {
+        UE_LOG(LogTemp, Error, TEXT("SolveParallelAlphaBeta: No candidates found!"));
+        return FMinimaxAction();
+    }
+
+    TArray<int32> Scores;
+    Scores.SetNum(Candidates.Num());
+
+    ParallelFor(Candidates.Num(), [&](int32 i)
+    {
+        const FMinimaxAction& act = Candidates[i];
+        FMinimaxState SS = Initial;
+        int32 score = INT_MIN;
+
+        if (act.bIsWall) {
+            FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
+            FMinimaxState TempCheck = Initial;
+            ApplyWall(TempCheck, RootPlayer, w);
+            if(DoesWallBlockPlayer(TempCheck)) {
+                 Scores[i] = INT_MIN;
+                 return;
+            }
+            ApplyWall(SS, RootPlayer, w);
+        } else {
+            ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
+        }
+
+        score = MinimaxAlphaBeta(SS, Depth - 1, RootPlayer, Opponent, INT_MIN, INT_MAX);
+
+        if (InitialAILength < 100 && InitialOppLength < 100 && SS.PawnX[idx] >=0 /*Ensure SS paths can be computed*/) {
+            int32 AfterAILen = 0, AfterOppLen = 0;
+            ComputePathToGoal(SS, RootPlayer, &AfterAILen);
+            ComputePathToGoal(SS, Opponent, &AfterOppLen);
+            if (AfterAILen < 100 && AfterOppLen < 100) {
+                 int32 NetGain = (AfterOppLen - AfterAILen) - (InitialOppLength - InitialAILength);
+                 score += NetGain * 10;
+            }
+        }
+
+        if (!act.bIsWall) {
+            // Using the single static MinimaxEngine::RecentMoves
+            if (MinimaxEngine::RecentMoves.Num() >= 1) {
+                if (act.MoveX == MinimaxEngine::RecentMoves.Last().X && act.MoveY == MinimaxEngine::RecentMoves.Last().Y) {
+                    score -= 1000;
+                    UE_LOG(LogTemp, Log, TEXT("SolveParallelAlphaBeta: Penalizing immediate reversal to (%d,%d) for P%d"), act.MoveX, act.MoveY, RootPlayer);
+                }
+            }
+            if (MinimaxEngine::RecentMoves.Num() >= 2) {
+                if (act.MoveX == MinimaxEngine::RecentMoves[MinimaxEngine::RecentMoves.Num()-2].X && act.MoveY == MinimaxEngine::RecentMoves[MinimaxEngine::RecentMoves.Num()-2].Y) {
+                    score -= 500;
+                    UE_LOG(LogTemp, Log, TEXT("SolveParallelAlphaBeta: Penalizing reversal to 2-moves-ago (%d,%d) for P%d"), act.MoveX, act.MoveY, RootPlayer);
+                }
+            }
+        }
+        Scores[i] = score;
+    });
+
+    FMinimaxAction BestAct;
+    BestAct.Score = INT_MIN;
+
+    for (int32 i = 0; i < Candidates.Num(); ++i)
+    {
+        Candidates[i].Score = Scores[i];
+        if (Scores[i] > BestAct.Score)
+        {
+            BestAct = Candidates[i];
+            // BestAct.Score = Scores[i]; // Already done by assigning Candidates[i] which has .Score
+        }
+    }
+
+    if (!BestAct.bIsWall && BestAct.Score > INT_MIN) {
+        MinimaxEngine::RecentMoves.Add(FIntPoint(BestAct.MoveX, BestAct.MoveY));
+        if (MinimaxEngine::RecentMoves.Num() > 4) {
+            MinimaxEngine::RecentMoves.RemoveAt(0);
+        }
+        UE_LOG(LogTemp, Log, TEXT("SolveParallelAlphaBeta: P%d RecentMoves updated. Newest: (%d,%d). Count: %d"), RootPlayer, BestAct.MoveX, BestAct.MoveY, MinimaxEngine::RecentMoves.Num());
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("=> SolveParallelAlphaBeta selected: %s (Score=%d)"),
+        BestAct.bIsWall ?
+            *FString::Printf(TEXT("Wall L%d @(%d,%d) %s"), BestAct.WallLength, BestAct.SlotX, BestAct.SlotY, BestAct.bHorizontal ? TEXT("H") : TEXT("V")) :
+            *FString::Printf(TEXT("Move to (%d,%d)"), BestAct.MoveX, BestAct.MoveY),
+        BestAct.Score);
+
+    if (BestAct.Score == INT_MIN && Candidates.Num() > 0) {
+       UE_LOG(LogTemp, Error, TEXT("SolveParallelAlphaBeta: No best move found > INT_MIN, picking first valid candidate if any!"));
+       for(int32 i=0; i < Candidates.Num(); ++i) {
+           if(Scores[i] > INT_MIN) {
+               return Candidates[i];
+           }
+       }
+       return Candidates[0];
+    }
+    return BestAct;
+}
+
 
