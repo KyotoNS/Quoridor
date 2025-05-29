@@ -83,7 +83,7 @@ public:
 
     /** Solves the current state using Minimax with Alpha-Beta Pruning (Recommended) */
     static FMinimaxAction SolveAlphaBeta(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
-    FMinimaxAction SolveParallelAlphaBeta(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
+    static FMinimaxAction SolveParallelAlphaBeta(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
 
     /** Solves the current state using Plain Minimax (Very Slow) */
     static FMinimaxAction Solve(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer); // Can wrap Minimax or AB

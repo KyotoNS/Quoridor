@@ -20,7 +20,7 @@ public:
 	void BeginPlay();
 
 	virtual void Tick(float DeltaTime) override;
-	void RunMinimax(int32 Player);
+	void RunMinimaxForParallelAlphaBeta(int32 Player);
 
 	void RunMinimaxForParallel(int32 Player);
 	void RunMinimaxForAlphaBeta(int32 Player);
@@ -31,6 +31,10 @@ public:
 	int AI1Player;
 	int AI2Player;
 	bool bMinimaxInProgress = false;
+	bool bDelayBeforeNextAI = false;
+	float AITurnDelayTimer = 0.0f;
+	float AITurnDelayDuration = 1.5f; // Change to any delay you want
+
 	
 private:
 	// Future to hold the async result
