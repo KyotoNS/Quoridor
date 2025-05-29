@@ -21,7 +21,7 @@ public:
 	AQuoridorBoard* BoardReference;
 
 	UFUNCTION(BlueprintCallable)
-	void MoveToTile(ATile* NewTile);
+	void MoveToTile(ATile* NewTile, bool bForceMove);
 
 	UFUNCTION(BlueprintCallable)
 	bool CanMoveToTile(const ATile* TargetTile) const;
@@ -78,6 +78,10 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	void MovePawn(int32 NewX, int32 NewY);
+	
+	UFUNCTION(BlueprintCallable)
+	ATile* GetTile() const { return CurrentTile; }
+
 
 protected:
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category = "Pawn")
