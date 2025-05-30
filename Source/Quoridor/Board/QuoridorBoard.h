@@ -76,7 +76,7 @@ protected:
 	TSubclassOf<ATile> TileClass;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Board")
-	float TileSize = 120.0f;
+	float TileSize = 130.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Pawns")
 	TSubclassOf<AQuoridorPawn> PawnClass;

@@ -9,7 +9,7 @@ AWallSlot::AWallSlot()
 	BoxCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollision"));
 	SetRootComponent(BoxCollision);
 
-	BoxCollision->SetBoxExtent(FVector(50.f, 10.f, 50.f)); // Atur ukuran sesuai kebutuhan
+	BoxCollision->SetBoxExtent(FVector(50.f, 10.f, 100.f)); // Atur ukuran sesuai kebutuhan
 	BoxCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	BoxCollision->SetCollisionObjectType(ECollisionChannel::ECC_WorldStatic);
 	BoxCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
