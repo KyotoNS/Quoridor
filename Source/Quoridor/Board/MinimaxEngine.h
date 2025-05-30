@@ -64,7 +64,8 @@ struct FMinimaxState
     // Index: [PlayerIndex][WallLength - 1]
     int32 WallCounts[2][3];
     int32 WallsRemaining[2];
-
+    FIntPoint LastPawnPos[2]; // Tracks previous tile position for each player
+    FIntPoint SecondLastPawnPos[2];
     bool HorizontalBlocked[9][8]; // [Y][X] - 9 rows, 8 slots per row
     bool VerticalBlocked[8][9];   // [Y][X] - 8 rows, 9 slots per row
 
