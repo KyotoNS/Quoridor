@@ -61,12 +61,14 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void HandleWin(int32 WinningPlayer);
-	
+	void PrintLastComputedPath(int32 PlayerNumber);
+
 	void LogBoardState();
 
 	UFUNCTION(BlueprintCallable)
 	AQuoridorPawn* GetPawnForPlayer(int32 PlayerNumber);
-	
+	TMap<int32, TArray<FIntPoint>> CachedPaths;  // PlayerNumber -> path
+
 protected:
 	virtual void BeginPlay() override;
 

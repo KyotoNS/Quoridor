@@ -71,10 +71,17 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
     {
         AITurnDelayTimer += DeltaTime;
         if (AITurnDelayTimer < AITurnDelayDuration)
+        {
+            // Still waiting—do not start any AI this frame
             return;
+        }
 
+        // We have waited long enough—clear the flag and reset timer.
         bDelayBeforeNextAI = false;
-        AITurnDelayTimer = 0.0f;
+        AITurnDelayTimer   = 3.0f;
+
+        // Return immediately so that on the *next* Tick() call, the new AI can run.
+        return;
     }
     // if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
     // {

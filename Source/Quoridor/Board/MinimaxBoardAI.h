@@ -32,13 +32,11 @@ public:
 	int AI2Player;
 	bool bMinimaxInProgress = false;
 	bool bDelayBeforeNextAI = false;
-	float AITurnDelayTimer = 0.0f;
-	float AITurnDelayDuration = 1.5f; // Change to any delay you want
+	float AITurnDelayTimer = 3.0f;
+	float AITurnDelayDuration = 3.0f; // Change to any delay you want
 
 	
 private:
-	// Future to hold the async result
-	TFuture<FMinimaxAction> MinimaxFuture;
 	
 
 	// Execute the chosen action on the board

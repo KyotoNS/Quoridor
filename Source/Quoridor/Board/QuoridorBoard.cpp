@@ -195,6 +195,10 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 		{
 			SelectedPawn->MoveToTile(ClickedTile, false);
 			CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
+			IsPathAvailableForPawn(GetPawnForPlayer(1));
+			IsPathAvailableForPawn(GetPawnForPlayer(2));
+			PrintLastComputedPath(1);
+			PrintLastComputedPath(2);
 		}
 
 		ClearSelection();
@@ -292,6 +296,8 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 
 	bool bPath1 = IsPathAvailableForPawn(GetPawnForPlayer(1));
 	bool bPath2 = IsPathAvailableForPawn(GetPawnForPlayer(2));
+	PrintLastComputedPath(1);
+	PrintLastComputedPath(2);
 
 	if (!bPath1 || !bPath2)
 	{
@@ -541,89 +547,160 @@ EWallOrientation AQuoridorBoard::GetPlayerOrientation(AQuoridorPawn* Pawn) const
 
 bool AQuoridorBoard::IsPathAvailableForPawn(AQuoridorPawn* Pawn)
 {
-	if (!Pawn || !Pawn->CurrentTile)
-		return false;
+    if (!Pawn || !Pawn->CurrentTile)
+        return false;
 
-	struct FNode
-	{
-		ATile* Tile;
-		int32 GCost;
-		int32 HCost;
-		FNode* Parent;
+    // --------------------------------------------
+    // 1) Define a simple A* node struct
+    // --------------------------------------------
+    struct FNode
+    {
+        ATile* Tile;
+        int32  GCost;
+        int32  HCost;
+        FNode* Parent;
 
-		FNode(ATile* InTile, int32 InGCost, int32 InHCost, FNode* InParent = nullptr)
-			: Tile(InTile), GCost(InGCost), HCost(InHCost), Parent(InParent) {}
+        FNode(ATile* InTile, int32 InGCost, int32 InHCost, FNode* InParent = nullptr)
+            : Tile(InTile), GCost(InGCost), HCost(InHCost), Parent(InParent) {}
 
-		int32 FCost() const { return GCost + HCost; }
-	};
+        int32 FCost() const
+        {
+            return GCost + HCost;
+        }
+    };
 
-	ATile* StartTile = Pawn->CurrentTile;
-	const int32 TargetRow = (Pawn->PlayerNumber == 1) ? (GridSize - 1) : 0;
+    ATile* StartTile = Pawn->CurrentTile;
+    const int32 TargetRow = (Pawn->PlayerNumber == 1) ? (GridSize - 1) : 0;
 
-	TArray<FNode*> OpenSet;
-	TSet<ATile*> ClosedSet;
+    // --------------------------------------------
+    // 2) OpenSet = nodes to explore, ClosedSet = visited tiles
+    //    AllNodes = every FNode* we ever allocated
+    // --------------------------------------------
+    TArray<FNode*>        OpenSet;
+    TSet<ATile*>          ClosedSet;
+    TArray<FNode*>        AllNodes;  
 
-	auto Heuristic = [TargetRow](int32 X, int32 Y)
-	{
-		return FMath::Abs(TargetRow - Y);
-	};
+    auto Heuristic = [TargetRow](int32 X, int32 Y)
+    {
+        return FMath::Abs(TargetRow - Y);
+    };
 
-	OpenSet.Add(new FNode(StartTile, 0, Heuristic(StartTile->GridX, StartTile->GridY)));
+    // Create the first node and add it to both OpenSet & AllNodes
+    {
+        FNode* StartNode = new FNode(
+            StartTile,
+            /*GCost=*/0,
+            /*HCost=*/Heuristic(StartTile->GridX, StartTile->GridY),
+            /*Parent=*/nullptr
+        );
+        OpenSet.Add(StartNode);
+        AllNodes.Add(StartNode);
+    }
 
-	while (OpenSet.Num() > 0)
-	{
-		// Ambil node terbaik (lowest F cost)
-		FNode* Current = OpenSet[0];
-		for (FNode* Node : OpenSet)
-		{
-			if (Node->FCost() < Current->FCost() ||
-				(Node->FCost() == Current->FCost() && Node->HCost < Current->HCost))
-			{
-				Current = Node;
-			}
-		}
-		OpenSet.Remove(Current);
-		ClosedSet.Add(Current->Tile);
+    // --------------------------------------------
+    // 3) Main A* loop (no deletes until after path reconstruction!)
+    // --------------------------------------------
+    while (OpenSet.Num() > 0)
+    {
+        // 3a) Find node in OpenSet with lowest FCost (tie-breaker: lower HCost)
+        FNode* Current = OpenSet[0];
+        for (FNode* Node : OpenSet)
+        {
+            if (Node->FCost() < Current->FCost() ||
+                (Node->FCost() == Current->FCost() && Node->HCost < Current->HCost))
+            {
+                Current = Node;
+            }
+        }
 
-		// Check goal
-		if ((Pawn->PlayerNumber == 1 && Current->Tile->GridY == TargetRow) ||
-			(Pawn->PlayerNumber == 2 && Current->Tile->GridY == TargetRow))
-		{
-			// Cleanup
-			for (FNode* Node : OpenSet) delete Node;
-			delete Current;
-			return true;
-		}
+        // 3b) Remove Current from OpenSet, mark its tile as closed
+        OpenSet.Remove(Current);
+        ClosedSet.Add(Current->Tile);
 
-		for (ATile* Neighbor : Current->Tile->ConnectedTiles)
-		{
-			if (!Neighbor || ClosedSet.Contains(Neighbor) || Neighbor->IsOccupied())
-				continue;
+        // 3c) If Current is on the target row, we have a valid path!
+        if ((Pawn->PlayerNumber == 1 && Current->Tile->GridY == TargetRow) ||
+            (Pawn->PlayerNumber == 2 && Current->Tile->GridY == TargetRow))
+        {
+            // ------------------------------
+            // 4) Reconstruct the path (while all nodes are still alive!)
+            // ------------------------------
+            TArray<FIntPoint> PathTiles;
+            FNode* PathNode = Current;
+            while (PathNode)
+            {
+                if (PathNode->Tile)
+                {
+                    int32 X = PathNode->Tile->GridX;
+                    int32 Y = PathNode->Tile->GridY;
+                    PathTiles.Insert(FIntPoint(X, Y), 0);
+                }
+                PathNode = PathNode->Parent;
+            }
 
-			// Tambahkan jika belum di OpenSet
-			bool bAlreadyInOpenSet = false;
-			for (FNode* Node : OpenSet)
-			{
-				if (Node->Tile == Neighbor)
-				{
-					bAlreadyInOpenSet = true;
-					break;
-				}
-			}
-			if (!bAlreadyInOpenSet)
-			{
-				int32 G = Current->GCost + 1;
-				int32 H = Heuristic(Neighbor->GridX, Neighbor->GridY);
-				OpenSet.Add(new FNode(Neighbor, G, H, Current));
-			}
-		}
+            // ------------------------------
+            // 5) Delete every single FNode* we allocated
+            // ------------------------------
+            for (FNode* NodePtr : AllNodes)
+            {
+                delete NodePtr;
+            }
+            AllNodes.Empty();
+            OpenSet.Empty();  // (not strictly needed, but cleans up immediately)
 
-		delete Current;
-	}
+            // ------------------------------
+            // 6) Cache the path and return true
+            // ------------------------------
+            CachedPaths.Add(Pawn->PlayerNumber, PathTiles);
+            return true;
+        }
 
-	for (FNode* Node : OpenSet) delete Node;
-	return false; // Tidak ada jalur
+        // 3d) Otherwise, expand neighbors
+        for (ATile* Neighbor : Current->Tile->ConnectedTiles)
+        {
+            if (!Neighbor || ClosedSet.Contains(Neighbor) || Neighbor->IsOccupied())
+            {
+                continue;
+            }
+
+            // Check if this neighbor is already in OpenSet
+            bool bAlreadyInOpenSet = false;
+            for (FNode* Node : OpenSet)
+            {
+                if (Node->Tile == Neighbor)
+                {
+                    bAlreadyInOpenSet = true;
+                    break;
+                }
+            }
+
+            if (!bAlreadyInOpenSet)
+            {
+                int32 G = Current->GCost + 1;
+                int32 H = Heuristic(Neighbor->GridX, Neighbor->GridY);
+                FNode* NewNode = new FNode(Neighbor, G, H, Current);
+                OpenSet.Add(NewNode);
+                AllNodes.Add(NewNode);
+            }
+        }
+
+        // **DO NOT delete Current here**—we need it alive in case one of its children becomes the goal later.
+    }
+
+    // --------------------------------------------
+    // 7) If we exit the while‐loop, no path was found:
+    //    * Clean up every FNode* in AllNodes
+    //    * Remove any cached path for this pawn (just in case)
+    // --------------------------------------------
+    for (FNode* NodePtr : AllNodes)
+    {
+        delete NodePtr;
+    }
+    AllNodes.Empty();
+    CachedPaths.Remove(Pawn->PlayerNumber);
+    return false;
 }
+
+
 
 void AQuoridorBoard::UpdateAllTileConnections()
 {
@@ -777,6 +854,34 @@ void AQuoridorBoard::HandleWin(int32 WinningPlayer)
 		// UGameplayStatics::OpenLevel(this, FName("MainMenu"));
 	}, 2.0f, false);
 }
+
+void AQuoridorBoard::PrintLastComputedPath(int32 PlayerNumber)
+{
+	if (!CachedPaths.Contains(PlayerNumber))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No cached path for player %d."), PlayerNumber);
+		return;
+	}
+
+	const TArray<FIntPoint>& Path = CachedPaths[PlayerNumber];
+	UE_LOG(LogTemp, Warning, TEXT("Cached path for Player %d: Length = %d"), PlayerNumber, Path.Num());
+
+	const int32 MaxPrint = 5;
+	for (int32 i = 0; i < Path.Num(); ++i)
+	{
+		// Print first 5 and last 5 tiles; collapse the middle if it's long
+		if (i < MaxPrint || i >= Path.Num() - MaxPrint)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("  (%d, %d)"), Path[i].X, Path[i].Y);
+		}
+		else if (i == MaxPrint)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("  ..."));
+		}
+	}
+}
+
+
 
 
 

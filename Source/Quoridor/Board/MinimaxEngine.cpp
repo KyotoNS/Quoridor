@@ -19,191 +19,358 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
 {
     FMinimaxState S;
 
-    for (int y = 0; y < 9; ++y) for (int x = 0; x < 8; ++x) S.HorizontalBlocked[y][x] = false;
-    for (int y = 0; y < 8; ++y) for (int x = 0; x < 9; ++x) S.VerticalBlocked[y][x] = false;
+    // 1) Initialize all blocked arrays to false
+    for (int y = 0; y < 9; ++y)
+    {
+        for (int x = 0; x < 8; ++x)
+        {
+            S.HorizontalBlocked[y][x] = false;
+        }
+    }
+    for (int y = 0; y < 8; ++y)
+    {
+        for (int x = 0; x < 9; ++x)
+        {
+            S.VerticalBlocked[y][x] = false;
+        }
+    }
 
+    // 2) Copy pawn positions and wall‐counts
     for (int player = 1; player <= 2; ++player)
     {
         AQuoridorPawn* P = Board->GetPawnForPlayer(player);
         int idx = player - 1;
 
         if (P && P->GetTile()) {
-            S.PawnX[idx] = P->GetTile()->GridX; S.PawnY[idx] = P->GetTile()->GridY;
+            S.PawnX[idx] = P->GetTile()->GridX;
+            S.PawnY[idx] = P->GetTile()->GridY;
         } else {
-            S.PawnX[idx] = -1; S.PawnY[idx] = -1;
-            UE_LOG(LogTemp, Error, TEXT("Player %d pawn missing"), player);
+            S.PawnX[idx] = -1;
+            S.PawnY[idx] = -1;
+            UE_LOG(LogTemp, Error, TEXT("FromBoard: Player %d pawn missing"), player);
         }
 
         if (P) {
-            S.WallCounts[idx][0] = P->GetWallCountOfLength(1);
-            S.WallCounts[idx][1] = P->GetWallCountOfLength(2);
-            S.WallCounts[idx][2] = P->GetWallCountOfLength(3);
-            S.WallsRemaining[idx] = S.WallCounts[idx][0] + S.WallCounts[idx][1] + S.WallCounts[idx][2];
+            S.WallCounts[idx][0]  = P->GetWallCountOfLength(1);
+            S.WallCounts[idx][1]  = P->GetWallCountOfLength(2);
+            S.WallCounts[idx][2]  = P->GetWallCountOfLength(3);
+            S.WallsRemaining[idx] = S.WallCounts[idx][0]
+                                   + S.WallCounts[idx][1]
+                                   + S.WallCounts[idx][2];
         } else {
+            S.WallCounts[idx][0]  = 0;
+            S.WallCounts[idx][1]  = 0;
+            S.WallCounts[idx][2]  = 0;
             S.WallsRemaining[idx] = 0;
-            S.WallCounts[idx][0] = 0; S.WallCounts[idx][1] = 0; S.WallCounts[idx][2] = 0;
         }
     }
 
-    for (AWallSlot* Slot : Board->HorizontalWallSlots) {
-        if (Slot && Slot->bIsOccupied) {
-            int x = Slot->GridX; int y = Slot->GridY;
-            if (x >= 0 && x < 8 && y >= 0 && y < 9) S.HorizontalBlocked[y][x] = true;
+    // 3) Map occupied horizontal slots into S.HorizontalBlocked
+    for (AWallSlot* Slot : Board->HorizontalWallSlots)
+    {
+        if (!Slot || !Slot->bIsOccupied)
+            continue;
+
+        int slotX = Slot->GridX;  // should be in [0..7] for length-2
+        int slotY = Slot->GridY;  // already refers to the tile‐row below the wall
+
+        int y = slotY;
+        int x = slotX;
+
+        // Sanity check: y in [0..7], x in [0..7]
+        if (y < 0 || y >= 8 || x < 0 || x >= 8)
+        {
+            UE_LOG(LogTemp, Error,
+                TEXT("FromBoard: H-Wall @ (X=%d,Y=%d) out of bounds for HorizontalBlocked[%d][%d]"),
+                slotX, slotY, y, x);
+            continue;
         }
+
+        // Block two adjacent columns at row y:
+        S.HorizontalBlocked[y][x]     = true;  // blocks (x,y) <-> (x,y+1)
+        S.HorizontalBlocked[y][x + 1] = true;  // blocks (x+1,y) <-> (x+1,y+1)
+
+        UE_LOG(LogTemp, Warning,
+            TEXT("FromBoard: Mapped H-Wall @ (X=%d,Y=%d) -> HorizontalBlocked[%d][%d], [%d][%d]"),
+            slotX, slotY, y, x, y, x + 1);
     }
-    for (AWallSlot* Slot : Board->VerticalWallSlots) {
-        if (Slot && Slot->bIsOccupied) {
-            int x = Slot->GridX; int y = Slot->GridY;
-            if (x >= 0 && x < 9 && y >= 0 && y < 8) S.VerticalBlocked[y][x] = true;
+
+    // 4) Map occupied vertical slots into S.VerticalBlocked
+    for (AWallSlot* Slot : Board->VerticalWallSlots)
+    {
+        if (!Slot || !Slot->bIsOccupied)
+            continue;
+
+        int slotX = Slot->GridX;  // should be in [0..8] for length-2
+        int slotY = Slot->GridY;  // already refers to the tile‐row for vertical placement
+
+        int y = slotY;
+        int x = slotX;
+
+        // Sanity check: y in [0..7], x in [0..8]
+        if (y < 0 || y >= 8 || x < 0 || x >= 9)
+        {
+            UE_LOG(LogTemp, Error,
+                TEXT("FromBoard: V-Wall @ (X=%d,Y=%d) out of bounds for VerticalBlocked"), 
+                slotX, slotY);
+            continue;
         }
+
+        // Block two adjacent rows at column x:
+        S.VerticalBlocked[y][x]     = true;  // blocks (x,y) <-> (x+1,y)
+        S.VerticalBlocked[y + 1][x] = true;  // blocks (x,y+1) <-> (x+1,y+1)
+
+        UE_LOG(LogTemp, Warning,
+            TEXT("FromBoard: Mapped V-Wall @ (X=%d,Y=%d) -> VerticalBlocked[%d][%d], [%d][%d]"),
+            slotX, slotY, y, x, y + 1, x);
     }
+
     return S;
 }
+
+
 
 //-----------------------------------------------------------------------------
 // ComputePathToGoal (A* with Jumps)
 //-----------------------------------------------------------------------------
-TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength)
+TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 PlayerNum,int32* OutLength
+)
 {
+    // ------------------------------------------------------------
+    // 1) Determine goal row and starting coordinates
+    // ------------------------------------------------------------
     const int goalY = (PlayerNum == 1 ? 8 : 0);
-    const int idx = PlayerNum - 1;
-    const int sx = S.PawnX[idx];
-    const int sy = S.PawnY[idx];
+    const int idx   = PlayerNum - 1;
 
+    int sx = S.PawnX[idx];
+    int sy = S.PawnY[idx];
     if (sx < 0 || sx > 8 || sy < 0 || sy > 8)
     {
-        UE_LOG(LogTemp, Error, TEXT("ComputePathToGoal: Invalid pawn position for Player %d => (%d, %d)"), PlayerNum, sx, sy);
+        UE_LOG(LogTemp, Error,
+            TEXT("ComputePathToGoal: Invalid pawn position for Player %d => (%d,%d)"),
+            PlayerNum, sx, sy);
         if (OutLength) *OutLength = 100;
         return {};
     }
 
-    const int Opponent = 3 - PlayerNum;
-    const int oppX = S.PawnX[Opponent - 1];
-    const int oppY = S.PawnY[Opponent - 1];
-
-    struct Node { int f, g, x, y; FIntPoint parent; };
-    struct Cmp { bool operator()(const Node& a, const Node& b) const { return a.f > b.f; } };
-    std::priority_queue<Node, std::vector<Node>, Cmp> open;
-
-    bool closed[9][9] = {};
-    int gCost[9][9];
-    FIntPoint cameFrom[9][9];
+    // ------------------------------------------------------------
+    // 2) A* data structures: closed flag, gCost, and cameFrom
+    // ------------------------------------------------------------
+    bool        closed[9][9]   = {};
+    int         gCost[9][9];
+    FIntPoint   cameFrom[9][9];
 
     for (int y = 0; y < 9; ++y)
+    {
         for (int x = 0; x < 9; ++x)
         {
-            gCost[y][x] = INT_MAX;
+            gCost[y][x]    = INT_MAX;
             cameFrom[y][x] = FIntPoint(-1, -1);
-        }
-
-    auto Heuristic = [&](int x, int y) {
-        return FMath::Abs(goalY - y) + (FMath::Abs(x - 4) / 2);
-        };
-
-
-    auto WallBetween = [&](int ax, int ay, int bx, int by) -> bool
-    {
-        if (ax < 0 || ax >= 9 || bx < 0 || bx >= 9 || ay < 0 || ay >= 9 || by < 0 || by >= 9)
-            return true;
-
-        if (bx == ax + 1 && ax < 8) return S.VerticalBlocked[ay][ax];      // right
-        if (bx == ax - 1 && bx >= 0) return S.VerticalBlocked[ay][bx];     // left
-        if (by == ay + 1 && ay < 8) return S.HorizontalBlocked[ay][ax];    // up
-        if (by == ay - 1 && by >= 0) return S.HorizontalBlocked[by][ax];   // down
-
-        return true; // invalid move or diagonal
-    };
-
-
-
-    gCost[sy][sx] = 0;
-    open.push({ Heuristic(sx, sy), 0, sx, sy, FIntPoint(-1, -1) });
-
-    const FIntPoint dirs[4] = { {1,0}, {-1,0}, {0,1}, {0,-1} };
-
-    TArray<FIntPoint> BestGoalPath;
-    int BestGoalCost = INT_MAX;
-
-    while (!open.empty())
-    {
-        Node n = open.top(); open.pop();
-        if (closed[n.y][n.x]) continue;
-        closed[n.y][n.x] = true;
-        cameFrom[n.y][n.x] = n.parent;
-
-        // If node is in the goal row, check if this is a better path
-        if (n.y == goalY && n.g < BestGoalCost)
-        {
-            BestGoalCost = n.g;
-
-            // Reconstruct path
-            TArray<FIntPoint> Path;
-            int cx = n.x, cy = n.y;
-            while (cx != -1 && cy != -1)
-            {
-                Path.Insert(FIntPoint(cx, cy), 0);
-                FIntPoint p = cameFrom[cy][cx];
-                cx = p.X; cy = p.Y;
-            }
-
-            BestGoalPath = Path;
-        }
-
-        for (const auto& d : dirs)
-        {
-            int nx = n.x + d.X;
-            int ny = n.y + d.Y;
-            if (nx < 0 || nx > 8 || ny < 0 || ny > 8) continue;
-            if (WallBetween(n.x, n.y, nx, ny)) continue;
-
-            if (nx == oppX && ny == oppY)
-            {
-                int jx = nx + d.X;
-                int jy = ny + d.Y;
-                bool canJump = (jx >= 0 && jx <= 8 && jy >= 0 && jy <= 8);
-
-                if (canJump && !WallBetween(nx, ny, jx, jy))
-                {
-                    int ng = n.g + 1;
-                    if (ng < gCost[jy][jx])
-                    {
-                        gCost[jy][jx] = ng;
-                        open.push({ ng + Heuristic(jx, jy), ng, jx, jy, FIntPoint(n.x, n.y) });
-                    }
-                    continue;
-                }
-
-                // Side-step if jump is blocked
-                const FIntPoint sideDirs[2] = { { d.Y, -d.X }, { -d.Y, d.X } };
-                for (const auto& sd : sideDirs)
-                {
-                    int sx2 = nx + sd.X;
-                    int sy2 = ny + sd.Y;
-                    if (sx2 < 0 || sx2 > 8 || sy2 < 0 || sy2 > 8) continue;
-                    if (WallBetween(nx, ny, sx2, sy2)) continue;
-
-                    int ng2 = n.g + 1;
-                    if (ng2 < gCost[sy2][sx2])
-                    {
-                        gCost[sy2][sx2] = ng2;
-                        open.push({ ng2 + Heuristic(sx2, sy2), ng2, sx2, sy2, FIntPoint(n.x, n.y) });
-                    }
-                }
-                continue;
-            }
-
-            // Normal step
-            int ng = n.g + 1;
-            if (ng < gCost[ny][nx])
-            {
-                gCost[ny][nx] = ng;
-                open.push({ ng + Heuristic(nx, ny), ng, nx, ny, FIntPoint(n.x, n.y) });
-            }
         }
     }
 
-    if (OutLength) *OutLength = BestGoalCost;
-    return BestGoalPath;
+    // ------------------------------------------------------------
+    // 3) Heuristic = |goalY - y|
+    // ------------------------------------------------------------
+    auto Heuristic = [&](int x, int y) {
+        return FMath::Abs(goalY - y);
+    };
+
+    // ------------------------------------------------------------
+    // 4) Priority queue node (f = g+h, g, x, y) w/ comparator
+    // ------------------------------------------------------------
+    struct Node {
+        int f, g, x, y;
+    };
+    struct Cmp {
+        bool operator()(Node const &A, Node const &B) const {
+            return A.f > B.f;  // smaller f = higher priority
+        }
+    };
+    std::priority_queue<Node, std::vector<Node>, Cmp> open;
+
+    // ------------------------------------------------------------
+    // 5) Initialize start tile
+    // ------------------------------------------------------------
+    gCost[sy][sx] = 0;
+    open.push({ Heuristic(sx, sy), 0, sx, sy });
+
+    // ------------------------------------------------------------
+    // 6) Cardinal directions (X increases right, Y increases up)
+    // ------------------------------------------------------------
+    const FIntPoint dirs[4] = {
+        FIntPoint(+1,  0),
+        FIntPoint(-1,  0),
+        FIntPoint( 0, +1),
+        FIntPoint( 0, -1)
+    };
+
+    // ------------------------------------------------------------
+    // 7) We will only log “why (8,0) is blocked” one time per function call
+    // ------------------------------------------------------------
+    bool bLoggedTargetCheck = false;
+
+    // ------------------------------------------------------------
+    // 8) A* search loop
+    // ------------------------------------------------------------
+    bool   foundGoal = false;
+    int    bestGX = -1, bestGY = -1, bestLen = INT_MAX;
+
+    while (!open.empty())
+    {
+        Node n = open.top();
+        open.pop();
+
+        if (closed[n.y][n.x])
+            continue;
+
+        closed[n.y][n.x] = true;
+
+        // If this node is on the goal row, we can stop immediately
+        if (n.y == goalY)
+        {
+            foundGoal = true;
+            bestGX    = n.x;
+            bestGY    = n.y;
+            bestLen   = n.g;
+            break;
+        }
+
+        // Expand neighbors
+        for (const FIntPoint &d : dirs)
+        {
+            int nx = n.x + d.X;
+            int ny = n.y + d.Y;
+
+            // 8.a) Bounds check
+            if (nx < 0 || nx > 8 || ny < 0 || ny > 8)
+                continue;
+
+            // 8.b) If this neighbor is (8,0), we may want to log exactly why
+            bool isTargetNode = (nx == 8 && ny == 0);
+
+            // 8.c) Wall‐blocking checks
+            bool blockedRight = (d.X == +1 && S.VerticalBlocked[n.y][n.x]);
+            bool blockedLeft  = (d.X == -1 && S.VerticalBlocked[n.y][n.x - 1]);
+            bool blockedUp    = (d.Y == +1 && S.HorizontalBlocked[n.y][n.x]);
+            bool blockedDown  = (d.Y == -1 && S.HorizontalBlocked[n.y - 1][n.x]);
+
+            if (isTargetNode && !bLoggedTargetCheck)
+            {
+                // Print exactly one time which of these conditions is true
+                UE_LOG(LogTemp, Warning,
+                    TEXT("--- A* trying to move into (8,0) from (%d,%d) via dir=(%d,%d)"),
+                    n.x, n.y, d.X, d.Y);
+
+                if (blockedRight)
+                    UE_LOG(LogTemp, Warning,
+                        TEXT("    blockedRight = true  (VerticalBlocked[%d][%d])"),
+                        n.y, n.x);
+                if (blockedLeft)
+                    UE_LOG(LogTemp, Warning,
+                        TEXT("    blockedLeft  = true  (VerticalBlocked[%d][%d])"),
+                        n.y, n.x - 1);
+                if (blockedUp)
+                    UE_LOG(LogTemp, Warning,
+                        TEXT("    blockedUp    = true  (HorizontalBlocked[%d][%d])"),
+                        n.y, n.x);
+                if (blockedDown)
+                    UE_LOG(LogTemp, Warning,
+                        TEXT("    blockedDown  = true  (HorizontalBlocked[%d][%d])"),
+                        n.y - 1, n.x);
+
+                // If none of the four wall checks is true, check “closed” or occupancy
+                if (!blockedRight && !blockedLeft && !blockedUp && !blockedDown)
+                {
+                    if (closed[ny][nx])
+                    {
+                        UE_LOG(LogTemp, Warning,
+                            TEXT("    Skipped because closed[%d][%d] == true"), ny, nx);
+                    }
+                    else
+                    {
+                        // Replace this line with your actual occupancy condition if needed,
+                        // e.g. “if (S.Occupied[ny][nx]) UE_LOG(…);”
+                        bool bOccupied = false;
+                        if (bOccupied)
+                        {
+                            UE_LOG(LogTemp, Warning,
+                                TEXT("    Skipped because occupancy flag for (8,0) is true"));
+                        }
+                        else
+                        {
+                            // If we reach here, A* would actually have pushed (8,0)—
+                            // but we simply log that it is being enqueued.
+                            int ng = n.g + 1;
+                            int h  = Heuristic(nx, ny);
+                            UE_LOG(LogTemp, Warning,
+                                TEXT("    Pushing (8,0) with g=%d, h=%d, f=%d"), ng, h, ng + h);
+                        }
+                    }
+                }
+
+                // After printing these diagnostics once, never log again this search
+                bLoggedTargetCheck = true;
+            }
+
+            // 8.d) If any wall‐check was true, skip this neighbor
+            if (blockedRight || blockedLeft || blockedUp || blockedDown)
+                continue;
+
+            // 8.e) If neighbor is already closed, skip
+            if (closed[ny][nx])
+                continue;
+
+            // 8.f) Occupancy check (if you have one). Example placeholder:
+            // bool bOccupied = /* your occupancy logic here, e.g. S.PawnX/Y clash */;
+            bool bOccupied = false;
+            if (bOccupied)
+                continue;
+
+            // 8.g) Tentative g‐cost and push onto open queue if it improves gCost
+            int ng = n.g + 1;
+            if (ng < gCost[ny][nx])
+            {
+                gCost[ny][nx]    = ng;
+                cameFrom[ny][nx] = FIntPoint(n.x, n.y);
+                int h            = Heuristic(nx, ny);
+                open.push({ ng + h, ng, nx, ny });
+            }
+        } // end for dirs[]
+    } // end while(open)
+
+    // ------------------------------------------------------------
+    // 9) No path found => return empty path, length = 100
+    // ------------------------------------------------------------
+    if (!foundGoal)
+    {
+        if (OutLength)
+            *OutLength = 100;
+        return {};
+    }
+
+    // ------------------------------------------------------------
+    // 10) We did find a goal‐row tile (bestGX,bestGY) with cost = bestLen
+    // ------------------------------------------------------------
+    if (OutLength)
+        *OutLength = bestLen;
+
+    // ------------------------------------------------------------
+    // 11) Reconstruct the path from (bestGX,bestGY) backwards
+    // ------------------------------------------------------------
+    TArray<FIntPoint> Path;
+    {
+        int cx = bestGX, cy = bestGY;
+        while (cx != -1 && cy != -1)
+        {
+            Path.Insert(FIntPoint(cx, cy), 0);
+            FIntPoint parent = cameFrom[cy][cx];
+            cx = parent.X; 
+            cy = parent.Y;
+        }
+    }
+
+    return Path;
 }
 
 
@@ -592,6 +759,7 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
         Score += (OppDistToMyPath - 3) * W_PathDefense;
     }
 
+    // Bonus for being close to goal row
     Score += (8 - FMath::Abs(S.PawnY[idxAI] - (RootPlayer == 1 ? 8 : 0))) * 2;
 
     const FIntPoint Curr(S.PawnX[idxAI], S.PawnY[idxAI]);
@@ -602,7 +770,7 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
     if (Curr == Prev)    Score -= 500;
     if (Curr == Prev2)   Score -= 300;
 
-    // === NEW: Encourage shortest path behavior ===
+    // === Encourage shortest path behavior ===
 
     // 1. Strong reward for short path to goal
     Score += (100 - AILen) * 20;
@@ -610,7 +778,7 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
     // 2. Penalize being off-path
     if (AIPath.Num() > 0 && Curr != AIPath[0])
     {
-        Score -= 100; // Not standing on first step of computed path
+        Score -= 200; // Strong penalty for deviation from path
     }
 
     // 3. Bonus for heading directly along shortest path
@@ -618,15 +786,23 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
     {
         const FIntPoint& Next = AIPath[1];
         int dx = FMath::Abs(Next.X - Curr.X);
-        int dy = FMath::Abs(Next.Y - Curr.Y);
-        if (dy == 1 && dx == 0)
+        int dy = Next.Y - Curr.Y;
+
+        const int GoalDir = (RootPlayer == 1 ? 1 : -1); // +Y for Player 1, -Y for Player 2
+
+        if (dx == 0 && dy == GoalDir)
         {
-            Score += 20; // Bonus for forward motion
+            Score += 30; // Reward correct forward movement
+        }
+        else if (dx == 0 && dy == -GoalDir)
+        {
+            Score -= 50; // Penalize backwards vertical move
         }
     }
 
     return Score;
 }
+
 
 
 
