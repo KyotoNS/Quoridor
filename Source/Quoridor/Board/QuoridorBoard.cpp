@@ -881,7 +881,44 @@ void AQuoridorBoard::PrintLastComputedPath(int32 PlayerNumber)
 	}
 }
 
+void AQuoridorBoard::Debug_PrintOccupiedWalls() const
+{
+	// 1) Horizontal walls
+	UE_LOG(LogTemp, Warning, TEXT("--- Occupied Horizontal Walls ---"));
+	for (AWallSlot* Slot : HorizontalWallSlots)
+	{
+		if (!Slot)
+			continue;
 
+		if (Slot->bIsOccupied)
+		{
+			int slotX = Slot->GridX;  // 0..7
+			int slotY = Slot->GridY;  // 0..8
+			UE_LOG(LogTemp, Warning,
+				TEXT("H‐Wall @ (X=%d, Y=%d)"), 
+				slotX, slotY);
+		}
+	}
+
+	// 2) Vertical walls
+	UE_LOG(LogTemp, Warning, TEXT("--- Occupied Vertical Walls ---"));
+	for (AWallSlot* Slot : VerticalWallSlots)
+	{
+		if (!Slot)
+			continue;
+
+		if (Slot->bIsOccupied)
+		{
+			int slotX = Slot->GridX;  // 0..8
+			int slotY = Slot->GridY;  // 0..7
+			UE_LOG(LogTemp, Warning,
+				TEXT("V‐Wall @ (X=%d, Y=%d)"), 
+				slotX, slotY);
+		}
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("----- End Occupied Walls -----"));
+}
 
 
 

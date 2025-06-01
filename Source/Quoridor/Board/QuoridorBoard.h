@@ -39,7 +39,9 @@ public:
 	int32 GridSize = 9;
 	
 	TArray<TArray<ATile*>> Tiles;
-	
+	UFUNCTION(BlueprintCallable)
+	void Debug_PrintOccupiedWalls() const;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TArray<AQuoridorPawn*> Pawns;
 	

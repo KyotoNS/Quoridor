@@ -96,19 +96,19 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
     //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
     //     }
     // }
-    if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
-    {
-        AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
-        if (P && P->GetTile())
-        {
-            bIsAITurnRunning = true;
-            RunMinimaxForAlphaBeta(AI2Player);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
-        }
-    }
+    // if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
+    // {
+    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
+    //     if (P && P->GetTile())
+    //     {
+    //         bIsAITurnRunning = true;
+    //         RunMinimaxForAlphaBeta(AI2Player);
+    //     }
+    //     else
+    //     {
+    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
+    //     }
+    // }
 }
 
 // Parallel
@@ -296,5 +296,5 @@ void AMinimaxBoardAI::ExecuteAction(const FMinimaxAction& Act)
 
     bIsAITurnRunning = false;
     bDelayBeforeNextAI = true;
-    AITurnDelayTimer = 0.0f;
+    AITurnDelayTimer = 3.0f;
 }

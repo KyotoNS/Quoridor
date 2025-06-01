@@ -66,8 +66,8 @@ struct FMinimaxState
     int32 WallsRemaining[2];
     FIntPoint LastPawnPos[2]; // Tracks previous tile position for each player
     FIntPoint SecondLastPawnPos[2];
-    bool HorizontalBlocked[9][8]; // [Y][X] - 9 rows, 8 slots per row
-    bool VerticalBlocked[8][9];   // [Y][X] - 8 rows, 9 slots per row
+    bool HorizontalBlocked[8][9]; // [Y][X] - 9 rows, 8 slots per row
+    bool VerticalBlocked[9][8];   // [Y][X] - 8 rows, 9 slots per row
 
     /** Creates a MinimaxState from the current game board */
     static FMinimaxState FromBoard(AQuoridorBoard* Board);
@@ -100,7 +100,7 @@ public:
 
     /** Evaluates the board state from the perspective of RootPlayer */
     static int32 Evaluate(const FMinimaxState& S, int32 RootPlayer);
-
+    static bool FindPathForPawn(const FMinimaxState& S, int32 PlayerNum, TArray<FIntPoint>& OutPath);
 
     // --- Move Generation ---
 

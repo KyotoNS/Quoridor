@@ -19,45 +19,44 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
 {
     FMinimaxState S;
 
-    // 1) Initialize all blocked arrays to false
-    for (int y = 0; y < 9; ++y)
-    {
-        for (int x = 0; x < 8; ++x)
-        {
-            S.HorizontalBlocked[y][x] = false;
-        }
-    }
+    // 1) Zero‐out all blocked‐edge arrays
     for (int y = 0; y < 8; ++y)
-    {
         for (int x = 0; x < 9; ++x)
-        {
-            S.VerticalBlocked[y][x] = false;
-        }
-    }
+            S.HorizontalBlocked[y][x] = false;
 
-    // 2) Copy pawn positions and wall‐counts
+    for (int y = 0; y < 9; ++y)
+        for (int x = 0; x < 8; ++x)
+            S.VerticalBlocked[y][x] = false;
+
+    // 2) Copy pawn positions + wall counts
     for (int player = 1; player <= 2; ++player)
     {
         AQuoridorPawn* P = Board->GetPawnForPlayer(player);
         int idx = player - 1;
 
-        if (P && P->GetTile()) {
+        if (P && P->GetTile())
+        {
             S.PawnX[idx] = P->GetTile()->GridX;
             S.PawnY[idx] = P->GetTile()->GridY;
-        } else {
+        }
+        else
+        {
             S.PawnX[idx] = -1;
             S.PawnY[idx] = -1;
             UE_LOG(LogTemp, Error, TEXT("FromBoard: Player %d pawn missing"), player);
         }
 
-        if (P) {
+        if (P)
+        {
             S.WallCounts[idx][0]  = P->GetWallCountOfLength(1);
             S.WallCounts[idx][1]  = P->GetWallCountOfLength(2);
             S.WallCounts[idx][2]  = P->GetWallCountOfLength(3);
             S.WallsRemaining[idx] = S.WallCounts[idx][0]
                                    + S.WallCounts[idx][1]
                                    + S.WallCounts[idx][2];
-        } else {
+        }
+        else
+        {
             S.WallCounts[idx][0]  = 0;
             S.WallCounts[idx][1]  = 0;
             S.WallCounts[idx][2]  = 0;
@@ -65,76 +64,60 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
         }
     }
 
-    // 3) Map occupied horizontal slots into S.HorizontalBlocked
+    // 3) Horizontal slots → HorizontalBlocked
     for (AWallSlot* Slot : Board->HorizontalWallSlots)
     {
         if (!Slot || !Slot->bIsOccupied)
             continue;
 
-        int slotX = Slot->GridX;  // should be in [0..7] for length-2
-        int slotY = Slot->GridY;  // already refers to the tile‐row below the wall
+        int slotX = Slot->GridX;  // expected 0..8
+        int slotY = Slot->GridY;  // expected 0..7
 
-        int y = slotY;
-        int x = slotX;
-
-        // Sanity check: y in [0..7], x in [0..7]
-        if (y < 0 || y >= 8 || x < 0 || x >= 8)
-        {
-            UE_LOG(LogTemp, Error,
-                TEXT("FromBoard: H-Wall @ (X=%d,Y=%d) out of bounds for HorizontalBlocked[%d][%d]"),
-                slotX, slotY, y, x);
+        if (slotX < 0 || slotX > 8 || slotY < 0 || slotY > 7)
             continue;
-        }
 
-        // Block two adjacent columns at row y:
-        S.HorizontalBlocked[y][x]     = true;  // blocks (x,y) <-> (x,y+1)
-        S.HorizontalBlocked[y][x + 1] = true;  // blocks (x+1,y) <-> (x+1,y+1)
+        // Block two adjacent horizontal edges
+        S.HorizontalBlocked[slotY][slotX] = true;
 
         UE_LOG(LogTemp, Warning,
-            TEXT("FromBoard: Mapped H-Wall @ (X=%d,Y=%d) -> HorizontalBlocked[%d][%d], [%d][%d]"),
-            slotX, slotY, y, x, y, x + 1);
+            TEXT("FromBoard: Mapped H‐Wall @ (X=%d, Y=%d)"),
+            slotX, slotY);
     }
 
-    // 4) Map occupied vertical slots into S.VerticalBlocked
+
+    // 4) Vertical slots → VerticalBlocked
     for (AWallSlot* Slot : Board->VerticalWallSlots)
     {
         if (!Slot || !Slot->bIsOccupied)
             continue;
 
-        int slotX = Slot->GridX;  // should be in [0..8] for length-2
-        int slotY = Slot->GridY;  // already refers to the tile‐row for vertical placement
+        int slotX = Slot->GridX;  // expected 0..7
+        int slotY = Slot->GridY;  // expected 0..8
 
-        int y = slotY;
-        int x = slotX;
-
-        // Sanity check: y in [0..7], x in [0..8]
-        if (y < 0 || y >= 8 || x < 0 || x >= 9)
+        if (slotX < 0 || slotX > 7 || slotY < 0 || slotY > 8)
         {
-            UE_LOG(LogTemp, Error,
-                TEXT("FromBoard: V-Wall @ (X=%d,Y=%d) out of bounds for VerticalBlocked"), 
+            UE_LOG(LogTemp, Warning,
+                TEXT("FromBoard: Skipping V‐Wall @ (X=%d, Y=%d) because out of range"), 
                 slotX, slotY);
             continue;
         }
 
-        // Block two adjacent rows at column x:
-        S.VerticalBlocked[y][x]     = true;  // blocks (x,y) <-> (x+1,y)
-        S.VerticalBlocked[y + 1][x] = true;  // blocks (x,y+1) <-> (x+1,y+1)
+        // Block two adjacent vertical edges
+        S.VerticalBlocked[slotY][slotX] = true;
 
         UE_LOG(LogTemp, Warning,
-            TEXT("FromBoard: Mapped V-Wall @ (X=%d,Y=%d) -> VerticalBlocked[%d][%d], [%d][%d]"),
-            slotX, slotY, y, x, y + 1, x);
+            TEXT("FromBoard: Mapped V‐Wall @ (X=%d, Y=%d)"),
+            slotX, slotY);
     }
+
 
     return S;
 }
 
-
-
 //-----------------------------------------------------------------------------
 // ComputePathToGoal (A* with Jumps)
 //-----------------------------------------------------------------------------
-TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 PlayerNum,int32* OutLength
-)
+TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 PlayerNum,int32* OutLength)
 {
     // ------------------------------------------------------------
     // 1) Determine goal row and starting coordinates
@@ -255,63 +238,7 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
             bool blockedUp    = (d.Y == +1 && S.HorizontalBlocked[n.y][n.x]);
             bool blockedDown  = (d.Y == -1 && S.HorizontalBlocked[n.y - 1][n.x]);
 
-            if (isTargetNode && !bLoggedTargetCheck)
-            {
-                // Print exactly one time which of these conditions is true
-                UE_LOG(LogTemp, Warning,
-                    TEXT("--- A* trying to move into (8,0) from (%d,%d) via dir=(%d,%d)"),
-                    n.x, n.y, d.X, d.Y);
-
-                if (blockedRight)
-                    UE_LOG(LogTemp, Warning,
-                        TEXT("    blockedRight = true  (VerticalBlocked[%d][%d])"),
-                        n.y, n.x);
-                if (blockedLeft)
-                    UE_LOG(LogTemp, Warning,
-                        TEXT("    blockedLeft  = true  (VerticalBlocked[%d][%d])"),
-                        n.y, n.x - 1);
-                if (blockedUp)
-                    UE_LOG(LogTemp, Warning,
-                        TEXT("    blockedUp    = true  (HorizontalBlocked[%d][%d])"),
-                        n.y, n.x);
-                if (blockedDown)
-                    UE_LOG(LogTemp, Warning,
-                        TEXT("    blockedDown  = true  (HorizontalBlocked[%d][%d])"),
-                        n.y - 1, n.x);
-
-                // If none of the four wall checks is true, check “closed” or occupancy
-                if (!blockedRight && !blockedLeft && !blockedUp && !blockedDown)
-                {
-                    if (closed[ny][nx])
-                    {
-                        UE_LOG(LogTemp, Warning,
-                            TEXT("    Skipped because closed[%d][%d] == true"), ny, nx);
-                    }
-                    else
-                    {
-                        // Replace this line with your actual occupancy condition if needed,
-                        // e.g. “if (S.Occupied[ny][nx]) UE_LOG(…);”
-                        bool bOccupied = false;
-                        if (bOccupied)
-                        {
-                            UE_LOG(LogTemp, Warning,
-                                TEXT("    Skipped because occupancy flag for (8,0) is true"));
-                        }
-                        else
-                        {
-                            // If we reach here, A* would actually have pushed (8,0)—
-                            // but we simply log that it is being enqueued.
-                            int ng = n.g + 1;
-                            int h  = Heuristic(nx, ny);
-                            UE_LOG(LogTemp, Warning,
-                                TEXT("    Pushing (8,0) with g=%d, h=%d, f=%d"), ng, h, ng + h);
-                        }
-                    }
-                }
-
-                // After printing these diagnostics once, never log again this search
-                bLoggedTargetCheck = true;
-            }
+           
 
             // 8.d) If any wall‐check was true, skip this neighbor
             if (blockedRight || blockedLeft || blockedUp || blockedDown)
@@ -373,7 +300,212 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
     return Path;
 }
 
+bool MinimaxEngine::FindPathForPawn(const FMinimaxState& S, int32 PlayerNum, TArray<FIntPoint>& OutPath)
+{
+    OutPath.Empty();
 
+    // 1) Validate PlayerNum
+    if (PlayerNum < 1 || PlayerNum > 2)
+    {
+        return false;
+    }
+
+    // 2) Read the pawn’s starting tile coordinates from the state
+    int32 StartX = S.PawnX[PlayerNum - 1];
+    int32 StartY = S.PawnY[PlayerNum - 1];
+
+    // Ensure they’re in bounds [0..8]
+    if (StartX < 0 || StartX > 8 || StartY < 0 || StartY > 8)
+    {
+        return false;
+    }
+
+    // 3) Determine the target row (Player 1 needs to reach Y=8, Player 2 needs to reach Y=0)
+    const int32 TargetRow = (PlayerNum == 1) ? 8 : 0;
+
+    // 4) A* node struct
+    struct FNode
+    {
+        int32 X;
+        int32 Y;
+        int32 GCost;
+        int32 HCost;
+        FNode* Parent;
+
+        FNode(int32 InX, int32 InY, int32 InG, int32 InH, FNode* InParent = nullptr)
+            : X(InX), Y(InY), GCost(InG), HCost(InH), Parent(InParent)
+        {}
+
+        FORCEINLINE int32 FCost() const
+        {
+            return GCost + HCost;
+        }
+    };
+
+    // 5) Containers for A*
+    TArray<FNode*>    OpenSet;
+    TSet<FIntPoint>   ClosedSet;
+    TArray<FNode*>    AllNodes; // for cleanup
+
+    // 6) Heuristic = vertical distance to target row
+    auto Heuristic = [TargetRow](int32 X, int32 Y) -> int32
+    {
+        return FMath::Abs(TargetRow - Y);
+    };
+
+    // 7) Create and push the start node
+    {
+        int32 H0 = Heuristic(StartX, StartY);
+        FNode* StartNode = new FNode(StartX, StartY, /*G=*/0, /*H=*/H0, /*Parent=*/nullptr);
+        OpenSet.Add(StartNode);
+        AllNodes.Add(StartNode);
+    }
+
+    // 8) Read opponent pawn position (treated as blocked)
+    const int32 OpponentNum = 3 - PlayerNum;
+    const int32 OppX = S.PawnX[OpponentNum - 1];
+    const int32 OppY = S.PawnY[OpponentNum - 1];
+
+    // 9) A* main loop
+    while (OpenSet.Num() > 0)
+    {
+        // 9a) Pick node in OpenSet with lowest FCost (tie‐breaker: smaller HCost)
+        FNode* Current = OpenSet[0];
+        for (FNode* NodePtr : OpenSet)
+        {
+            if (NodePtr->FCost() < Current->FCost() ||
+                (NodePtr->FCost() == Current->FCost() && NodePtr->HCost < Current->HCost))
+            {
+                Current = NodePtr;
+            }
+        }
+
+        // 9b) Remove Current from OpenSet, mark visited
+        OpenSet.Remove(Current);
+        ClosedSet.Add(FIntPoint(Current->X, Current->Y));
+
+        // 9c) If we've reached the target row, reconstruct path and return true
+        if (Current->Y == TargetRow)
+        {
+            // Walk back up via Parent pointers, collecting X,Y in reverse
+            TArray<FIntPoint> Reversed;
+            FNode* Walk = Current;
+
+            while (Walk != nullptr)
+            {
+                Reversed.Add(FIntPoint(Walk->X, Walk->Y));
+                Walk = Walk->Parent;
+            }
+
+            // Reverse so that OutPath goes from start → goal
+            for (int32 i = Reversed.Num() - 1; i >= 0; --i)
+            {
+                OutPath.Add(Reversed[i]);
+            }
+
+            // Cleanup all nodes before returning
+            for (FNode* N : AllNodes)
+            {
+                delete N;
+            }
+            AllNodes.Empty();
+            OpenSet.Empty();
+            return true;
+        }
+
+        // 9d) Otherwise, expand up to 4 neighbors (N, S, E, W)
+        const int32 CX = Current->X;
+        const int32 CY = Current->Y;
+        const int32 NextG = Current->GCost + 1;
+
+        // Local helper to add a neighbor if valid
+        auto TryAddNeighbor = [&](int32 NX, int32 NY)
+        {
+            // 1) Bounds check
+            if (NX < 0 || NX > 8 || NY < 0 || NY > 8)
+            {
+                return;
+            }
+
+            // 2) Already visited?
+            if (ClosedSet.Contains(FIntPoint(NX, NY)))
+            {
+                return;
+            }
+
+            // 3) Occupied by opponent pawn?
+            if (NX == OppX && NY == OppY)
+            {
+                return;
+            }
+
+            // 4) If already in OpenSet, skip
+            for (FNode* NodePtr : OpenSet)
+            {
+                if (NodePtr->X == NX && NodePtr->Y == NY)
+                {
+                    return;
+                }
+            }
+
+            // 5) Everything good → create new node and push
+            int32 H = Heuristic(NX, NY);
+            FNode* NewNode = new FNode(NX, NY, NextG, H, Current);
+            OpenSet.Add(NewNode);
+            AllNodes.Add(NewNode);
+        };
+
+        // ─── North (Y+1) ───
+        if (CY < 8)
+        {
+            // A horizontal wall at row CY, column CX would block northward movement
+            if (!S.HorizontalBlocked[CY][CX])
+            {
+                TryAddNeighbor(CX, CY + 1);
+            }
+        }
+
+        // ─── South (Y-1) ───
+        if (CY > 0)
+        {
+            // A horizontal wall at row CY-1, column CX blocks southward.
+            if (!S.HorizontalBlocked[CY - 1][CX])
+            {
+                TryAddNeighbor(CX, CY - 1);
+            }
+        }
+
+        // ─── East (X+1) ───
+        if (CX < 8)
+        {
+            // A vertical wall at row CY, column CX blocks eastward
+            if (!S.VerticalBlocked[CY][CX])
+            {
+                TryAddNeighbor(CX + 1, CY);
+            }
+        }
+
+        // ─── West (X-1) ───
+        if (CX > 0)
+        {
+            // A vertical wall at row CY, column CX-1 blocks westward
+            if (!S.VerticalBlocked[CY][CX - 1])
+            {
+                TryAddNeighbor(CX - 1, CY);
+            }
+        }
+
+        // (Don’t delete Current here; we still need it if its children lead to the goal later.)
+    }
+
+    // 10) If we exit the loop, no path exists: clean up and return false
+    for (FNode* N : AllNodes)
+    {
+        delete N;
+    }
+    AllNodes.Empty();
+    return false;
+}
 
 //-----------------------------------------------------------------------------
 // Wall Legality Check
@@ -430,55 +562,50 @@ void MinimaxEngine::PrintBlockedWalls(const FMinimaxState& S, const FString& Con
 {
     UE_LOG(LogTemp, Warning, TEXT("--- Blocked Walls (%s) ---"), *Context);
 
-    // --- ADD COUNTERS ---
     int32 HorizontalWallCount = 0;
-    int32 VerticalWallCount = 0;
-    // --- END ADD COUNTERS ---
+    int32 VerticalWallCount   = 0;
 
-    // --- Horizontal Walls ---
-    // Iterate through S.HorizontalBlocked[y][x] (9 rows, 8 slots per row)
-    for (int y = 0; y < 9; ++y)
-    {
-        for (int x = 0; x < 8; ++x)
-        {
-            if (S.HorizontalBlocked[y][x])
-            {
-                UE_LOG(LogTemp, Warning, TEXT("  H-Wall @ (X=%d, Y=%d)"), x, y);
-                HorizontalWallCount++; // Increment count
-            }
-        }
-    }
-
-    // --- Vertical Walls ---
-    // Iterate through S.VerticalBlocked[y][x] (8 rows, 9 slots per row)
+    // --- Print every blocked‐edge in HorizontalBlocked[y][x] (9 rows × 8 columns) ---
     for (int y = 0; y < 8; ++y)
     {
         for (int x = 0; x < 9; ++x)
         {
-            if (S.VerticalBlocked[y][x])
+            if (S.HorizontalBlocked[y][x])
             {
-                UE_LOG(LogTemp, Warning, TEXT("  V-Wall @ (X=%d, Y=%d)"), x, y);
-                VerticalWallCount++; // Increment count
+                UE_LOG(LogTemp, Warning, TEXT("  H‐Blocked @ (X=%d, Y=%d)"), x, y);
+                HorizontalWallCount++;
             }
         }
     }
 
-    // --- Print Totals ---
+    // --- Print every blocked‐edge in VerticalBlocked[y][x] (8 rows × 9 columns) ---
+    for (int y = 0; y < 9; ++y)
+    {
+        for (int x = 0; x < 8; ++x)   // x < 9, not x <= 9
+        {
+            if (S.VerticalBlocked[y][x])
+            {
+                UE_LOG(LogTemp, Warning, TEXT("  V‐Blocked @ (X=%d, Y=%d)"), x, y);
+                VerticalWallCount++;
+            }
+        }
+    }
+
+    // --- Totals ---
     if (HorizontalWallCount == 0 && VerticalWallCount == 0)
     {
         UE_LOG(LogTemp, Warning, TEXT("  No walls found on board."));
     }
     else
     {
-        // Print the total counts
-        UE_LOG(LogTemp, Warning, TEXT("  Total Horizontal Segments: %d"), HorizontalWallCount);
-        UE_LOG(LogTemp, Warning, TEXT("  Total Vertical Segments:   %d"), VerticalWallCount);
-        UE_LOG(LogTemp, Warning, TEXT("  Overall Total Segments:    %d"), HorizontalWallCount + VerticalWallCount);
+        UE_LOG(LogTemp, Warning, TEXT("  Total H‐edges blocked: %d"), HorizontalWallCount);
+        UE_LOG(LogTemp, Warning, TEXT("  Total V‐edges blocked: %d"), VerticalWallCount);
+        UE_LOG(LogTemp, Warning, TEXT("  Overall blocked‐edges:  %d"), HorizontalWallCount + VerticalWallCount);
     }
-    // --- End Print Totals ---
 
     UE_LOG(LogTemp, Warning, TEXT("--------------------------"));
 }
+
 
 //-----------------------------------------------------------------------------
 // Get All Useful Wall Placements (New)
@@ -578,28 +705,73 @@ TArray<FWallData> MinimaxEngine::GetAllUsefulWallPlacements(const FMinimaxState&
 TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 PlayerNum)
 {
     TArray<FIntPoint> Out;
-    int idx = PlayerNum - 1;
-    int x = S.PawnX[idx];
-    int y = S.PawnY[idx];
+    Out.Reserve(4);
 
+    int idx = PlayerNum - 1;
+    int x   = S.PawnX[idx];
+    int y   = S.PawnY[idx];
+
+    // Helper: true if either pawn currently sits at (tx,ty).
     auto IsOccupied = [&](int tx, int ty) -> bool
     {
-        return (S.PawnX[0] == tx && S.PawnY[0] == ty) || (S.PawnX[1] == tx && S.PawnY[1] == ty);
+        return (S.PawnX[0] == tx && S.PawnY[0] == ty)
+            || (S.PawnX[1] == tx && S.PawnY[1] == ty);
     };
 
-    auto CanStep = [&](int ax, int ay, int bx, int by)
+    // Helper: can we move from (ax,ay) to (bx,by)? Must be on‐board and not blocked by a wall.
+    auto CanStep = [&](int ax, int ay, int bx, int by) -> bool
     {
+        // 1) Must stay on the 9×9 board:
         if (bx < 0 || bx > 8 || by < 0 || by > 8)
             return false;
 
-        if (bx == ax + 1 && S.VerticalBlocked[ay][ax]) return false;
-        if (bx == ax - 1 && ax - 1 >= 0 && S.VerticalBlocked[ay][ax - 1]) return false;
-        if (by == ay + 1 && S.HorizontalBlocked[ay][ax]) return false;
-        if (by == ay - 1 && ay - 1 >= 0 && S.HorizontalBlocked[ay - 1][ax]) return false;
+        // 2) Moving Right (bx == ax+1)? 
+        //    Only check VerticalBlocked[ay][ax] if (ay,ax) is within [0..7]×[0..7].
+        if (bx == ax + 1)
+        {
+            if (ax >= 0 && ax < 8 && ay >= 0 && ay < 9)
+            {
+                // Only rows 0..7 have vertical‐wall slots:
+                if (ay < 8 && S.VerticalBlocked[ay][ax])
+                    return false;
+            }
+        }
+
+        // 3) Moving Left (bx == ax-1)?
+        if (bx == ax - 1)
+        {
+            if ((ax - 1) >= 0 && (ax - 1) < 8 && ay >= 0 && ay < 9)
+            {
+                if (ay < 8 && S.VerticalBlocked[ay][ax - 1])
+                    return false;
+            }
+        }
+
+        // 4) Moving Down (by == ay+1)?
+        if (by == ay + 1)
+        {
+            if (ay >= 0 && ay < 8 && ax >= 0 && ax < 9)
+            {
+                // Only columns 0..7 have horizontal‐wall slots:
+                if (ax < 8 && S.HorizontalBlocked[ay][ax])
+                    return false;
+            }
+        }
+
+        // 5) Moving Up (by == ay-1)?
+        if (by == ay - 1)
+        {
+            if ((ay - 1) >= 0 && (ay - 1) < 8 && ax >= 0 && ax < 9)
+            {
+                if (ax < 8 && S.HorizontalBlocked[ay - 1][ax])
+                    return false;
+            }
+        }
 
         return true;
     };
 
+    // Four cardinal directions:
     const FIntPoint dirs[4] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1} };
 
     for (const auto& d : dirs)
@@ -607,42 +779,50 @@ TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 Play
         int nx = x + d.X;
         int ny = y + d.Y;
 
+        // 1) First, can we even step from (x,y) → (nx,ny)?
         if (!CanStep(x, y, nx, ny))
             continue;
 
+        // 2) If (nx,ny) is not occupied, it’s a normal “step” move.
         if (!IsOccupied(nx, ny))
         {
             Out.Add({ nx, ny });
+            continue;
         }
-        else
+
+        // 3) Otherwise, (nx,ny) is occupied by the other pawn. Attempt a straight “jump”:
+        int jx = nx + d.X;
+        int jy = ny + d.Y;
+
+        if (CanStep(nx, ny, jx, jy) && !IsOccupied(jx, jy))
         {
-            int jx = nx + d.X;
-            int jy = ny + d.Y;
+            Out.Add({ jx, jy });
+            continue;
+        }
 
-            if (CanStep(nx, ny, jx, jy) && !IsOccupied(jx, jy))
+        // 4) Straight‐ahead jump is blocked by a wall or board edge.
+        //    We must instead try the two diagonal sidestep moves around (nx,ny).
+
+        // Two perpendicular directions relative to `d`:
+        FIntPoint perp[2] = { {  d.Y,  d.X},
+                             { -d.Y, -d.X} };
+
+        for (const auto& p : perp)
+        {
+            int sx = nx + p.X;
+            int sy = ny + p.Y;
+
+            // Only add if stepping from (nx,ny) → (sx,sy) is legal and unoccupied:
+            if (CanStep(nx, ny, sx, sy) && !IsOccupied(sx, sy))
             {
-                Out.Add({ jx, jy });
-            }
-            else
-            {
-                FIntPoint perp[2] = { { d.Y, d.X }, { -d.Y, -d.X } };
-
-                for (const auto& p : perp)
-                {
-                    int sx = nx + p.X;
-                    int sy = ny + p.Y;
-
-                    if (CanStep(nx, ny, sx, sy) && !IsOccupied(sx, sy))
-                    {
-                        Out.Add({ sx, sy });
-                    }
-                }
+                Out.Add({ sx, sy });
             }
         }
     }
-    
+
     return Out;
 }
+
 
 
 //-----------------------------------------------------------------------------
@@ -973,6 +1153,7 @@ int32 MinimaxEngine::MinimaxAlphaBeta(FMinimaxState S, int32 Depth, int32 RootPl
 
     // === Pawn Moves ===
     TArray<FIntPoint> PawnMoves = GetPawnMoves(S, CurrentPlayer);
+    
     for (const auto& mv : PawnMoves) {
         FMinimaxState SS = S;
         ApplyPawnMove(SS, CurrentPlayer, mv.X, mv.Y);
@@ -1019,27 +1200,47 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
 
     const int idx = RootPlayer - 1;
     const int Opponent = 3 - RootPlayer;
-    int32 InitialAILength = 0, InitialOppLength = 0; // Renamed to avoid confusion
-    TArray<FIntPoint> AIPath = ComputePathToGoal(Initial, RootPlayer, &InitialAILength);
-    TArray<FIntPoint> OppPath = ComputePathToGoal(Initial, Opponent, &InitialOppLength);
-    UE_LOG(LogTemp, Warning, TEXT("Initial Paths: AI=%d | Opp=%d"), InitialAILength, InitialOppLength);
-    for (int i = 0; i < AIPath.Num(); ++i)
-        UE_LOG(LogTemp, Warning, TEXT("  AI[%d] = (%d,%d)"), i, AIPath[i].X, AIPath[i].Y);
+
+    // OPTIONAL LOGGING of initial path availability/length
+    {
+        TArray<FIntPoint> TmpPath;
+        bool bAIHasPath  = FindPathForPawn(Initial, RootPlayer, TmpPath);
+        bool bOppHasPath = FindPathForPawn(Initial, Opponent, TmpPath);
+        UE_LOG(LogTemp, Warning, TEXT("Initial Path Exist: AI=%s | Opp=%s"),
+            bAIHasPath ? TEXT("true") : TEXT("false"),
+            bOppHasPath ? TEXT("true") : TEXT("false"));
+    }
+
     TArray<FMinimaxAction> Candidates;
 
-    // === Generate Candidates (Using Constructors) ===
+    // === Generate Candidates ===
     TArray<FIntPoint> PawnMoves = GetPawnMoves(Initial, RootPlayer);
-    for (const auto& mv : PawnMoves) {
+
+    // 1) Log how many pawn moves there are
+    UE_LOG(LogTemp, Warning, TEXT("PawnMoves.Num() = %d"), PawnMoves.Num());
+    for (const FIntPoint& Move : PawnMoves)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  PawnMove: (%d, %d)"), Move.X, Move.Y);
+    }
+
+    // 2) Add each pawn move as a candidate
+    for (const auto& mv : PawnMoves)
+    {
         Candidates.Add(FMinimaxAction(mv.X, mv.Y));
     }
-    if (Initial.WallsRemaining[idx] > 0) {
+
+    // 3) Add all legal wall placements (unchanged)
+    if (Initial.WallsRemaining[idx] > 0)
+    {
         TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(Initial, RootPlayer);
-        for (const auto& w : WallMoves) {
+        for (const auto& w : WallMoves)
+        {
             Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
         }
     }
 
-    if (Candidates.Num() == 0) {
+    if (Candidates.Num() == 0)
+    {
         UE_LOG(LogTemp, Error, TEXT("SolveParallel: No candidates found!"));
         return FMinimaxAction();
     }
@@ -1054,77 +1255,103 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
         FMinimaxState SS = Initial;
         int32 score = INT_MIN;
 
-        if (act.bIsWall) {
+        if (act.bIsWall)
+        {
+            // ── WALL MOVE: place the wall, then keep original Minimax+net‐gain scoring ──
             FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
-            FMinimaxState TempCheck = Initial; // Check on a fresh copy of Initial
+
+            // 1) Check legality: wall must not fully block opponent
+            FMinimaxState TempCheck = Initial;
             ApplyWall(TempCheck, RootPlayer, w);
-            if(DoesWallBlockPlayer(TempCheck)) {
-                 Scores[i] = INT_MIN; // Illegal blocking wall
-                 return; // Exit lambda for this index
+            if (DoesWallBlockPlayer(TempCheck))
+            {
+                Scores[i] = INT_MIN; // illegal
+                return;
             }
-            ApplyWall(SS, RootPlayer, w); // Apply to the state for Minimax
-        } else {
-            ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
+            // 2) Apply to SS
+            ApplyWall(SS, RootPlayer, w);
+
+            // 3) Call plain Minimax on SS
+            score = Minimax(SS, Depth - 1, RootPlayer, Opponent);
+
+            // 4) Heuristic “net path‐gain” bonus (unchanged)
+            int32 AfterAILen = 0, AfterOppLen = 0;
+            ComputePathToGoal(SS, RootPlayer, &AfterAILen);
+            ComputePathToGoal(SS, Opponent, &AfterOppLen);
+
+            // Retrieve initial lengths via a quick one‐time compute:
+            int32 InitialAILen = 0, InitialOppLen = 0;
+            ComputePathToGoal(Initial, RootPlayer, &InitialAILen);
+            ComputePathToGoal(Initial, Opponent, &InitialOppLen);
+
+            if (InitialAILen < 100 && InitialOppLen < 100 && AfterAILen < 100 && AfterOppLen < 100)
+            {
+                int32 NetGain = (AfterOppLen - AfterAILen) - (InitialOppLen - InitialAILen);
+                score += NetGain * 10;
+            }
+
+            // 5) Anti‐oscillation penalty for pawn moves does not apply here
         }
+        else
+        {
+            // ── PAWN MOVE: **directly set pawn’s coordinates** then run A* ──
 
-        // Call the PLAIN Minimax function
-        score = Minimax(SS, Depth - 1, RootPlayer, Opponent);
+            // 1) Force the pawn’s start in SS to (act.MoveX, act.MoveY)
+            SS.PawnX[idx] = act.MoveX;
+            SS.PawnY[idx] = act.MoveY;
 
-        // Optional: Add immediate heuristic bonus (like original code)
-        int32 AfterAILen = 0, AfterOppLen = 0;
-        ComputePathToGoal(SS, RootPlayer, &AfterAILen);
-        ComputePathToGoal(SS, Opponent, &AfterOppLen);
+            // 2) Now call FindPathForPawn (or ComputePathToGoal) on SS
+            TArray<FIntPoint> OutPath;
+            bool bHasPath = FindPathForPawn(SS, RootPlayer, OutPath);
+            const int32 PathLen = bHasPath ? OutPath.Num() : INT_MAX;
 
-        // Calculate NetGain relative to the state *after* this move (SS)
-        // compared to the paths of the initial state (Initial)
-        if (InitialAILength < 100 && InitialOppLength < 100 && AfterAILen < 100 && AfterOppLen < 100) {
-             int32 NetGain = (AfterOppLen - AfterAILen) - (InitialOppLength - InitialAILength);
-             score += NetGain * 10; // Add path difference gain
-        }
+            // 3) Log what A* actually returned
+            if (bHasPath)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Pawn candidate (%d,%d) => Path.Len = %d"),
+                    act.MoveX, act.MoveY, PathLen);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Pawn candidate (%d,%d) => NO PATH"),
+                    act.MoveX, act.MoveY);
+            }
 
+            // 4) If no path exists, discard
+            if (!bHasPath)
+            {
+                Scores[i] = INT_MIN;
+                return;
+            }
 
-        // *** ADD ANTI-OSCILLATION PENALTY for pawn moves ***
-        if (!act.bIsWall) {
-            // This assumes 'RecentMoves' is accessible and is for the current RootPlayer
-            if (RecentMoves.Num() > 0) {
-                // Check against the very last move (the one that led to 'Initial' state)
-                if (Initial.PawnX[idx] == act.MoveX && Initial.PawnY[idx] == RecentMoves.Last().Y && RecentMoves.Last().X == act.MoveX) {
-                    // This logic is a bit tricky: we are evaluating a move *from* Initial.
-                    // So, if act.MoveX, act.MoveY takes us to where we were 2 moves ago
-                    // (i.e., Initial.PawnX[idx], Initial.PawnY[idx] was the result of moving from act.MoveX, act.MoveY)
-                    // We need to compare act.MoveX, act.MoveY with RecentMoves.Last() if RecentMoves stores previous *target* locations.
-                    // Let's assume RecentMoves stores where the pawn *landed*.
-                    // If moving to (act.MoveX, act.MoveY) is the same as the *grandparent* position
-                }
-                // Simpler logic matching SolveAlphaBeta:
-                // Penalize moves that would take us back to where we were previously
-                FIntPoint CurrentPawnPos = FIntPoint(Initial.PawnX[idx], Initial.PawnY[idx]); // Where AI is currently
-                if (RecentMoves.Num() > 0) {
-                    if (act.MoveX == CurrentPawnPos.X && act.MoveY == CurrentPawnPos.Y) {
-                        // This check is wrong: act is a *target*. CurrentPawnPos is start.
-                        // We need to check if act.MoveX, act.MoveY matches a previous position
-                    }
-                    // Corrected logic: act.MoveX, act.MoveY is the *target* of the current candidate move.
-                    // RecentMoves.Last() is where the pawn was *before* its current position (Initial.PawnX[idx], Initial.PawnY[idx]).
-                    if (RecentMoves.Num() >= 1 && act.MoveX == RecentMoves.Last().X && act.MoveY == RecentMoves.Last().Y) {
-                         score -= 1000; // Heavy penalty for immediate reversal to the previous square
-                         UE_LOG(LogTemp, Warning, TEXT("SolveParallel: Penalizing immediate reversal to (%d,%d) for P%d"), act.MoveX, act.MoveY, RootPlayer);
-                    }
-                }
-                if (RecentMoves.Num() >= 2) { // Need at least two past moves to check the one before last
-                    if (act.MoveX == RecentMoves[RecentMoves.Num()-2].X && act.MoveY == RecentMoves[RecentMoves.Num()-2].Y) {
-                        score -= 500;   // Penalty for returning to 2-moves-ago position
-                        UE_LOG(LogTemp, Warning, TEXT("SolveParallel: Penalizing reversal to 2-moves-ago (%d,%d) for P%d"), act.MoveX, act.MoveY, RootPlayer);
-                    }
-                }
+            // 5) Score = negative of PathLen so that shorter → higher
+            score = -PathLen;
+
+            // 6) (Optional) Anti‐oscillation penalty:
+            if (RecentMoves.Num() >= 1 &&
+                act.MoveX == RecentMoves.Last().X &&
+                act.MoveY == RecentMoves.Last().Y)
+            {
+                score -= 1000;
+                UE_LOG(LogTemp, Warning,
+                    TEXT("SolveParallel: Penalizing immediate reversal to (%d,%d) for P%d"),
+                    act.MoveX, act.MoveY, RootPlayer);
+            }
+            if (RecentMoves.Num() >= 2 &&
+                act.MoveX == RecentMoves[RecentMoves.Num() - 2].X &&
+                act.MoveY == RecentMoves[RecentMoves.Num() - 2].Y)
+            {
+                score -= 500;
+                UE_LOG(LogTemp, Warning,
+                    TEXT("SolveParallel: Penalizing reversal to 2-moves-ago (%d,%d) for P%d"),
+                    act.MoveX, act.MoveY, RootPlayer);
             }
         }
-        // *** END ANTI-OSCILLATION PENALTY ***
 
         Scores[i] = score;
     });
 
-    // === Select Best Move (After Parallel Execution) ===
+    // === Select Best Move ===
     FMinimaxAction BestAct;
     BestAct.Score = INT_MIN;
 
@@ -1137,31 +1364,38 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial, int32 
         }
     }
 
-    // *** ADD UPDATE MOVE HISTORY (for RootPlayer) ***
-    if (!BestAct.bIsWall && BestAct.Score > INT_MIN) { // Ensure BestAct is valid
-        // This assumes 'RecentMoves' is the correct list for the current RootPlayer
+    // === Update RecentMoves if Pawn Move was chosen ===
+    if (!BestAct.bIsWall && BestAct.Score > INT_MIN)
+    {
         RecentMoves.Add(FIntPoint(BestAct.MoveX, BestAct.MoveY));
-        if (RecentMoves.Num() > 4) {  // Keep only last N moves (e.g., 4 for 2-move repetition)
+        if (RecentMoves.Num() > 4)
+        {
             RecentMoves.RemoveAt(0);
         }
-        UE_LOG(LogTemp, Log, TEXT("SolveParallel: P%d RecentMoves updated. Newest: (%d,%d). Count: %d"), RootPlayer, BestAct.MoveX, BestAct.MoveY, RecentMoves.Num());
+        UE_LOG(LogTemp, Log,
+            TEXT("SolveParallel: P%d RecentMoves updated. Newest: (%d,%d). Count: %d"),
+            RootPlayer, BestAct.MoveX, BestAct.MoveY, RecentMoves.Num());
     }
-    // *** END UPDATE MOVE HISTORY ***
 
-
-     UE_LOG(LogTemp, Warning, TEXT("=> SolveParallel selected: %s (Score=%d)"),
-        BestAct.bIsWall ?
-            *FString::Printf(TEXT("Wall L%d @(%d,%d) %s"), BestAct.WallLength, BestAct.SlotX, BestAct.SlotY, BestAct.bHorizontal ? TEXT("H") : TEXT("V")) :
-            *FString::Printf(TEXT("Move to (%d,%d)"), BestAct.MoveX, BestAct.MoveY),
+    UE_LOG(LogTemp, Warning,
+        TEXT("=> SolveParallel selected: %s (Score=%d)"),
+        BestAct.bIsWall
+            ? *FString::Printf(TEXT("Wall L%d @(%d,%d) %s"),
+                   BestAct.WallLength, BestAct.SlotX, BestAct.SlotY,
+                   BestAct.bHorizontal ? TEXT("H") : TEXT("V"))
+            : *FString::Printf(TEXT("Move to (%d,%d)"), BestAct.MoveX, BestAct.MoveY),
         BestAct.Score);
 
-    if (BestAct.Score == INT_MIN && Candidates.Num() > 0) {
-       UE_LOG(LogTemp, Error, TEXT("No best move found > INT_MIN, picking first candidate!"));
-       return Candidates[0];
+    if (BestAct.Score == INT_MIN && Candidates.Num() > 0)
+    {
+        UE_LOG(LogTemp, Error, TEXT("No best move found > INT_MIN, picking first candidate!"));
+        return Candidates[0];
     }
 
     return BestAct;
 }
+
+
 
 //-----------------------------------------------------------------------------
 // Solve Alpha-Beta (Main Entry Point)
@@ -1174,95 +1408,209 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial, int32
     
     const int idx = RootPlayer - 1;
     const int Opponent = 3 - RootPlayer;
+
+    // ── INITIAL PATH LOGGING via FindPathForPawn ──
+    {
+        TArray<FIntPoint> AIPath;
+        TArray<FIntPoint> OppPath;
+
+        bool bAIHasPath  = FindPathForPawn(Initial, RootPlayer, AIPath);
+        bool bOppHasPath = FindPathForPawn(Initial, Opponent, OppPath);
+
+        if (bAIHasPath)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Initial AI Path.Len = %d"), AIPath.Num());
+            for (int32 i = 0; i < AIPath.Num(); ++i)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("  AIPath[%d] = (%d,%d)"), i, AIPath[i].X, AIPath[i].Y);
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Initial AI: NO PATH"));
+        }
+
+        if (bOppHasPath)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Initial Opp Path.Len = %d"), OppPath.Num());
+            for (int32 i = 0; i < OppPath.Num(); ++i)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("  OppPath[%d] = (%d,%d)"), i, OppPath[i].X, OppPath[i].Y);
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Initial Opp: NO PATH"));
+        }
+    }
+
+    // Retain these if you want net‐gain for walls:
     int32 AILength = 0, OppLength = 0;
-    TArray<FIntPoint> AIPath = ComputePathToGoal(Initial, RootPlayer, &AILength);
-    TArray<FIntPoint> OppPath = ComputePathToGoal(Initial, Opponent, &OppLength);
-    UE_LOG(LogTemp, Warning, TEXT("Initial Paths: AI=%d | Opp=%d"), AILength, OppLength);
-    for (int i = 0; i < AIPath.Num(); ++i)
-        UE_LOG(LogTemp, Warning, TEXT("  AI[%d] = (%d,%d)"), i, AIPath[i].X, AIPath[i].Y);
-    
+    ComputePathToGoal(Initial, RootPlayer, &AILength);
+    ComputePathToGoal(Initial, Opponent, &OppLength);
+
     TArray<FMinimaxAction> Candidates;
 
-    // === Generate Pawn Moves (Using Pawn Constructor) ===
+    // === Generate Pawn Moves ===
     TArray<FIntPoint> PawnMoves = GetPawnMoves(Initial, RootPlayer);
-    for (const auto& mv : PawnMoves) {
+    for (const auto& mv : PawnMoves)
+    {
         Candidates.Add(FMinimaxAction(mv.X, mv.Y));
     }
 
-    // === Generate Wall Moves (Using Wall Constructor) ===
-    if (Initial.WallsRemaining[idx] > 0) {
+    // === Generate Wall Moves ===
+    if (Initial.WallsRemaining[idx] > 0)
+    {
         TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(Initial, RootPlayer);
-        for (const auto& w : WallMoves) {
+        for (const auto& w : WallMoves)
+        {
             Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
         }
     }
 
-    if (Candidates.Num() == 0) {
+    if (Candidates.Num() == 0)
+    {
         UE_LOG(LogTemp, Error, TEXT("SolveAlphaBeta: No candidates found!"));
         return FMinimaxAction();
     }
 
     // === Score & Sort Candidates for Move Ordering ===
-    int32 CurrentX = Initial.PawnX[idx];
-    int32 CurrentY = Initial.PawnY[idx];
-    
-    for (FMinimaxAction& act : Candidates) {
-         FMinimaxState SS = Initial;
-         if(act.bIsWall) {
-             ApplyWall(SS, RootPlayer, {act.SlotX, act.SlotY, act.WallLength, act.bHorizontal});
-         } else {
-             ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
-             
-             // ANTI-OSCILLATION: Penalize moves that go back to recent positions
-             // This helps prevent the back-and-forth movement
-             if (RecentMoves.Num() > 0) {
-                 FIntPoint LastMove = RecentMoves.Last();
-                 if (act.MoveX == LastMove.X && act.MoveY == LastMove.Y) {
-                     act.Score -= 1000;  // Heavy penalty for immediate reversal
-                 }
-             }
-             if (RecentMoves.Num() > 1) {
-                 FIntPoint SecondLastMove = RecentMoves[RecentMoves.Num()-2];
-                 if (act.MoveX == SecondLastMove.X && act.MoveY == SecondLastMove.Y) {
-                     act.Score -= 500;   // Penalty for returning to 2-moves-ago position
-                 }
-             }
-         }
-         
-         int32 TempAILen = 100, TempOppLen = 100;
-         ComputePathToGoal(SS, RootPlayer, &TempAILen);
-         ComputePathToGoal(SS, Opponent, &TempOppLen);
-         act.Score += (TempOppLen - TempAILen) - (OppLength - AILength);
+    for (FMinimaxAction& act : Candidates)
+    {
+        FMinimaxState SS = Initial;
+        int32 score = INT_MIN;
+
+        if (act.bIsWall)
+        {
+            // ── WALL MOVE: unchanged net‐gain logic ──
+            FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
+
+            // 1) Check legality (must not cut off opponent)
+            FMinimaxState TempCheck = Initial;
+            ApplyWall(TempCheck, RootPlayer, w);
+            if (DoesWallBlockPlayer(TempCheck))
+            {
+                act.Score = INT_MIN;
+                continue;
+            }
+
+            // 2) Apply wall to SS
+            ApplyWall(SS, RootPlayer, w);
+
+            // 3) Run alpha-beta
+            score = MinimaxAlphaBeta(SS, Depth - 1, RootPlayer, Opponent, INT_MIN, INT_MAX);
+
+            // 4) Net‐gain bonus
+            int32 AfterAILen = 0, AfterOppLen = 0;
+            ComputePathToGoal(SS, RootPlayer, &AfterAILen);
+            ComputePathToGoal(SS, Opponent, &AfterOppLen);
+
+            if (AILength < 100 && OppLength < 100 && AfterAILen < 100 && AfterOppLen < 100)
+            {
+                int32 NetGain = (AfterOppLen - AfterAILen) - (OppLength - AILength);
+                score += NetGain * 10;
+            }
+        }
+        else
+        {
+            // ── PAWN MOVE: direct‐set pawn’s coordinates, then A* for path length + closeness tie‐breaker ──
+
+            // 1) Place pawn at candidate location in SS
+            SS.PawnX[idx] = act.MoveX;
+            SS.PawnY[idx] = act.MoveY;
+
+            // 2) Compute the shortest path from (act.MoveX, act.MoveY)
+            TArray<FIntPoint> OutPath;
+            bool bHasPath = FindPathForPawn(SS, RootPlayer, OutPath);
+            const int32 PathLen = bHasPath ? OutPath.Num() : INT_MAX;
+
+            // 3) If no path exists, discard
+            if (!bHasPath)
+            {
+                act.Score = INT_MIN;
+                continue;
+            }
+
+            // 4) Determine “distance to goal” after this move:
+            //    For Player 1, goal row = Y=0 ⇒ distToGoal = act.MoveY
+            //    For Player 2, goal row = Y=8 ⇒ distToGoal = 8 - act.MoveY
+            int32 distToGoal = (RootPlayer == 1)
+                ? act.MoveY
+                : (8 - act.MoveY);
+
+            // 5) Combine PathLen (primary) and distToGoal (secondary):
+            //    primary: - (PathLen * 10), secondary: - distToGoal
+            score = -(PathLen * 10) - distToGoal;
+
+            // 6) Log each pawn candidate’s path length, distance, and final score
+            UE_LOG(LogTemp, Warning, TEXT(
+                "Pawn candidate (%d,%d) => Path.Len=%d, DistToGoal=%d, Score=%d"),
+                act.MoveX, act.MoveY, PathLen, distToGoal, score);
+
+            // 7) Anti‐oscillation penalty (unchanged)
+            if (RecentMoves.Num() >= 1 &&
+                act.MoveX == RecentMoves.Last().X &&
+                act.MoveY == RecentMoves.Last().Y)
+            {
+                score -= 1000;
+                UE_LOG(LogTemp, Warning, TEXT(
+                    "SolveAlphaBeta: Penalizing immediate reversal to (%d,%d) for P%d"),
+                    act.MoveX, act.MoveY, RootPlayer);
+            }
+            if (RecentMoves.Num() >= 2 &&
+                act.MoveX == RecentMoves[RecentMoves.Num() - 2].X &&
+                act.MoveY == RecentMoves[RecentMoves.Num() - 2].Y)
+            {
+                score -= 500;
+                UE_LOG(LogTemp, Warning, TEXT(
+                    "SolveAlphaBeta: Penalizing reversal to 2‐moves‐ago (%d,%d) for P%d"),
+                    act.MoveX, act.MoveY, RootPlayer);
+            }
+        }
+
+        act.Score = score;
     }
-    
+
+    // Sort descending so the highest‐score action is first
     Candidates.Sort([](const FMinimaxAction& A, const FMinimaxAction& B) {
         return A.Score > B.Score;
     });
 
-    // === Run Minimax on Ordered Candidates ===
+    // === Run Alpha-Beta on Ordered Candidates ===
     FMinimaxAction BestAct;
     BestAct.Score = INT_MIN;
     int32 Alpha = INT_MIN;
-    int32 Beta = INT_MAX;
+    int32 Beta  = INT_MAX;
 
     for (const auto& act : Candidates)
     {
         FMinimaxState SS = Initial;
         int32 CurrentScore = INT_MIN;
 
-        if (act.bIsWall) {
+        if (act.bIsWall)
+        {
             FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
+
+            // Check legality again
             FMinimaxState TempCheck = Initial;
             ApplyWall(TempCheck, RootPlayer, w);
-            if(DoesWallBlockPlayer(TempCheck)) continue;
+            if (DoesWallBlockPlayer(TempCheck))
+            {
+                continue;
+            }
+
             ApplyWall(SS, RootPlayer, w);
-        } else {
+            CurrentScore = MinimaxAlphaBeta(SS, Depth - 1, RootPlayer, Opponent, Alpha, Beta);
+        }
+        else
+        {
+            // Pawn move: apply normally for recursion
             ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
+            CurrentScore = MinimaxAlphaBeta(SS, Depth - 1, RootPlayer, Opponent, Alpha, Beta);
         }
 
-        CurrentScore = MinimaxAlphaBeta(SS, Depth - 1, RootPlayer, Opponent, Alpha, Beta);
-
-        if (CurrentScore > BestAct.Score) {
+        if (CurrentScore > BestAct.Score)
+        {
             BestAct = act;
             BestAct.Score = CurrentScore;
             Alpha = FMath::Max(Alpha, CurrentScore);
@@ -1270,20 +1618,25 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial, int32
     }
 
     // === Update move history to prevent oscillation ===
-    if (!BestAct.bIsWall) {
+    if (!BestAct.bIsWall)
+    {
         RecentMoves.Add(FIntPoint(BestAct.MoveX, BestAct.MoveY));
-        if (RecentMoves.Num() > 4) {  // Keep only last 4 moves
+        if (RecentMoves.Num() > 4)
+        {
             RecentMoves.RemoveAt(0);
         }
     }
 
     UE_LOG(LogTemp, Warning, TEXT("=> SolveAlphaBeta selected: %s (Score=%d)"),
-        BestAct.bIsWall ?
-            *FString::Printf(TEXT("Wall L%d @(%d,%d) %s"), BestAct.WallLength, BestAct.SlotX, BestAct.SlotY, BestAct.bHorizontal ? TEXT("H") : TEXT("V")) :
-            *FString::Printf(TEXT("Move to (%d,%d)"), BestAct.MoveX, BestAct.MoveY),
+        BestAct.bIsWall
+            ? *FString::Printf(TEXT("Wall L%d @(%d,%d) %s"),
+                   BestAct.WallLength, BestAct.SlotX, BestAct.SlotY,
+                   BestAct.bHorizontal ? TEXT("H") : TEXT("V"))
+            : *FString::Printf(TEXT("Move to (%d,%d)"), BestAct.MoveX, BestAct.MoveY),
         BestAct.Score);
 
-    if (BestAct.Score == INT_MIN && Candidates.Num() > 0) {
+    if (BestAct.Score == INT_MIN && Candidates.Num() > 0)
+    {
        UE_LOG(LogTemp, Error, TEXT("No best move found > INT_MIN, picking first candidate!"));
        return Candidates[0];
     }
@@ -1291,46 +1644,72 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial, int32
     return BestAct;
 }
 
+
+
 FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer)
 {
-    UE_LOG(LogTemp, Warning, TEXT("=== SolveParallelAlphaBeta | Root=%d | Depth=%d ==="), RootPlayer, Depth);
-
-    // Using the single static MinimaxEngine::RecentMoves
-    // WARNING: This shared list will cause issues if two AIs use this Solve function simultaneously
-    // or in sequence without clearing/managing the history per player turn.
-
-    PrintInventory(Initial, TEXT("Start SolveParallelAlphaBeta"));
-    PrintBlockedWalls(Initial, TEXT("Start SolveParallelAlphaBeta"));
+    UE_LOG(LogTemp, Warning, TEXT("=== SolveParallelAlphaBeta (PAWN‐ONLY) | Root=%d | Depth=%d ==="), RootPlayer, Depth);
+    PrintInventory(Initial, TEXT("Start SolveParallelAlphaBeta (PAWN‐ONLY)"));
+    PrintBlockedWalls(Initial, TEXT("Start SolveParallelAlphaBeta (PAWN‐ONLY)"));
 
     const int idx = RootPlayer - 1;
     const int Opponent = 3 - RootPlayer;
-    int32 InitialAILength = 0, InitialOppLength = 0;
-    TArray<FIntPoint> AIPath = ComputePathToGoal(Initial, RootPlayer, &InitialAILength);
-    TArray<FIntPoint> OppPath = ComputePathToGoal(Initial, Opponent, &InitialOppLength);
-    UE_LOG(LogTemp, Warning, TEXT("Initial Paths: AI=%d | Opp=%d"), InitialAILength, InitialOppLength);
-    for (int i = 0; i < AIPath.Num(); ++i)
-        UE_LOG(LogTemp, Warning, TEXT("  AI[%d] = (%d,%d)"), i, AIPath[i].X, AIPath[i].Y);
-    
-    TArray<FMinimaxAction> Candidates;
 
-    // === Generate Candidate Moves ===
-    TArray<FIntPoint> PawnMoves = GetPawnMoves(Initial, RootPlayer);
-    for (const auto& mv : PawnMoves) {
-        Candidates.Add(FMinimaxAction(mv.X, mv.Y));
-    }
+    // --- INITIAL PATH LOGGING with FindPathForPawn ---
+    {
+        TArray<FIntPoint> AIPath;
+        TArray<FIntPoint> OppPath;
 
-    if (Initial.WallsRemaining[idx] > 0) {
-        TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(Initial, RootPlayer);
-        for (const auto& w : WallMoves) {
-            Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
+        bool bAIHasPath  = FindPathForPawn(Initial, RootPlayer, AIPath);
+        bool bOppHasPath = FindPathForPawn(Initial, Opponent, OppPath);
+
+        if (bAIHasPath)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Initial AI Path.Len = %d"), AIPath.Num());
+            for (int32 i = 0; i < AIPath.Num(); ++i)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("  AIPath[%d] = (%d,%d)"), i, AIPath[i].X, AIPath[i].Y);
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Initial AI: NO PATH"));
+        }
+
+        if (bOppHasPath)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Initial Opp Path.Len = %d"), OppPath.Num());
+            for (int32 i = 0; i < OppPath.Num(); ++i)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("  OppPath[%d] = (%d,%d)"), i, OppPath[i].X, OppPath[i].Y);
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Initial Opp: NO PATH"));
         }
     }
 
-    if (Candidates.Num() == 0) {
-        UE_LOG(LogTemp, Error, TEXT("SolveParallelAlphaBeta: No candidates found!"));
+    // We no longer compute wall net‐gain, since walls are omitted here.
+    // TArray<FMinimaxAction> Candidates;
+    TArray<FMinimaxAction> Candidates;
+
+    // === Generate Pawn Moves ONLY ===
+    TArray<FIntPoint> PawnMoves = GetPawnMoves(Initial, RootPlayer);
+    UE_LOG(LogTemp, Warning, TEXT("PawnMoves.Num() = %d"), PawnMoves.Num());
+    for (const FIntPoint& Move : PawnMoves)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("  PawnMove: (%d, %d)"), Move.X, Move.Y);
+        Candidates.Add(FMinimaxAction(Move.X, Move.Y));
+    }
+
+    if (Candidates.Num() == 0)
+    {
+        UE_LOG(LogTemp, Error, TEXT("SolveParallelAlphaBeta (PAWN‐ONLY): No pawn‐moves found!"));
         return FMinimaxAction();
     }
 
+    // === Parallel Scoring (Pawn Only) ===
     TArray<int32> Scores;
     Scores.SetNum(Candidates.Num());
 
@@ -1340,49 +1719,63 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
         FMinimaxState SS = Initial;
         int32 score = INT_MIN;
 
-        if (act.bIsWall) {
-            FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
-            FMinimaxState TempCheck = Initial;
-            ApplyWall(TempCheck, RootPlayer, w);
-            if(DoesWallBlockPlayer(TempCheck)) {
-                 Scores[i] = INT_MIN;
-                 return;
-            }
-            ApplyWall(SS, RootPlayer, w);
-        } else {
-            ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
+        // --- PAWN MOVE: direct‐set pawn’s coordinates, then A* + closeness tie‐breaker ---
+        SS.PawnX[idx] = act.MoveX;
+        SS.PawnY[idx] = act.MoveY;
+
+        // Compute the shortest path from (act.MoveX, act.MoveY)
+        TArray<FIntPoint> OutPath;
+        bool bHasPath = FindPathForPawn(SS, RootPlayer, OutPath);
+        const int32 PathLen = bHasPath ? OutPath.Num() : INT_MAX;
+
+        if (!bHasPath)
+        {
+            // No legal path from this candidate → discard
+            Scores[i] = INT_MIN;
+            UE_LOG(LogTemp, Warning, TEXT("Pawn candidate (%d,%d) => NO PATH"), act.MoveX, act.MoveY);
+            return;
         }
 
-        score = MinimaxAlphaBeta(SS, Depth - 1, RootPlayer, Opponent, INT_MIN, INT_MAX);
+        // Determine “distance to goal” after this move:
+        //   For Player 1: goal row = Y=0  →  distToGoal = act.MoveY
+        //   For Player 2: goal row = Y=8  →  distToGoal = 8 - act.MoveY
+        int32 distToGoal = (RootPlayer == 1)
+            ? act.MoveY
+            : (8 - act.MoveY);
 
-        if (InitialAILength < 100 && InitialOppLength < 100 && SS.PawnX[idx] >=0 /*Ensure SS paths can be computed*/) {
-            int32 AfterAILen = 0, AfterOppLen = 0;
-            ComputePathToGoal(SS, RootPlayer, &AfterAILen);
-            ComputePathToGoal(SS, Opponent, &AfterOppLen);
-            if (AfterAILen < 100 && AfterOppLen < 100) {
-                 int32 NetGain = (AfterOppLen - AfterAILen) - (InitialOppLength - InitialAILength);
-                 score += NetGain * 10;
-            }
+        // Combine PathLen (primary) and distToGoal (secondary):
+        //   primary: - (PathLen * 10), secondary: - distToGoal
+        // Shorter PathLen always dominates: a difference of 1 step is worth “10” points.
+        score = -(PathLen * 10) - distToGoal;
+
+        // Log for debugging
+        UE_LOG(LogTemp, Warning, TEXT("Pawn candidate (%d,%d) => Path.Len = %d, DistToGoal = %d, Score = %d"),
+            act.MoveX, act.MoveY, PathLen, distToGoal, score);
+
+        // Anti‐oscillation penalty (same as before):
+        if (MinimaxEngine::RecentMoves.Num() >= 1 &&
+            act.MoveX == MinimaxEngine::RecentMoves.Last().X &&
+            act.MoveY == MinimaxEngine::RecentMoves.Last().Y)
+        {
+            score -= 1000;
+            UE_LOG(LogTemp, Warning, TEXT(
+                "SolveParallelAlphaBeta (PAWN‐ONLY): Penalizing immediate reversal to (%d,%d) for P%d"),
+                act.MoveX, act.MoveY, RootPlayer);
+        }
+        if (MinimaxEngine::RecentMoves.Num() >= 2 &&
+            act.MoveX == MinimaxEngine::RecentMoves[MinimaxEngine::RecentMoves.Num() - 2].X &&
+            act.MoveY == MinimaxEngine::RecentMoves[MinimaxEngine::RecentMoves.Num() - 2].Y)
+        {
+            score -= 500;
+            UE_LOG(LogTemp, Warning, TEXT(
+                "SolveParallelAlphaBeta (PAWN‐ONLY): Penalizing reversal to 2‐moves‐ago (%d,%d) for P%d"),
+                act.MoveX, act.MoveY, RootPlayer);
         }
 
-        if (!act.bIsWall) {
-            // Using the single static MinimaxEngine::RecentMoves
-            if (MinimaxEngine::RecentMoves.Num() >= 1) {
-                if (act.MoveX == MinimaxEngine::RecentMoves.Last().X && act.MoveY == MinimaxEngine::RecentMoves.Last().Y) {
-                    score -= 1000;
-                    UE_LOG(LogTemp, Log, TEXT("SolveParallelAlphaBeta: Penalizing immediate reversal to (%d,%d) for P%d"), act.MoveX, act.MoveY, RootPlayer);
-                }
-            }
-            if (MinimaxEngine::RecentMoves.Num() >= 2) {
-                if (act.MoveX == MinimaxEngine::RecentMoves[MinimaxEngine::RecentMoves.Num()-2].X && act.MoveY == MinimaxEngine::RecentMoves[MinimaxEngine::RecentMoves.Num()-2].Y) {
-                    score -= 500;
-                    UE_LOG(LogTemp, Log, TEXT("SolveParallelAlphaBeta: Penalizing reversal to 2-moves-ago (%d,%d) for P%d"), act.MoveX, act.MoveY, RootPlayer);
-                }
-            }
-        }
         Scores[i] = score;
-    });
+    }); // end ParallelFor
 
+    // === Select Best Pawn Move ===
     FMinimaxAction BestAct;
     BestAct.Score = INT_MIN;
 
@@ -1392,34 +1785,39 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
         if (Scores[i] > BestAct.Score)
         {
             BestAct = Candidates[i];
-            // BestAct.Score = Scores[i]; // Already done by assigning Candidates[i] which has .Score
+            // BestAct.Score is already set above
         }
     }
 
-    if (!BestAct.bIsWall && BestAct.Score > INT_MIN) {
+    // === Update RecentMoves if Pawn Move chosen ===
+    if (!BestAct.bIsWall && BestAct.Score > INT_MIN)
+    {
         MinimaxEngine::RecentMoves.Add(FIntPoint(BestAct.MoveX, BestAct.MoveY));
-        if (MinimaxEngine::RecentMoves.Num() > 4) {
+        if (MinimaxEngine::RecentMoves.Num() > 4)
+        {
             MinimaxEngine::RecentMoves.RemoveAt(0);
         }
-        UE_LOG(LogTemp, Log, TEXT("SolveParallelAlphaBeta: P%d RecentMoves updated. Newest: (%d,%d). Count: %d"), RootPlayer, BestAct.MoveX, BestAct.MoveY, MinimaxEngine::RecentMoves.Num());
+        UE_LOG(LogTemp, Log, TEXT(
+            "SolveParallelAlphaBeta (PAWN‐ONLY): P%d RecentMoves updated. Newest: (%d,%d). Count: %d"),
+            RootPlayer, BestAct.MoveX, BestAct.MoveY, MinimaxEngine::RecentMoves.Num());
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("=> SolveParallelAlphaBeta selected: %s (Score=%d)"),
-        BestAct.bIsWall ?
-            *FString::Printf(TEXT("Wall L%d @(%d,%d) %s"), BestAct.WallLength, BestAct.SlotX, BestAct.SlotY, BestAct.bHorizontal ? TEXT("H") : TEXT("V")) :
-            *FString::Printf(TEXT("Move to (%d,%d)"), BestAct.MoveX, BestAct.MoveY),
-        BestAct.Score);
+    UE_LOG(LogTemp, Warning, TEXT("=> SolveParallelAlphaBeta (PAWN‐ONLY) selected: Move to (%d,%d) (Score=%d)"),
+        BestAct.MoveX, BestAct.MoveY, BestAct.Score);
 
-    if (BestAct.Score == INT_MIN && Candidates.Num() > 0) {
-       UE_LOG(LogTemp, Error, TEXT("SolveParallelAlphaBeta: No best move found > INT_MIN, picking first valid candidate if any!"));
-       for(int32 i=0; i < Candidates.Num(); ++i) {
-           if(Scores[i] > INT_MIN) {
-               return Candidates[i];
-           }
-       }
-       return Candidates[0];
+    if (BestAct.Score == INT_MIN && Candidates.Num() > 0)
+    {
+        UE_LOG(LogTemp, Error, TEXT(
+            "SolveParallelAlphaBeta (PAWN‐ONLY): No valid pawn move found > INT_MIN, picking first candidate!"));
+        return Candidates[0];
     }
+
     return BestAct;
 }
+
+
+
+
+
 
 
