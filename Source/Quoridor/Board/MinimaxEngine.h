@@ -137,9 +137,6 @@ private: // These are primarily internal helpers - could be in .cpp as static
     /** Helper to estimate board control/mobility using BFS */
     static void ComputeBoardControl(const FMinimaxState& S, int32& MyControl, int32& OppControl, int32 RootPlayer);
     static void PrintInventory(const FMinimaxState& S, const FString& Context);
-
-    /** Helper to check if a wall is near a path (proximity) */
-    static bool WallTouchesPath(const FWallData& w, const TArray<FIntPoint>& Path);
-
+    
     
 };

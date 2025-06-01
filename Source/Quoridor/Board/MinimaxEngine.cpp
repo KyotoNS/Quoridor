@@ -525,9 +525,7 @@ bool MinimaxEngine::FindPathForPawn(const FMinimaxState& S, int32 PlayerNum, TAr
 //-----------------------------------------------------------------------------
 // Wall Legality Check
 //-----------------------------------------------------------------------------
-bool MinimaxEngine::IsWallPlacementStrictlyLegal(
-    const FMinimaxState& S,
-    const FWallData& W)
+bool MinimaxEngine::IsWallPlacementStrictlyLegal(const FMinimaxState& S,const FWallData& W)
 {
     // ------------------------------------------------------------
     // 1) Bounds check for the entire wall
@@ -558,23 +556,6 @@ bool MinimaxEngine::IsWallPlacementStrictlyLegal(
             return false;
         }
     }
-
-    // ------------------------------------------------------------
-    // 2) Check for overlaps and simple “cross” intersections
-    // ------------------------------------------------------------
-    // We iterate over each segment of length = W.Length.
-    //   - For a horizontal slot, each segment lands at (cx, cy) = (W.X + i, W.Y).
-    //   - For a vertical   slot, each segment lands at (cx, cy) = (W.X, W.Y + i).
-    //
-    // Overlap means: that exact segment is already blocked in S.HorizontalBlocked or S.VerticalBlocked.
-    // Intersection (“+‐shaped cross”) means a horizontal and a vertical wall share the same center point.
-    //   * A horizontal slot at (cx, cy) intersects any vertical slot that has both
-    //       VerticalBlocked[cy][cx] == true  AND  VerticalBlocked[cy+1][cx] == true
-    //     Because a length‐2 vertical at (cx, cy) would block [cy][cx] and [cy+1][cx].
-    //   * A vertical slot at (cx, cy) intersects any horizontal slot that has both
-    //       HorizontalBlocked[cy][cx] == true  AND  HorizontalBlocked[cy][cx+1] == true
-    //     Because a length‐2 horizontal at (cx, cy) blocks [cy][cx] and [cy][cx+1].
-    //
 
     for (int i = 0; i < W.Length; ++i)
     {
@@ -944,42 +925,51 @@ void MinimaxEngine::ComputeBoardControl(const FMinimaxState& S, int32& MyControl
     int visited[9][9] = {};
     std::queue<FIntPoint> q1, q2;
 
-    int idxAI = RootPlayer - 1; int idxOpponent = 1 - idxAI;
+    int idxAI = RootPlayer - 1;
+    int idxOpponent = 1 - idxAI;
 
-    q1.push({S.PawnX[idxAI], S.PawnY[idxAI]});
-    q2.push({S.PawnX[idxOpponent], S.PawnY[idxOpponent]});
-    if(S.PawnY[idxAI] >= 0 && S.PawnX[idxAI] >= 0) visited[S.PawnY[idxAI]][S.PawnX[idxAI]] = RootPlayer;
-    if(S.PawnY[idxOpponent] >= 0 && S.PawnX[idxOpponent] >= 0) visited[S.PawnY[idxOpponent]][S.PawnX[idxOpponent]] = 3 - RootPlayer;
-    MyControl++; OppControl++;
+    int ax = S.PawnX[idxAI], ay = S.PawnY[idxAI];
+    int bx = S.PawnX[idxOpponent], by = S.PawnY[idxOpponent];
+
+    if (ay >= 0 && ax >= 0) { visited[ay][ax] = RootPlayer; q1.push({ax, ay}); MyControl++; }
+    if (by >= 0 && bx >= 0) { visited[by][bx] = 3 - RootPlayer; q2.push({bx, by}); OppControl++; }
 
     auto CanMove = [&](int ax, int ay, int bx, int by) -> bool {
         if (bx < 0 || bx > 8 || by < 0 || by > 8) return false;
-        if (bx == ax + 1 && S.VerticalBlocked[ay][ax]) return false;
-        if (bx == ax - 1 && ax > 0 && S.VerticalBlocked[ay][ax - 1]) return false;
-        if (by == ay + 1 && S.HorizontalBlocked[ay][ax]) return false;
-        if (by == ay - 1 && ay > 0 && S.HorizontalBlocked[ay - 1][ax]) return false;
+        if (bx == ax + 1 && ax >= 0 && ax < 8 && S.VerticalBlocked[ay][ax]) return false;
+        if (bx == ax - 1 && bx >= 0 && bx < 8 && S.VerticalBlocked[ay][bx]) return false;
+        if (by == ay + 1 && ay >= 0 && ay < 8 && S.HorizontalBlocked[ay][ax]) return false;
+        if (by == ay - 1 && by >= 0 && by < 8 && S.HorizontalBlocked[by][ax]) return false;
         return true;
     };
-    const FIntPoint dirs[4] = {{1,0}, {-1,0}, {0,1}, {0,-1}}; // Corrected dir
+
+    const FIntPoint dirs[4] = {{1,0}, {-1,0}, {0,1}, {0,-1}};
 
     while (!q1.empty() || !q2.empty()) {
         int q1_size = q1.size();
         for (int i = 0; i < q1_size; ++i) {
             FIntPoint curr = q1.front(); q1.pop();
             for (const auto& d : dirs) {
-                int nx = curr.X + d.X; int ny = curr.Y + d.Y;
-                if (CanMove(curr.X, curr.Y, nx, ny) && visited[ny][nx] == 0) {
-                    visited[ny][nx] = RootPlayer; MyControl++; q1.push({nx, ny});
+                int nx = curr.X + d.X;
+                int ny = curr.Y + d.Y;
+                if (nx >= 0 && nx < 9 && ny >= 0 && ny < 9 &&
+                    CanMove(curr.X, curr.Y, nx, ny) && visited[ny][nx] == 0) {
+                    visited[ny][nx] = RootPlayer; MyControl++;
+                    q1.push({nx, ny});
                 }
             }
         }
+
         int q2_size = q2.size();
         for (int i = 0; i < q2_size; ++i) {
             FIntPoint curr = q2.front(); q2.pop();
             for (const auto& d : dirs) {
-                int nx = curr.X + d.X; int ny = curr.Y + d.Y;
-                if (CanMove(curr.X, curr.Y, nx, ny) && visited[ny][nx] == 0) {
-                    visited[ny][nx] = 3 - RootPlayer; OppControl++; q2.push({nx, ny});
+                int nx = curr.X + d.X;
+                int ny = curr.Y + d.Y;
+                if (nx >= 0 && nx < 9 && ny >= 0 && ny < 9 &&
+                    CanMove(curr.X, curr.Y, nx, ny) && visited[ny][nx] == 0) {
+                    visited[ny][nx] = 3 - RootPlayer; OppControl++;
+                    q2.push({nx, ny});
                 }
             }
         }
@@ -1094,8 +1084,6 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
 }
 
 
-
-
 //-----------------------------------------------------------------------------
 // Apply Pawn Move
 //-----------------------------------------------------------------------------
@@ -1186,31 +1174,6 @@ void MinimaxEngine::ApplyWall(FMinimaxState& S, int32 PlayerNum, const FWallData
     }
 }
 
-
-// Add empty definitions for functions not fully shown or assumed to exist elsewhere
-// if they aren't part of MinimaxEngine but were referenced (like WallTouchesPath if needed)
-bool MinimaxEngine::WallTouchesPath(const FWallData& w, const TArray<FIntPoint>& Path)
-{
-    // Basic proximity check (can be refined)
-    for (const FIntPoint& tile : Path)
-    {
-        int tx = tile.X;
-        int ty = tile.Y;
-
-        if (w.bHorizontal) {
-            for (int i = 0; i < w.Length; ++i) {
-                // Check if wall segment (w.X + i, w.Y) is adjacent to tile (tx, ty)
-                if (FMath::Abs(w.X + i - tx) <= 1 && FMath::Abs(w.Y - ty) <= 1) return true;
-            }
-        } else { // Vertical
-            for (int i = 0; i < w.Length; ++i) {
-                // Check if wall segment (w.X, w.Y + i) is adjacent to tile (tx, ty)
-                if (FMath::Abs(w.X - tx) <= 1 && FMath::Abs(w.Y + i - ty) <= 1) return true;
-            }
-        }
-    }
-    return false;
-}
 
 
 //-----------------------------------------------------------------------------
