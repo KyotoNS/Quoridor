@@ -119,9 +119,7 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
 //-----------------------------------------------------------------------------
 TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 PlayerNum,int32* OutLength)
 {
-    // ------------------------------------------------------------
     // 1) Determine goal row and starting coordinates
-    // ------------------------------------------------------------
     const int goalY = (PlayerNum == 1 ? 8 : 0);
     const int idx   = PlayerNum - 1;
 
@@ -136,12 +134,10 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
         return {};
     }
 
-    // ------------------------------------------------------------
-    // 2) A* data structures: closed flag, gCost, and cameFrom
-    // ------------------------------------------------------------
-    bool        closed[9][9]   = {};
-    int         gCost[9][9];
-    FIntPoint   cameFrom[9][9];
+    // 2) A* data structures
+    bool      closed[9][9]   = {};  // all false initially
+    int       gCost[9][9];
+    FIntPoint cameFrom[9][9];
 
     for (int y = 0; y < 9; ++y)
     {
@@ -152,64 +148,50 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
         }
     }
 
-    // ------------------------------------------------------------
     // 3) Heuristic = |goalY - y|
-    // ------------------------------------------------------------
     auto Heuristic = [&](int x, int y) {
         return FMath::Abs(goalY - y);
     };
 
-    // ------------------------------------------------------------
-    // 4) Priority queue node (f = g+h, g, x, y) w/ comparator
-    // ------------------------------------------------------------
+    // 4) Priority queue node (f = g+h, g, x, y)
     struct Node {
         int f, g, x, y;
     };
     struct Cmp {
         bool operator()(Node const &A, Node const &B) const {
-            return A.f > B.f;  // smaller f = higher priority
+            return A.f > B.f; // smaller f = higher priority
         }
     };
     std::priority_queue<Node, std::vector<Node>, Cmp> open;
 
-    // ------------------------------------------------------------
     // 5) Initialize start tile
-    // ------------------------------------------------------------
     gCost[sy][sx] = 0;
     open.push({ Heuristic(sx, sy), 0, sx, sy });
 
-    // ------------------------------------------------------------
-    // 6) Cardinal directions (X increases right, Y increases up)
-    // ------------------------------------------------------------
+    // 6) Cardinal directions (X increases to the right, Y increases upward)
     const FIntPoint dirs[4] = {
-        FIntPoint(+1,  0),
-        FIntPoint(-1,  0),
-        FIntPoint( 0, +1),
-        FIntPoint( 0, -1)
+        FIntPoint(+1,  0),  // right
+        FIntPoint(-1,  0),  // left
+        FIntPoint( 0, +1),  // up
+        FIntPoint( 0, -1)   // down
     };
 
-    // ------------------------------------------------------------
-    // 7) We will only log “why (8,0) is blocked” one time per function call
-    // ------------------------------------------------------------
-    bool bLoggedTargetCheck = false;
-
-    // ------------------------------------------------------------
-    // 8) A* search loop
-    // ------------------------------------------------------------
-    bool   foundGoal = false;
-    int    bestGX = -1, bestGY = -1, bestLen = INT_MAX;
+    // 7) A* search loop
+    bool foundGoal = false;
+    int  bestGX = -1, bestGY = -1, bestLen = INT_MAX;
 
     while (!open.empty())
     {
         Node n = open.top();
         open.pop();
 
+        // If we have already closed this cell, skip
         if (closed[n.y][n.x])
             continue;
 
         closed[n.y][n.x] = true;
 
-        // If this node is on the goal row, we can stop immediately
+        // If this node is on the goal row, we can stop
         if (n.y == goalY)
         {
             foundGoal = true;
@@ -225,36 +207,75 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
             int nx = n.x + d.X;
             int ny = n.y + d.Y;
 
-            // 8.a) Bounds check
+            // 7a) Bounds check
             if (nx < 0 || nx > 8 || ny < 0 || ny > 8)
                 continue;
 
-            // 8.b) If this neighbor is (8,0), we may want to log exactly why
-            bool isTargetNode = (nx == 8 && ny == 0);
+            // 7b) Check wall‐blocking for this move. We must ensure any array index
+            //     into VerticalBlocked or HorizontalBlocked is itself in range.
 
-            // 8.c) Wall‐blocking checks
-            bool blockedRight = (d.X == +1 && S.VerticalBlocked[n.y][n.x]);
-            bool blockedLeft  = (d.X == -1 && S.VerticalBlocked[n.y][n.x - 1]);
-            bool blockedUp    = (d.Y == +1 && S.HorizontalBlocked[n.y][n.x]);
-            bool blockedDown  = (d.Y == -1 && S.HorizontalBlocked[n.y - 1][n.x]);
+            bool blocked = false;
 
-           
+            // Moving right?
+            if (d.X == +1 && d.Y == 0)
+            {
+                // We only index VerticalBlocked[y][x] if x ∈ [0..7] and y ∈ [0..8]
+                if (n.x >= 0 && n.x < 8 && n.y >= 0 && n.y < 9)
+                {
+                    if (S.VerticalBlocked[n.y][n.x])
+                        blocked = true;
+                }
+            }
+            // Moving left?
+            else if (d.X == -1 && d.Y == 0)
+            {
+                // We only index VerticalBlocked[y][x-1] if (x-1) ∈ [0..7] and y ∈ [0..8]
+                if (n.x - 1 >= 0 && n.x - 1 < 8 && n.y >= 0 && n.y < 9)
+                {
+                    if (S.VerticalBlocked[n.y][n.x - 1])
+                        blocked = true;
+                }
+            }
+            // Moving up?
+            else if (d.X == 0 && d.Y == +1)
+            {
+                // We only index HorizontalBlocked[y][x] if y ∈ [0..7] and x ∈ [0..8]
+                if (n.y >= 0 && n.y < 8 && n.x >= 0 && n.x < 9)
+                {
+                    if (S.HorizontalBlocked[n.y][n.x])
+                        blocked = true;
+                }
+            }
+            // Moving down?
+            else if (d.X == 0 && d.Y == -1)
+            {
+                // We only index HorizontalBlocked[y-1][x] if (y-1) ∈ [0..7] and x ∈ [0..8]
+                if (n.y - 1 >= 0 && n.y - 1 < 8 && n.x >= 0 && n.x < 9)
+                {
+                    if (S.HorizontalBlocked[n.y - 1][n.x])
+                        blocked = true;
+                }
+            }
 
-            // 8.d) If any wall‐check was true, skip this neighbor
-            if (blockedRight || blockedLeft || blockedUp || blockedDown)
+            if (blocked)
                 continue;
 
-            // 8.e) If neighbor is already closed, skip
+            // 7c) If neighbor is already closed, skip
             if (closed[ny][nx])
                 continue;
 
-            // 8.f) Occupancy check (if you have one). Example placeholder:
-            // bool bOccupied = /* your occupancy logic here, e.g. S.PawnX/Y clash */;
-            bool bOccupied = false;
-            if (bOccupied)
-                continue;
+            // 7d) (Optional) Occupancy check—skip if some piece sits there
+            //     (In Quoridor, you might want to treat the other pawn as not a wall
+            //      but as something you can “jump” over elsewhere. Here we assume
+            //      path‐to‐goal ignores pawn occupancy. If you do want to forbid
+            //      stepping onto the other pawn, un‐comment below:)
+            //
+            // bool bOccupied = ((nx == S.PawnX[0] && ny == S.PawnY[0]) ||
+            //                   (nx == S.PawnX[1] && ny == S.PawnY[1]));
+            // if (bOccupied)
+            //    continue;
 
-            // 8.g) Tentative g‐cost and push onto open queue if it improves gCost
+            // 7e) Tentative g‐cost = n.g + 1
             int ng = n.g + 1;
             if (ng < gCost[ny][nx])
             {
@@ -263,28 +284,21 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
                 int h            = Heuristic(nx, ny);
                 open.push({ ng + h, ng, nx, ny });
             }
-        } // end for dirs[]
+        }
     } // end while(open)
 
-    // ------------------------------------------------------------
-    // 9) No path found => return empty path, length = 100
-    // ------------------------------------------------------------
+    // 8) No path found ⇒ length = 100
     if (!foundGoal)
     {
-        if (OutLength)
+        if (OutLength) 
             *OutLength = 100;
         return {};
     }
 
-    // ------------------------------------------------------------
-    // 10) We did find a goal‐row tile (bestGX,bestGY) with cost = bestLen
-    // ------------------------------------------------------------
-    if (OutLength)
+    // 9) Fill OutLength and reconstruct path
+    if (OutLength) 
         *OutLength = bestLen;
 
-    // ------------------------------------------------------------
-    // 11) Reconstruct the path from (bestGX,bestGY) backwards
-    // ------------------------------------------------------------
     TArray<FIntPoint> Path;
     {
         int cx = bestGX, cy = bestGY;
@@ -292,13 +306,14 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
         {
             Path.Insert(FIntPoint(cx, cy), 0);
             FIntPoint parent = cameFrom[cy][cx];
-            cx = parent.X; 
+            cx = parent.X;
             cy = parent.Y;
         }
     }
 
     return Path;
 }
+
 
 bool MinimaxEngine::FindPathForPawn(const FMinimaxState& S, int32 PlayerNum, TArray<FIntPoint>& OutPath)
 {
@@ -510,41 +525,124 @@ bool MinimaxEngine::FindPathForPawn(const FMinimaxState& S, int32 PlayerNum, TAr
 //-----------------------------------------------------------------------------
 // Wall Legality Check
 //-----------------------------------------------------------------------------
-bool MinimaxEngine::IsWallPlacementStrictlyLegal(const FMinimaxState& S, const FWallData& W)
+bool MinimaxEngine::IsWallPlacementStrictlyLegal(
+    const FMinimaxState& S,
+    const FWallData& W)
 {
-    // Check bounds
-    if (W.bHorizontal) {
-        if (W.X < 0 || W.X + W.Length - 1 > 7 || W.Y < 0 || W.Y > 8) return false;
-    } else {
-        if (W.X < 0 || W.X > 8 || W.Y < 0 || W.Y + W.Length - 1 > 7) return false;
-    }
-
-    // Check overlaps and intersections
-    for (int i = 0; i < W.Length; ++i)
+    // ------------------------------------------------------------
+    // 1) Bounds check for the entire wall
+    // ------------------------------------------------------------
+    if (W.bHorizontal)
     {
-        int cx = W.bHorizontal ? W.X + i : W.X;
-        int cy = W.bHorizontal ? W.Y : W.Y + i;
-
-        if (W.bHorizontal) {
-            if (S.HorizontalBlocked[cy][cx]) return false; // Overlap H
-            // Check intersection (center point 'cross')
-            // If V[y-1][cx] and V[y][cx] both exist, it would cross.
-            // Requires Y>0 and Y<8 for V walls. Simplified: Check if V exists *at* cx,cy.
-            if (S.VerticalBlocked[cy > 0 ? cy - 1 : 0][cx] && S.VerticalBlocked[cy][cx]) return false;
-
-        } else { // Vertical
-            if (S.VerticalBlocked[cy][cx]) return false; // Overlap V
-            // Check intersection: If H[cy][cx-1] and H[cy][cx] both exist.
-            if (S.HorizontalBlocked[cy][cx > 0 ? cx - 1 : 0] && S.HorizontalBlocked[cy][cx]) return false;
+        // Horizontal wall of length L sits at Y = W.Y, X ∈ [W.X .. W.X+L-1].
+        // Valid X range for a horizontal segment is [0..8], valid Y is [0..7].
+        // So we require:
+        //    0 ≤ W.Y < 8
+        //    0 ≤ W.X ≤  8   AND   (W.X + W.Length - 1) ≤ 8
+        if (W.Y < 0 || W.Y >= 8 ||
+            W.X < 0 || W.X + W.Length - 1 > 8)
+        {
+            return false;
+        }
+    }
+    else
+    {
+        // Vertical wall of length L sits at X = W.X, Y ∈ [W.Y .. W.Y+L-1].
+        // Valid Y range for a vertical segment is [0..8], valid X is [0..7].
+        // So we require:
+        //    0 ≤ W.X < 8
+        //    0 ≤ W.Y ≤  8   AND   (W.Y + W.Length - 1) ≤ 8
+        if (W.X < 0 || W.X >= 8 ||
+            W.Y < 0 || W.Y + W.Length - 1 > 8)
+        {
+            return false;
         }
     }
 
-    // Check intersection with other end (only needed for length > 1, but check anyway)
-    // A more robust check might be needed depending on how walls intersect.
-    // This basic check prevents direct overlap and simple crosses.
+    // ------------------------------------------------------------
+    // 2) Check for overlaps and simple “cross” intersections
+    // ------------------------------------------------------------
+    // We iterate over each segment of length = W.Length.
+    //   - For a horizontal slot, each segment lands at (cx, cy) = (W.X + i, W.Y).
+    //   - For a vertical   slot, each segment lands at (cx, cy) = (W.X, W.Y + i).
+    //
+    // Overlap means: that exact segment is already blocked in S.HorizontalBlocked or S.VerticalBlocked.
+    // Intersection (“+‐shaped cross”) means a horizontal and a vertical wall share the same center point.
+    //   * A horizontal slot at (cx, cy) intersects any vertical slot that has both
+    //       VerticalBlocked[cy][cx] == true  AND  VerticalBlocked[cy+1][cx] == true
+    //     Because a length‐2 vertical at (cx, cy) would block [cy][cx] and [cy+1][cx].
+    //   * A vertical slot at (cx, cy) intersects any horizontal slot that has both
+    //       HorizontalBlocked[cy][cx] == true  AND  HorizontalBlocked[cy][cx+1] == true
+    //     Because a length‐2 horizontal at (cx, cy) blocks [cy][cx] and [cy][cx+1].
+    //
 
+    for (int i = 0; i < W.Length; ++i)
+    {
+        int cx = W.bHorizontal ? (W.X + i) : W.X;
+        int cy = W.bHorizontal ? W.Y       : (W.Y + i);
+
+        if (W.bHorizontal)
+        {
+            // 2a) Overlap: check if this horizontal segment is already blocked
+            //    HorizontalBlocked has 8 rows × 9 columns, so valid indices are:
+            //      0 ≤ cy < 8  and  0 ≤ cx < 9
+            if (S.HorizontalBlocked[cy][cx])
+            {
+                // This exact segment is already occupied by another horizontal wall.
+                return false;
+            }
+
+            // 2b) Intersection (cross): does a vertical wall “cross” here?
+            //    A length‐2 vertical slot at X=cx, Y=cy would mark:
+            //      VerticalBlocked[cy][cx]   and  
+            //      VerticalBlocked[cy+1][cx]
+            //    So we must check if both those are already true. But only if (cy+1) ≤ 8.
+            if (cy + 1 <= 8)
+            {
+                if (S.VerticalBlocked[cy][cx] &&
+                    S.VerticalBlocked[cy + 1][cx])
+                {
+                    // A vertical slot occupies exactly those two segments,
+                    // so a new horizontal segment here would cross it at the T‐junction.
+                    return false;
+                }
+            }
+        }
+        else
+        {
+            // 2c) Overlap: check if this vertical segment is already blocked
+            //    VerticalBlocked has 9 rows × 8 columns, so valid indices are:
+            //      0 ≤ cy < 9  and  0 ≤ cx < 8
+            if (S.VerticalBlocked[cy][cx])
+            {
+                // This exact segment is already occupied by another vertical wall.
+                return false;
+            }
+
+            // 2d) Intersection (cross): does a horizontal wall “cross” here?
+            //    A length‐2 horizontal slot at X=cx, Y=cy would mark:
+            //      HorizontalBlocked[cy][cx]   and  
+            //      HorizontalBlocked[cy][cx+1]
+            //    So check if both those are already true—but only if (cx+1) ≤ 8.
+            if (cx + 1 <= 8)
+            {
+                if (S.HorizontalBlocked[cy][cx] &&
+                    S.HorizontalBlocked[cy][cx + 1])
+                {
+                    // A horizontal slot occupies those segments, so a new vertical
+                    // segment at (cx, cy) would cross it at the T‐junction.
+                    return false;
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------
+    // 3) If we reach here, there’s no overlap or “simple cross.” It’s strictly legal.
+    // ------------------------------------------------------------
     return true;
 }
+
 
 
 //-----------------------------------------------------------------------------
@@ -705,115 +803,128 @@ TArray<FWallData> MinimaxEngine::GetAllUsefulWallPlacements(const FMinimaxState&
 TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 PlayerNum)
 {
     TArray<FIntPoint> Out;
-    Out.Reserve(4);
+    Out.Reserve(8);
 
     int idx = PlayerNum - 1;
-    int x   = S.PawnX[idx];
-    int y   = S.PawnY[idx];
+    int ax  = S.PawnX[idx];
+    int ay  = S.PawnY[idx];
 
-    // Helper: true if either pawn currently sits at (tx,ty).
+    // Quick check in case the pawn isn't on board:
+    if (ax < 0 || ax > 8 || ay < 0 || ay > 8)
+        return Out;
+
+    // Helper: true if either pawn currently occupies (tx,ty).
     auto IsOccupied = [&](int tx, int ty) -> bool
     {
-        return (S.PawnX[0] == tx && S.PawnY[0] == ty)
-            || (S.PawnX[1] == tx && S.PawnY[1] == ty);
+        return ((S.PawnX[0] == tx && S.PawnY[0] == ty) ||
+                (S.PawnX[1] == tx && S.PawnY[1] == ty));
     };
 
-    // Helper: can we move from (ax,ay) to (bx,by)? Must be on‐board and not blocked by a wall.
-    auto CanStep = [&](int ax, int ay, int bx, int by) -> bool
+    // Helper: returns true if the edge between (fromX,fromY) → (toX,toY) is blocked.
+    // Also returns true if (toX,toY) is off‐board.
+    auto IsBlocked = [&](int fromX, int fromY, int toX, int toY) -> bool
     {
-        // 1) Must stay on the 9×9 board:
-        if (bx < 0 || bx > 8 || by < 0 || by > 8)
-            return false;
+        // 1) Must stay on the 9×9 board.
+        if (toX < 0 || toX > 8 || toY < 0 || toY > 8)
+            return true;
 
-        // 2) Moving Right (bx == ax+1)? 
-        //    Only check VerticalBlocked[ay][ax] if (ay,ax) is within [0..7]×[0..7].
-        if (bx == ax + 1)
+        // 2) Moving Right?
+        if (toX == fromX + 1 && toY == fromY)
         {
-            if (ax >= 0 && ax < 8 && ay >= 0 && ay < 9)
+            // Check VerticalBlocked[fromY][fromX], valid whenever
+            // fromY ∈ [0..8] and fromX ∈ [0..7].
+            if (fromY >= 0 && fromY < 9 && fromX >= 0 && fromX < 8)
             {
-                // Only rows 0..7 have vertical‐wall slots:
-                if (ay < 8 && S.VerticalBlocked[ay][ax])
-                    return false;
+                if (S.VerticalBlocked[fromY][fromX])
+                    return true;
             }
         }
 
-        // 3) Moving Left (bx == ax-1)?
-        if (bx == ax - 1)
+        // 3) Moving Left?
+        if (toX == fromX - 1 && toY == fromY)
         {
-            if ((ax - 1) >= 0 && (ax - 1) < 8 && ay >= 0 && ay < 9)
+            // Check VerticalBlocked[fromY][toX], valid whenever
+            // fromY ∈ [0..8] and toX ∈ [0..7].
+            if (fromY >= 0 && fromY < 9 && toX >= 0 && toX < 8)
             {
-                if (ay < 8 && S.VerticalBlocked[ay][ax - 1])
-                    return false;
+                if (S.VerticalBlocked[fromY][toX])
+                    return true;
             }
         }
 
-        // 4) Moving Down (by == ay+1)?
-        if (by == ay + 1)
+        // 4) Moving Down?
+        if (toX == fromX && toY == fromY + 1)
         {
-            if (ay >= 0 && ay < 8 && ax >= 0 && ax < 9)
+            // Check HorizontalBlocked[fromY][fromX], valid whenever
+            // fromY ∈ [0..7] and fromX ∈ [0..8].
+            if (fromY >= 0 && fromY < 8 && fromX >= 0 && fromX < 9)
             {
-                // Only columns 0..7 have horizontal‐wall slots:
-                if (ax < 8 && S.HorizontalBlocked[ay][ax])
-                    return false;
+                if (S.HorizontalBlocked[fromY][fromX])
+                    return true;
             }
         }
 
-        // 5) Moving Up (by == ay-1)?
-        if (by == ay - 1)
+        // 5) Moving Up?
+        if (toX == fromX && toY == fromY - 1)
         {
-            if ((ay - 1) >= 0 && (ay - 1) < 8 && ax >= 0 && ax < 9)
+            // Check HorizontalBlocked[toY][fromX], valid whenever
+            // toY ∈ [0..7] and fromX ∈ [0..8].
+            if (toY >= 0 && toY < 8 && fromX >= 0 && fromX < 9)
             {
-                if (ax < 8 && S.HorizontalBlocked[ay - 1][ax])
-                    return false;
+                if (S.HorizontalBlocked[toY][fromX])
+                    return true;
             }
         }
 
-        return true;
+        // Otherwise, no wall is blocking that edge
+        return false;
     };
 
-    // Four cardinal directions:
-    const FIntPoint dirs[4] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1} };
+    // Four cardinal directions
+    const FIntPoint dirs[4] = { { 1,  0},  // right
+                                { -1, 0},  // left
+                                { 0,  1},  // down
+                                { 0, -1} };// up
 
     for (const auto& d : dirs)
     {
-        int nx = x + d.X;
-        int ny = y + d.Y;
+        int nx = ax + d.X;
+        int ny = ay + d.Y;
 
-        // 1) First, can we even step from (x,y) → (nx,ny)?
-        if (!CanStep(x, y, nx, ny))
+        // (1) If the step from (ax,ay) to (nx,ny) is blocked, skip.
+        if (IsBlocked(ax, ay, nx, ny))
             continue;
 
-        // 2) If (nx,ny) is not occupied, it’s a normal “step” move.
+        // (2) If (nx,ny) is unoccupied, that’s a valid “step” move.
         if (!IsOccupied(nx, ny))
         {
             Out.Add({ nx, ny });
             continue;
         }
 
-        // 3) Otherwise, (nx,ny) is occupied by the other pawn. Attempt a straight “jump”:
+        // (3) Otherwise, the adjacent square (nx,ny) is occupied by the other pawn.
+        //     Try jumping straight over it:
         int jx = nx + d.X;
         int jy = ny + d.Y;
 
-        if (CanStep(nx, ny, jx, jy) && !IsOccupied(jx, jy))
+        if (!IsBlocked(nx, ny, jx, jy) && !IsOccupied(jx, jy))
         {
             Out.Add({ jx, jy });
             continue;
         }
 
-        // 4) Straight‐ahead jump is blocked by a wall or board edge.
-        //    We must instead try the two diagonal sidestep moves around (nx,ny).
-
-        // Two perpendicular directions relative to `d`:
-        FIntPoint perp[2] = { {  d.Y,  d.X},
-                             { -d.Y, -d.X} };
+        // (4) If the straight‐ahead jump is blocked by a wall or goes off‐board,
+        //     then we attempt the two “diagonal” sidestep moves around (nx,ny).
+        FIntPoint perp[2] = { { d.Y,  d.X},   // 90° rotated
+                             {-d.Y, -d.X} }; // -90° rotated
 
         for (const auto& p : perp)
         {
             int sx = nx + p.X;
             int sy = ny + p.Y;
 
-            // Only add if stepping from (nx,ny) → (sx,sy) is legal and unoccupied:
-            if (CanStep(nx, ny, sx, sy) && !IsOccupied(sx, sy))
+            // Check if stepping from (nx,ny) to (sx,sy) is legal (not blocked) and unoccupied:
+            if (!IsBlocked(nx, ny, sx, sy) && !IsOccupied(sx, sy))
             {
                 Out.Add({ sx, sy });
             }
@@ -822,7 +933,6 @@ TArray<FIntPoint> MinimaxEngine::GetPawnMoves(const FMinimaxState& S, int32 Play
 
     return Out;
 }
-
 
 
 //-----------------------------------------------------------------------------
@@ -1010,46 +1120,72 @@ void MinimaxEngine::ApplyWall(FMinimaxState& S, int32 PlayerNum, const FWallData
 {
     int idx = PlayerNum - 1;
 
-    // *** ADD THIS CHECK AT THE TOP ***
-    if (W.Length <= 0 || W.Length > 3) {
-        UE_LOG(LogTemp, Error, TEXT("ApplyWall: Player %d called with INVALID wall length %d! Halting this ApplyWall call."), PlayerNum, W.Length);
-        // You might want to add a breakpoint here to see who called this with 0.
-        return; // Stop processing this invalid wall
+    // *** Sanity check length at the top ***
+    if (W.Length <= 0 || W.Length > 3)
+    {
+        UE_LOG(LogTemp, Error,
+            TEXT("ApplyWall: Player %d called with INVALID wall length %d! Aborting."),
+            PlayerNum, W.Length);
+        return;
     }
-    // *** END CHECK ***
+    // *** End check ***
 
-    int lenIdx = W.Length - 1; // Now we know W.Length is 1, 2, or 3, so lenIdx is 0, 1, or 2.
+    int lenIdx = W.Length - 1; // maps 1→0, 2→1, 3→2
 
-    // Apply *all* segments of the wall
+    // --- Apply each segment of the wall ---
     for (int i = 0; i < W.Length; ++i)
     {
-        int cx = W.bHorizontal ? W.X + i : W.X;
-        int cy = W.bHorizontal ? W.Y : W.Y + i;
+        int cx = W.bHorizontal ? (W.X + i) : W.X;
+        int cy = W.bHorizontal ? W.Y       : (W.Y + i);
 
-        if (W.bHorizontal) {
-            // Add bounds check for safety during development
-            if (cy < 9 && cx < 8) S.HorizontalBlocked[cy][cx] = true;
-            else UE_LOG(LogTemp, Error, TEXT("ApplyWall: H-Wall out of bounds: (%d, %d) L%d"), W.X, W.Y, W.Length);
-        } else {
-            // Add bounds check for safety during development
-            if (cy < 8 && cx < 9) S.VerticalBlocked[cy][cx] = true;
-            else UE_LOG(LogTemp, Error, TEXT("ApplyWall: V-Wall out of bounds: (%d, %d) L%d"), W.X, W.Y, W.Length);
+        if (W.bHorizontal)
+        {
+            // HorizontalBlocked is [8 rows][9 columns], so valid indices are:
+            //    0 ≤ cy < 8   and   0 ≤ cx < 9
+            if (cy >= 0 && cy < 8 && cx >= 0 && cx < 9)
+            {
+                S.HorizontalBlocked[cy][cx] = true;
+            }
+            else
+            {
+                UE_LOG(LogTemp, Error,
+                    TEXT("ApplyWall: H‐Wall segment out of bounds at (%d,%d). "
+                         "Original anchor=(%d,%d), length=%d."),
+                    cx, cy, W.X, W.Y, W.Length);
+            }
+        }
+        else
+        {
+            // VerticalBlocked is [9 rows][8 columns], so valid indices are:
+            //    0 ≤ cy < 9   and   0 ≤ cx < 8
+            if (cy >= 0 && cy < 9 && cx >= 0 && cx < 8)
+            {
+                S.VerticalBlocked[cy][cx] = true;
+            }
+            else
+            {
+                UE_LOG(LogTemp, Error,
+                    TEXT("ApplyWall: V‐Wall segment out of bounds at (%d,%d). "
+                         "Original anchor=(%d,%d), length=%d."),
+                    cx, cy, W.X, W.Y, W.Length);
+            }
         }
     }
 
-    // Update counts (Now we know lenIdx is 0, 1, or 2)
+    // --- Update counts (we know lenIdx is 0,1,2) ---
     if (S.WallCounts[idx][lenIdx] > 0)
     {
         S.WallCounts[idx][lenIdx]--;
         S.WallsRemaining[idx]--;
-    } else {
-        // *** FIX THE LOG MESSAGE ***
-        // This log now correctly indicates a *logic error* - trying to use a wall
-        // of a valid length when none are left. The W.Length=0 case is caught above.
-        UE_LOG(LogTemp, Error, TEXT("ApplyWall: Player %d tried to use wall length %d but has 0 left!"),
-               PlayerNum, W.Length);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error,
+            TEXT("ApplyWall: Player %d tried to use wall length %d but has none left!"),
+            PlayerNum, W.Length);
     }
 }
+
 
 // Add empty definitions for functions not fully shown or assumed to exist elsewhere
 // if they aren't part of MinimaxEngine but were referenced (like WallTouchesPath if needed)
