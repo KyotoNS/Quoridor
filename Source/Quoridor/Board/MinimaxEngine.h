@@ -137,6 +137,35 @@ private: // These are primarily internal helpers - could be in .cpp as static
     /** Helper to estimate board control/mobility using BFS */
     static void ComputeBoardControl(const FMinimaxState& S, int32& MyControl, int32& OppControl, int32 RootPlayer);
     static void PrintInventory(const FMinimaxState& S, const FString& Context);
+
+    // (a) helper to compute path‐net‐gain
+    static int32 ComputePathNetGain(
+        const FMinimaxState& BeforeState,
+        const FMinimaxState& AfterState,
+        int32 RootPlayer,
+        int32 Opponent,
+        int32 BeforeAILen,
+        int32 BeforeOppLen,
+        int32 Multiplier);
+
+    // (b) helper for walls
+    static int32 CalculateWallScore(
+        const FMinimaxState& Initial,
+        const FMinimaxState& AfterState,
+        int32 RootPlayer,
+        int32 Opponent,
+        int32 InitialAILen,
+        int32 InitialOppLen);
+
+    // (c) helper for pawn‐moves (we’ll adjust this later)
+    static int32 CalculatePawnScore(
+        const FMinimaxState& Initial,
+        const FMinimaxState& AfterState,
+        int32 RootPlayer,
+        int32 Opponent,
+        int32 InitialAILength,
+        const TArray<FIntPoint>& AIPath,
+        const FMinimaxAction& Act);
     
     
 };
