@@ -332,7 +332,7 @@ bool MinimaxEngine::FindPathForPawn(const FMinimaxState& S, int32 PlayerNum, TAr
     // Ensure they’re in bounds [0..8]
     if (StartX < 0 || StartX > 8 || StartY < 0 || StartY > 8)
     {
-        return false;
+        return false; 
     }
 
     // 3) Determine the target row (Player 1 needs to reach Y=8, Player 2 needs to reach Y=0)
@@ -713,52 +713,79 @@ TArray<FWallData> MinimaxEngine::GetAllUsefulWallPlacements(const FMinimaxState&
     struct ScoredWall { FWallData Wall; int32 Score; };
     TArray<ScoredWall> AllLegalWalls;
 
+    int BlockedCount = 0;
+    int OverlapCount = 0;
+    int LowScoreCount = 0;
+
     for (int length : AvailableLengths)
     {
         // Horizontal Walls
         for (int y = 0; y < 8; ++y) {
             for (int x = 0; x <= 8 - length; ++x) {
                 FWallData W{ x, y, length, true };
-                if (IsWallPlacementStrictlyLegal(S, W)) {
-                    FMinimaxState SimulatedState = S;
-                    ApplyWall(SimulatedState, PlayerNum, W);
-
-                    if (!DoesWallBlockPlayer(SimulatedState)) {
-                        int32 NewMyPathLen = 100, NewOppPathLen = 100;
-                        ComputePathToGoal(SimulatedState, PlayerNum, &NewMyPathLen);
-                        ComputePathToGoal(SimulatedState, Opponent, &NewOppPathLen);
-                        int32 OppDelta = NewOppPathLen - OppPathLen;
-                        int32 MyDelta = NewMyPathLen - MyPathLen;
-                        int32 WallScore = (OppDelta * 10) - (MyDelta * 15);
-
-                        // *** ADDED CHECK HERE ***
-                        check(W.Length > 0 && W.Length <= 3);
-                        AllLegalWalls.Add({W, WallScore});
-                    }
+                if (!IsWallPlacementStrictlyLegal(S, W)) {
+                    OverlapCount++;
+                    continue;
                 }
+
+                FMinimaxState SimulatedState = S;
+                ApplyWall(SimulatedState, PlayerNum, W);
+
+                if (DoesWallBlockPlayer(SimulatedState)) {
+                    UE_LOG(LogTemp, Warning, TEXT("[Blocked] HWall (%d,%d) len=%d"), x, y, length);
+                    BlockedCount++;
+                    continue;
+                }
+
+                int32 NewMyPathLen = 100, NewOppPathLen = 100;
+                ComputePathToGoal(SimulatedState, PlayerNum, &NewMyPathLen);
+                ComputePathToGoal(SimulatedState, Opponent, &NewOppPathLen);
+                int32 OppDelta = NewOppPathLen - OppPathLen;
+                int32 MyDelta = NewMyPathLen - MyPathLen;
+                int32 WallScore = (OppDelta * 10) - (MyDelta * 15);
+
+                if (WallScore < -10) {
+                    LowScoreCount++;
+                    continue;
+                }
+
+                check(W.Length > 0 && W.Length <= 3);
+                AllLegalWalls.Add({W, WallScore});
             }
         }
+
         // Vertical Walls
         for (int y = 0; y <= 8 - length; ++y) {
             for (int x = 0; x < 8; ++x) {
                 FWallData W{ x, y, length, false };
-                if (IsWallPlacementStrictlyLegal(S, W)) {
-                    FMinimaxState SimulatedState = S;
-                    ApplyWall(SimulatedState, PlayerNum, W);
-
-                    if (!DoesWallBlockPlayer(SimulatedState)) {
-                        int32 NewMyPathLen = 100, NewOppPathLen = 100;
-                        ComputePathToGoal(SimulatedState, PlayerNum, &NewMyPathLen);
-                        ComputePathToGoal(SimulatedState, Opponent, &NewOppPathLen);
-                        int32 OppDelta = NewOppPathLen - OppPathLen;
-                        int32 MyDelta = NewMyPathLen - MyPathLen;
-                        int32 WallScore = (OppDelta * 10) - (MyDelta * 15);
-
-                        // *** ADDED CHECK HERE ***
-                        check(W.Length > 0 && W.Length <= 3);
-                        AllLegalWalls.Add({W, WallScore});
-                    }
+                if (!IsWallPlacementStrictlyLegal(S, W)) {
+                    OverlapCount++;
+                    continue;
                 }
+
+                FMinimaxState SimulatedState = S;
+                ApplyWall(SimulatedState, PlayerNum, W);
+
+                if (DoesWallBlockPlayer(SimulatedState)) {
+                    UE_LOG(LogTemp, Warning, TEXT("[Blocked] VWall (%d,%d) len=%d"), x, y, length);
+                    BlockedCount++;
+                    continue;
+                }
+
+                int32 NewMyPathLen = 100, NewOppPathLen = 100;
+                ComputePathToGoal(SimulatedState, PlayerNum, &NewMyPathLen);
+                ComputePathToGoal(SimulatedState, Opponent, &NewOppPathLen);
+                int32 OppDelta = NewOppPathLen - OppPathLen;
+                int32 MyDelta = NewMyPathLen - MyPathLen;
+                int32 WallScore = (OppDelta * 10) - (MyDelta * 15);
+
+                if (WallScore < -10) {
+                    LowScoreCount++;
+                    continue;
+                }
+
+                check(W.Length > 0 && W.Length <= 3);
+                AllLegalWalls.Add({W, WallScore});
             }
         }
     }
@@ -769,13 +796,16 @@ TArray<FWallData> MinimaxEngine::GetAllUsefulWallPlacements(const FMinimaxState&
 
     const int MaxWallCandidates = 25;
     for (int i = 0; i < AllLegalWalls.Num() && i < MaxWallCandidates; ++i) {
-        if (AllLegalWalls[i].Score >= -10) {
-             FinalCandidates.Add(AllLegalWalls[i].Wall);
-        }
+        FinalCandidates.Add(AllLegalWalls[i].Wall);
     }
+
+    UE_LOG(LogTemp, Warning, TEXT("[WallGen Summary] Legal=%d | Blocked=%d | Overlap=%d | LowScore=%d | Final=%d"),
+        AllLegalWalls.Num(), BlockedCount, OverlapCount, LowScoreCount, FinalCandidates.Num());
 
     return FinalCandidates;
 }
+
+
 
 
 //-----------------------------------------------------------------------------
@@ -1022,12 +1052,14 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
     ComputeBoardControl(S, MyControl, OppControl, RootPlayer);
     Score += (MyControl - OppControl) * W_BoardControl;
 
+    // Strategic wall score for blocking finish row
     int oppBlockY = (RootPlayer == 1) ? 0 : 8;
     for (int x = 0; x < 8; ++x)
     {
         if (S.HorizontalBlocked[oppBlockY][x]) Score += W_StrategicWall;
     }
 
+    // Opponent near my path penalty (optional)
     int OppDistToMyPath = 100;
     int OppX = S.PawnX[idxOpponent], OppY = S.PawnY[idxOpponent];
     for (const FIntPoint& p : AIPath)
@@ -1039,49 +1071,71 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
         Score += (OppDistToMyPath - 3) * W_PathDefense;
     }
 
-    // Bonus for being close to goal row
-    Score += (8 - FMath::Abs(S.PawnY[idxAI] - (RootPlayer == 1 ? 8 : 0))) * 2;
-
+    // Position and movement info
     const FIntPoint Curr(S.PawnX[idxAI], S.PawnY[idxAI]);
     const FIntPoint& Prev = S.LastPawnPos[idxAI];
     const FIntPoint& Prev2 = S.SecondLastPawnPos[idxAI];
 
-    // Penalize repeat or ping-pong moves
-    if (Curr == Prev)    Score -= 500;
-    if (Curr == Prev2)   Score -= 300;
+    // === Movement Evaluation Fixes ===
 
-    // === Encourage shortest path behavior ===
-
-    // 1. Strong reward for short path to goal
-    Score += (100 - AILen) * 20;
-
-    // 2. Penalize being off-path
-    if (AIPath.Num() > 0 && Curr != AIPath[0])
+    // 1. Reward if pawn moved to follow the path
+    if (AIPath.Num() > 1 && Curr == AIPath[1])
     {
-        Score -= 200; // Strong penalty for deviation from path
+        Score += 120; // Great move — exact path step
+    }
+    else if (AIPath.Num() > 2 && Curr == AIPath[2])
+    {
+        Score += 55; // Slight detour but still on path
+    }
+    else
+    {
+        Score -= 100; // Off-path
     }
 
-    // 3. Bonus for heading directly along shortest path
+    // 2. Reward heading toward finish
+    Score += (8 - FMath::Abs(Curr.Y - (RootPlayer == 1 ? 8 : 0))) * 2;
+
+    // 3. Penalize backtracking
+    if (Curr == Prev)    Score -= 3000;
+    if (Curr == Prev2)   Score -= 3000;
+
+    // 4. Reward forward movement
     if (AIPath.Num() > 1)
     {
         const FIntPoint& Next = AIPath[1];
         int dx = FMath::Abs(Next.X - Curr.X);
         int dy = Next.Y - Curr.Y;
 
-        const int GoalDir = (RootPlayer == 1 ? 1 : -1); // +Y for Player 1, -Y for Player 2
-
+        const int GoalDir = (RootPlayer == 1 ? 1 : -1);
         if (dx == 0 && dy == GoalDir)
         {
-            Score += 30; // Reward correct forward movement
+            Score += 40; // Vertical forward
         }
         else if (dx == 0 && dy == -GoalDir)
         {
-            Score -= 50; // Penalize backwards vertical move
+            Score -= 80; // Vertical backward
+        }
+    }
+
+    // 5. Jump move bonus (if large step)
+    if (FMath::Abs(Curr.X - Prev.X) > 1 || FMath::Abs(Curr.Y - Prev.Y) > 1)
+    {
+        Score += 50;
+    }
+
+    // 6. Minor bonus if standing on opponent’s path (disruption)
+    for (const FIntPoint& t : OppPath)
+    {
+        if (FMath::Abs(t.X - Curr.X) + FMath::Abs(t.Y - Curr.Y) <= 1)
+        {
+            Score += 20;
+            break;
         }
     }
 
     return Score;
 }
+
 
 
 //-----------------------------------------------------------------------------

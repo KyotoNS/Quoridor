@@ -21,6 +21,7 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 	void RunMinimaxForParallelAlphaBeta(int32 Player);
+	bool ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length, bool bHorizontal);
 
 	void RunMinimaxForParallel(int32 Player);
 	void RunMinimaxForAlphaBeta(int32 Player);
