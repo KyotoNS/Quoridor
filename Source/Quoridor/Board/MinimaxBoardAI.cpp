@@ -19,6 +19,16 @@ void AMinimaxBoardAI::BeginPlay()
     // Tick stays enabled, we use ElapsedTime to wait before acting
     ElapsedTime = 0.0f;
     bDelayPassed = false;
+    AITypeName = "MinimaxParallel";
+    FMinimaxState InitialState = FMinimaxState::FromBoard(this);
+    int32 AIIndex = (AI1Player == 1) ? 0 : 1;
+
+    InitialWallInventory.Empty();
+    InitialWallInventory.Add(InitialState.WallCounts[AIIndex][0]); // Length 1
+    InitialWallInventory.Add(InitialState.WallCounts[AIIndex][1]); // Length 2
+    InitialWallInventory.Add(InitialState.WallCounts[AIIndex][2]); // Length 3
+
+
 
     // Randomly choose which AI will be Player 1 or Player 2
     bool bAI1IsPlayer1 = FMath::RandBool();
@@ -55,48 +65,32 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         UE_LOG(LogTemp, Warning, TEXT("AI logic delay passed, starting AI..."));
     }
     
-    // if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
-    // {
-    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
-    //     if (P && P->GetTile())
-    //     {
-    //         bIsAITurnRunning = true;
-    //         RunMinimaxForParallelAlphaBeta(AI1Player);
-    //     }
-    //     else
-    //     {
-    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
-    //     }
-    // }
-    if (bDelayBeforeNextAI)
-    {
-        AITurnDelayTimer += DeltaTime;
-        if (AITurnDelayTimer < AITurnDelayDuration)
-        {
-            // Still waiting—do not start any AI this frame
-            return;
-        }
-
-        // We have waited long enough—clear the flag and reset timer.
-        bDelayBeforeNextAI = false;
-        AITurnDelayTimer   = 2.0f;
-
-        // Return immediately so that on the *next* Tick() call, the new AI can run.
-        return;
-    }
     if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
     {
         AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimaxForParallel(AI1Player);
+            RunMinimaxForParallelAlphaBeta(AI1Player);
         }
         else
         {
             UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
         }
     }
+    // if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
+    // {
+    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
+    //     if (P && P->GetTile())
+    //     {
+    //         bIsAITurnRunning = true;
+    //         RunMinimaxForParallel(AI1Player);
+    //     }
+    //     else
+    //     {
+    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
+    //     }
+    // }
     if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
     {
         AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
@@ -115,6 +109,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
 // Parallel
 void AMinimaxBoardAI::RunMinimaxForParallel(int32 Player)
 {
+    AITypeName = "MinimaxParallel";
     if (bMinimaxInProgress)
         return;
 
@@ -129,8 +124,13 @@ void AMinimaxBoardAI::RunMinimaxForParallel(int32 Player)
         DelayHandle,
         [this, AIPlayer]()
         {
+            if (AIPlayer == 1)
+                ThinkingStartTimeP1 = FPlatformTime::Seconds();
+            else if (AIPlayer == 2)
+                ThinkingStartTimeP2 = FPlatformTime::Seconds();
+            
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 5;
+            int32 Depth = 3;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
@@ -140,6 +140,21 @@ void AMinimaxBoardAI::RunMinimaxForParallel(int32 Player)
                 // Once SolveParallel finishes, come back to GameThread to execute the move
                 AsyncTask(ENamedThreads::GameThread, [this, Action, AIPlayer]()
                 {
+                    double EndTime = FPlatformTime::Seconds();
+                    double Elapsed = 0.0;
+
+                    if (AIPlayer == 1)
+                    {
+                        Elapsed = EndTime - ThinkingStartTimeP1;
+                        TotalThinkingTimeP1 += Elapsed;
+                        UE_LOG(LogTemp, Warning, TEXT("[AI P1] Thinking Time: %.4f s | Total: %.4f s"), Elapsed, TotalThinkingTimeP1);
+                    }
+                    else if (AIPlayer == 2)
+                    {
+                        Elapsed = EndTime - ThinkingStartTimeP2;
+                        TotalThinkingTimeP2 += Elapsed;
+                        UE_LOG(LogTemp, Warning, TEXT("[AI P2] Thinking Time: %.4f s | Total: %.4f s"), Elapsed, TotalThinkingTimeP2);
+                    }
                     ExecuteAction(Action);
 
                     // Swap turn after action is done
@@ -166,6 +181,7 @@ void AMinimaxBoardAI::RunMinimaxForParallel(int32 Player)
 // Alpha Beta
 void AMinimaxBoardAI::RunMinimaxForAlphaBeta(int32 Player)
 {
+    AITypeName = "MinimaxAlphaBeta";
     if (bMinimaxInProgress)
         return;
 
@@ -175,13 +191,19 @@ void AMinimaxBoardAI::RunMinimaxForAlphaBeta(int32 Player)
 
     // Create a timer handle so we can schedule a Delay
     FTimerHandle DelayHandle;
+    
     // Schedule the next block to run in 2.0 seconds instead of next tick
     GetWorld()->GetTimerManager().SetTimer(
         DelayHandle,
         [this, AIPlayer]()
         {
+            if (AIPlayer == 1)
+                ThinkingStartTimeP1 = FPlatformTime::Seconds();
+            else if (AIPlayer == 2)
+                ThinkingStartTimeP2 = FPlatformTime::Seconds();
+            
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 5;
+            int32 Depth = 3;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
@@ -191,6 +213,22 @@ void AMinimaxBoardAI::RunMinimaxForAlphaBeta(int32 Player)
                 // Once SolveParallel finishes, come back to GameThread to execute the move
                 AsyncTask(ENamedThreads::GameThread, [this, Action, AIPlayer]()
                 {
+                    double EndTime = FPlatformTime::Seconds();
+                    double Elapsed = 0.0;
+
+                    if (AIPlayer == 1)
+                    {
+                        Elapsed = EndTime - ThinkingStartTimeP1;
+                        TotalThinkingTimeP1 += Elapsed;
+                        UE_LOG(LogTemp, Warning, TEXT("[AI P1] Thinking Time: %.4f s | Total: %.4f s"), Elapsed, TotalThinkingTimeP1);
+                    }
+                    else if (AIPlayer == 2)
+                    {
+                        Elapsed = EndTime - ThinkingStartTimeP2;
+                        TotalThinkingTimeP2 += Elapsed;
+                        UE_LOG(LogTemp, Warning, TEXT("[AI P2] Thinking Time: %.4f s | Total: %.4f s"), Elapsed, TotalThinkingTimeP2);
+                    }
+                    
                     ExecuteAction(Action);
 
                     // Swap turn after action is done
@@ -216,6 +254,7 @@ void AMinimaxBoardAI::RunMinimaxForAlphaBeta(int32 Player)
 // solve
 void AMinimaxBoardAI::RunMinimaxForParallelAlphaBeta(int32 Player)
 {
+    AITypeName = "MinimaxParallelAlhaBeta";
     if (bMinimaxInProgress)
         return;
 
@@ -230,8 +269,13 @@ void AMinimaxBoardAI::RunMinimaxForParallelAlphaBeta(int32 Player)
         DelayHandle,
         [this, AIPlayer]()
         {
+            if (AIPlayer == 1)
+                ThinkingStartTimeP1 = FPlatformTime::Seconds();
+            else if (AIPlayer == 2)
+                ThinkingStartTimeP2 = FPlatformTime::Seconds();
+            
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 5;
+            int32 Depth = 3;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
@@ -241,6 +285,22 @@ void AMinimaxBoardAI::RunMinimaxForParallelAlphaBeta(int32 Player)
                 // Once SolveParallel finishes, come back to GameThread to execute the move
                 AsyncTask(ENamedThreads::GameThread, [this, Action, AIPlayer]()
                 {
+                    double EndTime = FPlatformTime::Seconds();
+                    double Elapsed = 0.0;
+
+                    if (AIPlayer == 1)
+                    {
+                        Elapsed = EndTime - ThinkingStartTimeP1;
+                        TotalThinkingTimeP1 += Elapsed;
+                        UE_LOG(LogTemp, Warning, TEXT("[AI P1] Thinking Time: %.4f s | Total: %.4f s"), Elapsed, TotalThinkingTimeP1);
+                    }
+                    else if (AIPlayer == 2)
+                    {
+                        Elapsed = EndTime - ThinkingStartTimeP2;
+                        TotalThinkingTimeP2 += Elapsed;
+                        UE_LOG(LogTemp, Warning, TEXT("[AI P2] Thinking Time: %.4f s | Total: %.4f s"), Elapsed, TotalThinkingTimeP2);
+                    }
+                    
                     ExecuteAction(Action);
 
                     // Swap turn after action is done
@@ -262,6 +322,17 @@ void AMinimaxBoardAI::RunMinimaxForParallelAlphaBeta(int32 Player)
         false    // Do not loop
     );
 }
+
+float AMinimaxBoardAI::GetTotalThinkingTimeForPlayer(int32 PlayerNum) const
+{
+    if (PlayerNum == 1)
+        return TotalThinkingTimeP1;
+    else if (PlayerNum == 2)
+        return TotalThinkingTimeP2;
+
+    return 0.0f;
+}
+
 bool AMinimaxBoardAI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length, bool bHorizontal)
 {
     EWallOrientation Orientation = bHorizontal ? EWallOrientation::Horizontal : EWallOrientation::Vertical;
@@ -395,7 +466,5 @@ void AMinimaxBoardAI::ExecuteAction(const FMinimaxAction& Act)
     SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
     TurnCount++;
     bIsAITurnRunning = false;
-    bDelayBeforeNextAI = true;
-    AITurnDelayTimer = 2.0f;
 }
 

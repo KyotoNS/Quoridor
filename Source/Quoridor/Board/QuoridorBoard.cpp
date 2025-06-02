@@ -11,6 +11,8 @@
 #include "Quoridor/Wall/WallPreview.h"
 #include "Containers/Queue.h"
 #include "Containers/Set.h"
+#include "Kismet/GameplayStatics.h"
+#include "Quoridor/Save Game/AIStatsSaveGame.h"
 #include "Algo/Reverse.h"
 
 class AWallPreview;
@@ -829,11 +831,28 @@ void AQuoridorBoard::HandleWin(int32 WinningPlayer)
 	UE_LOG(LogTemp, Warning, TEXT("%s"), *Message);
 
 	// === Stop AI logic if we're running a MinimaxBoardAI ===
-	if (AMinimaxBoardAI* AI = Cast<AMinimaxBoardAI>(this))
+	AMinimaxBoardAI* AI = Cast<AMinimaxBoardAI>(this);
+	if (AI)
 	{
 		AI->bMinimaxInProgress = false;
 		AI->bIsAITurnRunning = false;
 		AI->SetActorTickEnabled(false);
+
+		// ✅ Save stats if either AI1 or AI2 wins
+		if (WinningPlayer == AI->AI1Player || WinningPlayer == AI->AI2Player)
+		{
+			float WinningThinkingTime = (WinningPlayer == 1)
+				? AI->TotalThinkingTimeP1
+				: AI->TotalThinkingTimeP2;
+
+			SaveAIStatsToTextFile(
+				WinningPlayer,
+				AI->GetClass()->GetName(),
+				TurnCount,
+				WinningThinkingTime,
+				AI->InitialWallInventory
+			);
+		}
 	}
 
 	// Disable player input
@@ -856,6 +875,8 @@ void AQuoridorBoard::HandleWin(int32 WinningPlayer)
 		// UGameplayStatics::OpenLevel(this, FName("MainMenu"));
 	}, 2.0f, false);
 }
+
+
 
 void AQuoridorBoard::PrintLastComputedPath(int32 PlayerNumber)
 {
@@ -920,6 +941,38 @@ void AQuoridorBoard::Debug_PrintOccupiedWalls() const
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("----- End Occupied Walls -----"));
+}
+
+void AQuoridorBoard::SaveAIStatsToTextFile(int32 WinningPlayer, const FString& AIType, int32 TotalTurns, float TotalThinkingTime, const TArray<int32>& WallInventory)
+{
+	FString FilePath = FPaths::ProjectDir() + "Saved/AIStatsLog.txt";
+
+	FString Timestamp = FDateTime::Now().ToString();
+	FString WallString = FString::Printf(TEXT("[L1=%d, L2=%d, L3=%d]"),
+		WallInventory.IsValidIndex(0) ? WallInventory[0] : -1,
+		WallInventory.IsValidIndex(1) ? WallInventory[1] : -1,
+		WallInventory.IsValidIndex(2) ? WallInventory[2] : -1);
+
+	FString LogText = FString::Printf(
+		TEXT("[%s] AI Player %d (%s) won in %d turns. Time: %.2f sec. Walls at start: %s\n"),
+		*Timestamp,
+		WinningPlayer,
+		*AIType,
+		TotalTurns,
+		TotalThinkingTime,
+		*WallString
+	);
+
+	// Always append, never overwrite
+	FFileHelper::SaveStringToFile(
+		LogText,
+		*FilePath,
+		FFileHelper::EEncodingOptions::AutoDetect,
+		&IFileManager::Get(),
+		FILEWRITE_Append
+	);
+
+	UE_LOG(LogTemp, Warning, TEXT("Appended to AIStatsLog.txt: %s"), *LogText);
 }
 
 

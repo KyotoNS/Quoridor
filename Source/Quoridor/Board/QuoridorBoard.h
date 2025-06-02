@@ -67,7 +67,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void HandleWin(int32 WinningPlayer);
 	void PrintLastComputedPath(int32 PlayerNumber);
-
+	void SaveAIStatsToTextFile(int32 WinningPlayer, const FString& AIType, int32 TotalTurns, float ThinkingTime, const TArray<int32>& WallInventory);
 	void LogBoardState();
 
 	UFUNCTION(BlueprintCallable)

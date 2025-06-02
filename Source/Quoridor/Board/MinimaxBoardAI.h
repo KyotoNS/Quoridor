@@ -36,7 +36,19 @@ public:
 	float AITurnDelayTimer = 3.0f;
 	float AITurnDelayDuration = 3.0f; // Change to any delay you want
 
-	
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	float GetTotalThinkingTimeForPlayer(int32 PlayerNum) const;
+	TArray<int32> InitialWallInventory;
+	UPROPERTY(BlueprintReadWrite)
+	FString AITypeName = "MinimaxParallel";
+	// Tracks AI thinking start time
+	double ThinkingStartTimeP1 = 0.0;
+	double ThinkingStartTimeP2 = 0.0;
+
+	// Total thinking time
+	double TotalThinkingTimeP1 = 0.0;
+	double TotalThinkingTimeP2 = 0.0;
+
 private:
 	
 
