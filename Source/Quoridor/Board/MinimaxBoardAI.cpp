@@ -20,16 +20,7 @@ void AMinimaxBoardAI::BeginPlay()
     ElapsedTime = 0.0f;
     bDelayPassed = false;
     AITypeName = "MinimaxParallel";
-    FMinimaxState InitialState = FMinimaxState::FromBoard(this);
-    int32 AIIndex = (AI1Player == 1) ? 0 : 1;
-
-    InitialWallInventory.Empty();
-    InitialWallInventory.Add(InitialState.WallCounts[AIIndex][0]); // Length 1
-    InitialWallInventory.Add(InitialState.WallCounts[AIIndex][1]); // Length 2
-    InitialWallInventory.Add(InitialState.WallCounts[AIIndex][2]); // Length 3
-
-
-
+    
     // Randomly choose which AI will be Player 1 or Player 2
     bool bAI1IsPlayer1 = FMath::RandBool();
 
@@ -254,7 +245,7 @@ void AMinimaxBoardAI::RunMinimaxForAlphaBeta(int32 Player)
 // solve
 void AMinimaxBoardAI::RunMinimaxForParallelAlphaBeta(int32 Player)
 {
-    AITypeName = "MinimaxParallelAlhaBeta";
+    AITypeName = "MinimaxParallelAlphaBeta";
     if (bMinimaxInProgress)
         return;
 

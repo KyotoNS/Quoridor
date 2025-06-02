@@ -11,8 +11,6 @@
 #include "Quoridor/Wall/WallPreview.h"
 #include "Containers/Queue.h"
 #include "Containers/Set.h"
-#include "Kismet/GameplayStatics.h"
-#include "Quoridor/Save Game/AIStatsSaveGame.h"
 #include "Algo/Reverse.h"
 
 class AWallPreview;
@@ -156,6 +154,20 @@ void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
                 }
 
                 NewPawn->PlayerWalls = RandomWalls;
+            	if (AMinimaxBoardAI* AI = Cast<AMinimaxBoardAI>(this))
+            	{
+            		if (PlayerNumber == AI->AI1Player || PlayerNumber == AI->AI2Player)
+            		{
+            			TArray<int32> LengthCounts = {0, 0, 0}; // L1, L2, L3
+            			for (const FWallDefinition& Wall : RandomWalls)
+            			{
+            				if (Wall.Length >= 1 && Wall.Length <= 3)
+            					LengthCounts[Wall.Length - 1]++;
+            			}
+
+            			AI->InitialWallInventory = LengthCounts;
+            		}
+            	}
                 PlayerOrientations.Add(NewPawn, EWallOrientation::Horizontal);
             	
             }
@@ -847,7 +859,7 @@ void AQuoridorBoard::HandleWin(int32 WinningPlayer)
 
 			SaveAIStatsToTextFile(
 				WinningPlayer,
-				AI->GetClass()->GetName(),
+				AI->AITypeName,
 				TurnCount,
 				WinningThinkingTime,
 				AI->InitialWallInventory
