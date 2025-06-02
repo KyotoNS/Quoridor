@@ -55,19 +55,19 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         UE_LOG(LogTemp, Warning, TEXT("AI logic delay passed, starting AI..."));
     }
     
-    if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
-    {
-        AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
-        if (P && P->GetTile())
-        {
-            bIsAITurnRunning = true;
-            RunMinimaxForParallelAlphaBeta(AI1Player);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
-        }
-    }
+    // if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
+    // {
+    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
+    //     if (P && P->GetTile())
+    //     {
+    //         bIsAITurnRunning = true;
+    //         RunMinimaxForParallelAlphaBeta(AI1Player);
+    //     }
+    //     else
+    //     {
+    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
+    //     }
+    // }
     if (bDelayBeforeNextAI)
     {
         AITurnDelayTimer += DeltaTime;
@@ -84,19 +84,19 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         // Return immediately so that on the *next* Tick() call, the new AI can run.
         return;
     }
-    // if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
-    // {
-    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
-    //     if (P && P->GetTile())
-    //     {
-    //         bIsAITurnRunning = true;
-    //         RunMinimaxForParallel(AI1Player);
-    //     }
-    //     else
-    //     {
-    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
-    //     }
-    // }
+    if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
+    {
+        AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
+        if (P && P->GetTile())
+        {
+            bIsAITurnRunning = true;
+            RunMinimaxForParallel(AI1Player);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
+        }
+    }
     if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
     {
         AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);

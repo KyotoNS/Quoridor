@@ -681,7 +681,6 @@ TArray<FWallData> MinimaxEngine::GetAllUsefulWallPlacements(const FMinimaxState&
                 ApplyWall(SimulatedState, PlayerNum, W);
 
                 if (DoesWallBlockPlayer(SimulatedState)) {
-                    UE_LOG(LogTemp, Warning, TEXT("[Blocked] HWall (%d,%d) len=%d"), x, y, length);
                     BlockedCount++;
                     continue;
                 }
@@ -716,7 +715,6 @@ TArray<FWallData> MinimaxEngine::GetAllUsefulWallPlacements(const FMinimaxState&
                 ApplyWall(SimulatedState, PlayerNum, W);
 
                 if (DoesWallBlockPlayer(SimulatedState)) {
-                    UE_LOG(LogTemp, Warning, TEXT("[Blocked] VWall (%d,%d) len=%d"), x, y, length);
                     BlockedCount++;
                     continue;
                 }
@@ -747,10 +745,7 @@ TArray<FWallData> MinimaxEngine::GetAllUsefulWallPlacements(const FMinimaxState&
     for (int i = 0; i < AllLegalWalls.Num() && i < MaxWallCandidates; ++i) {
         FinalCandidates.Add(AllLegalWalls[i].Wall);
     }
-
-    UE_LOG(LogTemp, Warning, TEXT("[WallGen Summary] Legal=%d | Blocked=%d | Overlap=%d | LowScore=%d | Final=%d"),
-        AllLegalWalls.Num(), BlockedCount, OverlapCount, LowScoreCount, FinalCandidates.Num());
-
+    
     return FinalCandidates;
 }
 
