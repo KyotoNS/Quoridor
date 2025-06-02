@@ -130,7 +130,7 @@ void AMinimaxBoardAI::RunMinimaxForParallel(int32 Player)
         [this, AIPlayer]()
         {
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 3;
+            int32 Depth = 5;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
@@ -181,7 +181,7 @@ void AMinimaxBoardAI::RunMinimaxForAlphaBeta(int32 Player)
         [this, AIPlayer]()
         {
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 3;
+            int32 Depth = 5;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
@@ -231,7 +231,7 @@ void AMinimaxBoardAI::RunMinimaxForParallelAlphaBeta(int32 Player)
         [this, AIPlayer]()
         {
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 3;
+            int32 Depth = 5;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
@@ -393,9 +393,9 @@ void AMinimaxBoardAI::ExecuteAction(const FMinimaxAction& Act)
     // Advance turn to the other player
     CurrentPlayerTurn = (ActingPlayer == 1) ? 2 : 1;
     SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
-
+    TurnCount++;
     bIsAITurnRunning = false;
     bDelayBeforeNextAI = true;
-    AITurnDelayTimer = 0.1f;
+    AITurnDelayTimer = 2.0f;
 }
 

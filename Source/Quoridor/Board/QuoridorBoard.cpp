@@ -195,6 +195,7 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 		{
 			SelectedPawn->MoveToTile(ClickedTile, false);
 			CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
+			TurnCount++;
 			IsPathAvailableForPawn(GetPawnForPlayer(1));
 			IsPathAvailableForPawn(GetPawnForPlayer(2));
 			PrintLastComputedPath(1);
@@ -343,6 +344,7 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 	HideWallPreview();
 
 	CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
+	TurnCount++;
 
 	UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed. Turn now: Player %d"), CurrentPlayerTurn);
 	return true;

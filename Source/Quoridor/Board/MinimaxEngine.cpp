@@ -119,7 +119,6 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
 //-----------------------------------------------------------------------------
 TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 PlayerNum,int32* OutLength)
 {
-    // 1) Determine goal row and starting coordinates
     const int goalY = (PlayerNum == 1 ? 8 : 0);
     const int idx   = PlayerNum - 1;
 
@@ -134,9 +133,8 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
         return {};
     }
 
-    // 2) A* data structures
-    bool      closed[9][9]   = {};  // all false initially
-    int       gCost[9][9];
+    bool closed[9][9] = {};
+    int gCost[9][9];
     FIntPoint cameFrom[9][9];
 
     for (int y = 0; y < 9; ++y)
@@ -148,171 +146,122 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
         }
     }
 
-    // 3) Heuristic = |goalY - y|
     auto Heuristic = [&](int x, int y) {
         return FMath::Abs(goalY - y);
     };
 
-    // 4) Priority queue node (f = g+h, g, x, y)
-    struct Node {
-        int f, g, x, y;
-    };
-    struct Cmp {
-        bool operator()(Node const &A, Node const &B) const {
-            return A.f > B.f; // smaller f = higher priority
-        }
-    };
+    struct Node { int f, g, x, y; };
+    struct Cmp { bool operator()(Node const &A, Node const &B) const { return A.f > B.f; } };
     std::priority_queue<Node, std::vector<Node>, Cmp> open;
 
-    // 5) Initialize start tile
     gCost[sy][sx] = 0;
     open.push({ Heuristic(sx, sy), 0, sx, sy });
 
-    // 6) Cardinal directions (X increases to the right, Y increases upward)
     const FIntPoint dirs[4] = {
-        FIntPoint(+1,  0),  // right
-        FIntPoint(-1,  0),  // left
-        FIntPoint( 0, +1),  // up
-        FIntPoint( 0, -1)   // down
+        FIntPoint(+1,  0),
+        FIntPoint(-1,  0),
+        FIntPoint( 0, +1),
+        FIntPoint( 0, -1)
     };
 
-    // 7) A* search loop
-    bool foundGoal = false;
-    int  bestGX = -1, bestGY = -1, bestLen = INT_MAX;
+    int OpponentIdx = 1 - idx;
 
     while (!open.empty())
     {
-        Node n = open.top();
-        open.pop();
-
-        // If we have already closed this cell, skip
-        if (closed[n.y][n.x])
-            continue;
-
+        Node n = open.top(); open.pop();
+        if (closed[n.y][n.x]) continue;
         closed[n.y][n.x] = true;
 
-        // If this node is on the goal row, we can stop
         if (n.y == goalY)
         {
-            foundGoal = true;
-            bestGX    = n.x;
-            bestGY    = n.y;
-            bestLen   = n.g;
-            break;
+            if (OutLength) *OutLength = n.g;
+            TArray<FIntPoint> Path;
+            for (int cx = n.x, cy = n.y; cx != -1 && cy != -1; ) {
+                Path.Insert(FIntPoint(cx, cy), 0);
+                FIntPoint p = cameFrom[cy][cx];
+                cx = p.X; cy = p.Y;
+            }
+            return Path;
         }
 
-        // Expand neighbors
-        for (const FIntPoint &d : dirs)
+        for (const FIntPoint& d : dirs)
         {
             int nx = n.x + d.X;
             int ny = n.y + d.Y;
-
-            // 7a) Bounds check
-            if (nx < 0 || nx > 8 || ny < 0 || ny > 8)
-                continue;
-
-            // 7b) Check wall‐blocking for this move. We must ensure any array index
-            //     into VerticalBlocked or HorizontalBlocked is itself in range.
+            if (nx < 0 || nx > 8 || ny < 0 || ny > 8) continue;
 
             bool blocked = false;
+            if (d.X == 1 && S.VerticalBlocked[n.y][n.x]) blocked = true;
+            else if (d.X == -1 && S.VerticalBlocked[n.y][n.x - 1]) blocked = true;
+            else if (d.Y == 1 && S.HorizontalBlocked[n.y][n.x]) blocked = true;
+            else if (d.Y == -1 && S.HorizontalBlocked[n.y - 1][n.x]) blocked = true;
 
-            // Moving right?
-            if (d.X == +1 && d.Y == 0)
+            if (blocked) continue;
+
+            bool isJump = (nx == S.PawnX[OpponentIdx] && ny == S.PawnY[OpponentIdx]);
+            if (isJump)
             {
-                // We only index VerticalBlocked[y][x] if x ∈ [0..7] and y ∈ [0..8]
-                if (n.x >= 0 && n.x < 8 && n.y >= 0 && n.y < 9)
+                int jx = nx + d.X;
+                int jy = ny + d.Y;
+
+                if (jx >= 0 && jx <= 8 && jy >= 0 && jy <= 8)
                 {
-                    if (S.VerticalBlocked[n.y][n.x])
-                        blocked = true;
+                    bool jumpBlocked = false;
+                    if (d.X == 1 && S.VerticalBlocked[ny][nx]) jumpBlocked = true;
+                    else if (d.X == -1 && S.VerticalBlocked[ny][nx - 1]) jumpBlocked = true;
+                    else if (d.Y == 1 && S.HorizontalBlocked[ny][nx]) jumpBlocked = true;
+                    else if (d.Y == -1 && S.HorizontalBlocked[ny - 1][nx]) jumpBlocked = true;
+
+                    if (!jumpBlocked && !closed[jy][jx])
+                    {
+                        int ng = n.g + 2;
+                        if (ng < gCost[jy][jx])
+                        {
+                            gCost[jy][jx] = ng;
+                            cameFrom[jy][jx] = FIntPoint(n.x, n.y);
+                            int h = Heuristic(jx, jy);
+                            open.push({ ng + h, ng, jx, jy });
+                        }
+                    }
+                }
+                else
+                {
+                    for (const FIntPoint& side : { FIntPoint(d.Y, d.X), FIntPoint(-d.Y, -d.X) })
+                    {
+                        int sideX = nx + side.X;
+                        int sideY = ny + side.Y;
+                        if (sideX >= 0 && sideX <= 8 && sideY >= 0 && sideY <= 8 && !closed[sideY][sideX])
+                        {
+                            int ng = n.g + 2;
+                            if (ng < gCost[sideY][sideX])
+                            {
+                                gCost[sideY][sideX] = ng;
+                                cameFrom[sideY][sideX] = FIntPoint(n.x, n.y);
+                                int h = Heuristic(sideX, sideY);
+                                open.push({ ng + h, ng, sideX, sideY });
+                            }
+                        }
+                    }
                 }
             }
-            // Moving left?
-            else if (d.X == -1 && d.Y == 0)
+            else if (!closed[ny][nx])
             {
-                // We only index VerticalBlocked[y][x-1] if (x-1) ∈ [0..7] and y ∈ [0..8]
-                if (n.x - 1 >= 0 && n.x - 1 < 8 && n.y >= 0 && n.y < 9)
+                int ng = n.g + 1;
+                if (ng < gCost[ny][nx])
                 {
-                    if (S.VerticalBlocked[n.y][n.x - 1])
-                        blocked = true;
+                    gCost[ny][nx] = ng;
+                    cameFrom[ny][nx] = FIntPoint(n.x, n.y);
+                    int h = Heuristic(nx, ny);
+                    open.push({ ng + h, ng, nx, ny });
                 }
             }
-            // Moving up?
-            else if (d.X == 0 && d.Y == +1)
-            {
-                // We only index HorizontalBlocked[y][x] if y ∈ [0..7] and x ∈ [0..8]
-                if (n.y >= 0 && n.y < 8 && n.x >= 0 && n.x < 9)
-                {
-                    if (S.HorizontalBlocked[n.y][n.x])
-                        blocked = true;
-                }
-            }
-            // Moving down?
-            else if (d.X == 0 && d.Y == -1)
-            {
-                // We only index HorizontalBlocked[y-1][x] if (y-1) ∈ [0..7] and x ∈ [0..8]
-                if (n.y - 1 >= 0 && n.y - 1 < 8 && n.x >= 0 && n.x < 9)
-                {
-                    if (S.HorizontalBlocked[n.y - 1][n.x])
-                        blocked = true;
-                }
-            }
-
-            if (blocked)
-                continue;
-
-            // 7c) If neighbor is already closed, skip
-            if (closed[ny][nx])
-                continue;
-
-            // 7d) (Optional) Occupancy check—skip if some piece sits there
-            //     (In Quoridor, you might want to treat the other pawn as not a wall
-            //      but as something you can “jump” over elsewhere. Here we assume
-            //      path‐to‐goal ignores pawn occupancy. If you do want to forbid
-            //      stepping onto the other pawn, un‐comment below:)
-            //
-            // bool bOccupied = ((nx == S.PawnX[0] && ny == S.PawnY[0]) ||
-            //                   (nx == S.PawnX[1] && ny == S.PawnY[1]));
-            // if (bOccupied)
-            //    continue;
-
-            // 7e) Tentative g‐cost = n.g + 1
-            int ng = n.g + 1;
-            if (ng < gCost[ny][nx])
-            {
-                gCost[ny][nx]    = ng;
-                cameFrom[ny][nx] = FIntPoint(n.x, n.y);
-                int h            = Heuristic(nx, ny);
-                open.push({ ng + h, ng, nx, ny });
-            }
-        }
-    } // end while(open)
-
-    // 8) No path found ⇒ length = 100
-    if (!foundGoal)
-    {
-        if (OutLength) 
-            *OutLength = 100;
-        return {};
-    }
-
-    // 9) Fill OutLength and reconstruct path
-    if (OutLength) 
-        *OutLength = bestLen;
-
-    TArray<FIntPoint> Path;
-    {
-        int cx = bestGX, cy = bestGY;
-        while (cx != -1 && cy != -1)
-        {
-            Path.Insert(FIntPoint(cx, cy), 0);
-            FIntPoint parent = cameFrom[cy][cx];
-            cx = parent.X;
-            cy = parent.Y;
         }
     }
 
-    return Path;
+    if (OutLength) *OutLength = 100;
+    return {};
 }
+
 
 
 bool MinimaxEngine::FindPathForPawn(const FMinimaxState& S, int32 PlayerNum, TArray<FIntPoint>& OutPath)

@@ -38,6 +38,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Board")
 	int32 GridSize = 9;
 	
+	UPROPERTY(BlueprintReadOnly)
+	int32 TurnCount = 0;
+	
 	TArray<TArray<ATile*>> Tiles;
 	UFUNCTION(BlueprintCallable)
 	void Debug_PrintOccupiedWalls() const;
@@ -48,7 +51,7 @@ public:
 	UPROPERTY()
 	TArray<AWallSlot*> WallSlots;
 	
-	// Array untuk menyimpan slot tembok
+	
 	UPROPERTY(VisibleAnywhere)
 	TArray<AWallSlot*> HorizontalWallSlots;
 	
