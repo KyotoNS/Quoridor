@@ -1412,9 +1412,9 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial,int32 D
     // 1) Compute “before” shortest-path lengths and store AIPath
     int32 InitialAILength = 0, InitialOppLength = 0;
     TArray<FIntPoint> AIPath =
-        MinimaxEngine::ComputePathToGoal(Initial, RootPlayer, &InitialAILength);
+        ComputePathToGoal(Initial, RootPlayer, &InitialAILength);
     TArray<FIntPoint> OppPath =
-        MinimaxEngine::ComputePathToGoal(Initial, Opponent, &InitialOppLength);
+        ComputePathToGoal(Initial, Opponent, &InitialOppLength);
 
     UE_LOG(LogTemp, Warning, TEXT(
         "Initial Paths: AI=%d | Opp=%d"),
@@ -1461,21 +1461,21 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial,int32 D
         if (act.bIsWall) {
             FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
             FMinimaxState TempCheck = Initial;
-            MinimaxEngine::ApplyWall(TempCheck, RootPlayer, w);
+            ApplyWall(TempCheck, RootPlayer, w);
 
-            if (MinimaxEngine::DoesWallBlockPlayer(TempCheck)) {
+            if (DoesWallBlockPlayer(TempCheck)) {
                 Scores[i] = INT_MIN;
                 return;
             }
-            MinimaxEngine::ApplyWall(SS, RootPlayer, w);
+            ApplyWall(SS, RootPlayer, w);
         }
         else {
-            MinimaxEngine::ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
+            ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
         }
 
         // 4b) Compute the plain Minimax value on SS:
         //      (next player’s turn is 'Opponent')
-        baseScore = MinimaxEngine::Minimax(
+        baseScore = Minimax(
             SS,
             Depth - 1,
             RootPlayer,
@@ -1485,7 +1485,7 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial,int32 D
         // 4c) Add either the wall‐score or pawn‐score helper
         int32 bonus = 0;
         if (act.bIsWall) {
-            bonus = MinimaxEngine::CalculateWallScore(
+            bonus = CalculateWallScore(
                 Initial,
                 SS,
                 RootPlayer,
@@ -1495,7 +1495,7 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial,int32 D
             );
         }
         else {
-            bonus = MinimaxEngine::CalculatePawnScore(
+            bonus = CalculatePawnScore(
                 Initial,
                 SS,
                 RootPlayer,
@@ -1521,10 +1521,10 @@ FMinimaxAction MinimaxEngine::SolveParallel(const FMinimaxState& Initial,int32 D
 
     // 6) Update RecentMoves if it's a pawn move
     if (!BestAct.bIsWall && BestAct.Score > INT_MIN) {
-        MinimaxEngine::RecentMoves.Add(
+        RecentMoves.Add(
             FIntPoint(BestAct.MoveX, BestAct.MoveY));
-        if (MinimaxEngine::RecentMoves.Num() > 4) {
-            MinimaxEngine::RecentMoves.RemoveAt(0);
+        if (RecentMoves.Num() > 4) {
+            RecentMoves.RemoveAt(0);
         }
         UE_LOG(LogTemp, Log, TEXT(
             "SolveParallel: P%d RecentMoves updated. Newest: (%d,%d). Count: %d"),
@@ -1573,9 +1573,9 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial,int32 
     // 1) Compute “before” path lengths & store AIPath
     int32 InitialAILength = 0, InitialOppLength = 0;
     TArray<FIntPoint> AIPath =
-        MinimaxEngine::ComputePathToGoal(Initial, RootPlayer, &InitialAILength);
+        ComputePathToGoal(Initial, RootPlayer, &InitialAILength);
     TArray<FIntPoint> OppPath =
-        MinimaxEngine::ComputePathToGoal(Initial, Opponent, &InitialOppLength);
+        ComputePathToGoal(Initial, Opponent, &InitialOppLength);
 
     UE_LOG(LogTemp, Warning, TEXT(
         "Initial Paths: AI=%d | Opp=%d"),
@@ -1630,7 +1630,7 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial,int32 
             ApplyWall(SS, RootPlayer, w);
 
             // Heuristic = CalculateWallScore(...)
-            act.Score = MinimaxEngine::CalculateWallScore(
+            act.Score = CalculateWallScore(
                 Initial,       // before state
                 SS,            // after state
                 RootPlayer,
@@ -1644,7 +1644,7 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial,int32 
             ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
 
             // We do NOT re‐compute AILength/OppLength here; CalculatePawnScore does it internally
-            act.Score = MinimaxEngine::CalculatePawnScore(
+            act.Score = CalculatePawnScore(
                 Initial,       // before state
                 SS,            // after state
                 RootPlayer,
@@ -1758,9 +1758,9 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
     // (a) Compute “before” A* path lengths and store AIPath:
     int32 InitialAILength = 0, InitialOppLength = 0;
     TArray<FIntPoint> AIPath =
-        MinimaxEngine::ComputePathToGoal(Initial, RootPlayer, &InitialAILength);
+        ComputePathToGoal(Initial, RootPlayer, &InitialAILength);
     TArray<FIntPoint> OppPath =
-        MinimaxEngine::ComputePathToGoal(Initial, Opponent, &InitialOppLength);
+        ComputePathToGoal(Initial, Opponent, &InitialOppLength);
     UE_LOG(LogTemp, Warning, TEXT(
         "Initial Paths: AI=%d | Opp=%d"),
         InitialAILength, InitialOppLength);
@@ -1810,20 +1810,20 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
         if (act.bIsWall) {
             FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
             FMinimaxState TempCheck = Initial;
-            MinimaxEngine::ApplyWall(TempCheck, RootPlayer, w);
+            ApplyWall(TempCheck, RootPlayer, w);
 
-            if (MinimaxEngine::DoesWallBlockPlayer(TempCheck)) {
+            if (DoesWallBlockPlayer(TempCheck)) {
                 Scores[i] = INT_MIN;
                 return;
             }
-            MinimaxEngine::ApplyWall(SS, RootPlayer, w);
+            ApplyWall(SS, RootPlayer, w);
         }
         else {
-            MinimaxEngine::ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
+            ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
         }
 
         // (ii) Base α/β value from SS:
-        baseScore = MinimaxEngine::MinimaxAlphaBeta(
+        baseScore = MinimaxAlphaBeta(
             SS,
             Depth - 1,
             RootPlayer,
@@ -1835,7 +1835,7 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
         // (iii) Dispatch to the appropriate scoring helper:
         int32 bonus = 0;
         if (act.bIsWall) {
-            bonus = MinimaxEngine::CalculateWallScore(
+            bonus = CalculateWallScore(
                 Initial,
                 SS,
                 RootPlayer,
@@ -1844,7 +1844,7 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
                 InitialOppLength
             );
         } else {
-            bonus = MinimaxEngine::CalculatePawnScore(
+            bonus = CalculatePawnScore(
                 Initial,
                 SS,
                 RootPlayer,
