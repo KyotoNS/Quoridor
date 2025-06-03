@@ -974,46 +974,102 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
     int32 idxOpp      = 1 - idxAI;
     int32 OpponentNum = 3 - RootPlayer;
 
-    // 1) Compute shortest paths
+    // 1) Recompute A* path for AI and Opponent
     int32 AILen = 100, OppLen = 100;
     TArray<FIntPoint> AIPath  = ComputePathToGoal(S, RootPlayer, &AILen);
     TArray<FIntPoint> OppPath = ComputePathToGoal(S, OpponentNum, &OppLen);
 
-    // 2) Immediate win/lose
-    if (AILen == 0)   return +50000;
-    if (OppLen == 0)  return -50000;
-    if (AILen >= 100) return -49000;
-    if (OppLen >= 100) return +49000;
+    // 2) Immediate win/lose conditions
+    if (AILen == 0)   return +50000;   // AI already on goal
+    if (OppLen == 0)  return -50000;   // Opponent already on goal
+    if (AILen >= 100) return -49000;   // AI has no path → large penalty
+    if (OppLen >= 100) return +49000;  // Opponent has no path → large bonus
 
-    // 3) Base heuristics (path‐diff, wall count, board control)
-    const int32 W_PathDiff      = 150;
-    const int32 W_WallCount     = 8;
-    const int32 W_BoardControl  = 3;
-    const int32 W_StrategicWall = 15;
-    const int32 W_PathDefense   = -7;
+    // 3) Identify pawn’s current and previous positions
+    FIntPoint Curr(S.PawnX[idxAI], S.PawnY[idxAI]);
+    const FIntPoint& Prev  = S.LastPawnPos[idxAI];
+    bool bHasPrev = (Prev.X >= 0 && Prev.Y >= 0);
 
-    int32 Score = 0;
+    // 4) Detect backward move (less‐harsh penalty)
+    if (bHasPrev)
+    {
+        int32 dy = Curr.Y - Prev.Y;
+        if (RootPlayer == 2) // invert for Player 2
+            dy = Prev.Y - Curr.Y;
+        if (dy < 0)
+        {
+            // Backward is discouraged, but not utterly impossible
+            return -3000;
+        }
+    }
+
+    // 5) Emergency‐wall bonus if opponent is one move from winning
+    if (OppLen == 1)
+    {
+        // Each horizontal wall on the opponent’s goal row is worth +2500
+        int32 oppBlockRow = (RootPlayer == 1 ? 0 : 8);
+        int32 blockCount = 0;
+        for (int x = 0; x < 8; ++x)
+            if (S.HorizontalBlocked[oppBlockRow][x])
+                blockCount++;
+
+        return +2500 * blockCount;
+    }
+
+    // 6) Path‐step bonus / off‐path penalty
+    bool bOnNextStep = false;
+    if (AIPath.Num() > 1 && Curr == AIPath[1])
+    {
+        bOnNextStep = true;
+    }
+
+    // If not on the next step, compute distance to nearest A* tile
+    if (!bOnNextStep)
+    {
+        int32 DistToPath = INT_MAX;
+        for (const FIntPoint& p : AIPath)
+        {
+            DistToPath = FMath::Min(
+                DistToPath,
+                FMath::Abs(p.X - Curr.X) + FMath::Abs(p.Y - Curr.Y)
+            );
+        }
+        // Off‐path penalty: −500 per square away
+        return - (DistToPath * 500);
+    }
+    //   If bOnNextStep, we fall through and give a +2000 bonus below
+
+    // 7) Base score now that we know we’re exactly on the next step (AIPath[1]):
+    int32 Score = 2000;  // path‐step bonus
+
+    // 7a) Path‐difference term
+    const int32 W_PathDiff = 150;
     Score += (OppLen - AILen) * W_PathDiff;
+
+    // 7b) Wall‐inventory term
+    const int32 W_WallCount = 8;
     Score += (S.WallsRemaining[idxAI] - S.WallsRemaining[idxOpp]) * W_WallCount;
 
+    // 7c) Board‐control term
+    const int32 W_BoardControl = 3;
     int32 MyControl = 0, OppControl = 0;
     ComputeBoardControl(S, MyControl, OppControl, RootPlayer);
     Score += (MyControl - OppControl) * W_BoardControl;
 
-    // 4) Strategic wall bonus (only if opponent is close to winning)
-    int oppBlockY = (RootPlayer == 1) ? 0 : 8;
+    // 7d) Strategic‐wall bonus if opponent is within three moves
+    const int32 W_StrategicWall = 15;
     if (OppLen <= 3)
     {
+        int32 oppGoalRow = (RootPlayer == 1 ? 0 : 8);
         for (int x = 0; x < 8; ++x)
-        {
-            if (S.HorizontalBlocked[oppBlockY][x])
+            if (S.HorizontalBlocked[oppGoalRow][x])
                 Score += W_StrategicWall;
-        }
     }
 
-    // 5) Reward/punish if opponent is near our path
-    int OppDistToPath = 100;
-    int OppX = S.PawnX[idxOpp], OppY = S.PawnY[idxOpp];
+    // 7e) Opponent near‐path bonus (up to +21)
+    const int32 W_PathDefense = -7;
+    int32 OppDistToPath = INT_MAX;
+    int32 OppX = S.PawnX[idxOpp], OppY = S.PawnY[idxOpp];
     for (const FIntPoint& p : AIPath)
     {
         OppDistToPath = FMath::Min(
@@ -1023,50 +1079,25 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
     }
     if (OppDistToPath <= 2)
     {
-        Score += (OppDistToPath - 3) * W_PathDefense;  
-        // 0→ +21, 1→ +14, 2→ +7
+        Score += (OppDistToPath - 3) * W_PathDefense;  // 0→+21, 1→+14, 2→+7
     }
 
-    // 6) Pawn‐move‐vs‐path scoring
-    //    Reward following the A* path this turn, penalize off‐path, punish backtracking.
+    // 7f) Penalize backtracking (just in case)
+    const FIntPoint& Prev2 = S.SecondLastPawnPos[idxAI];
+    if (Curr == Prev)   Score -= 2000;
+    if (Curr == Prev2)  Score -= 1000;
+
+    // 7g) Tiny forward‐Y bonus (purely tiebreaker)
     {
-        const FIntPoint Curr(S.PawnX[idxAI], S.PawnY[idxAI]);
-        const FIntPoint& Prev  = S.LastPawnPos[idxAI];
-        const FIntPoint& Prev2 = S.SecondLastPawnPos[idxAI];
-
-        // (a) Big bonus if we’re exactly on the next A* step:
-        if (AIPath.Num() > 1 && Curr == AIPath[1])
-        {
-            Score += 500;
-        }
-        else
-        {
-            // (b) Compute “distance to any tile on AIPath”:
-            int32 DistToPath = INT_MAX;
-            for (const FIntPoint& p : AIPath) {
-                DistToPath = FMath::Min(
-                    DistToPath,
-                    FMath::Abs(p.X - Curr.X) + FMath::Abs(p.Y - Curr.Y)
-                );
-            }
-            // Off‐path penalty: –100 per square away from AIPath
-            Score -= DistToPath * 100;
-        }
-
-        // (c) Penalize moving back onto last or second‐last positions
-        if (Curr == Prev)  Score -= 10000;
-        if (Curr == Prev2) Score -= 10000;
-
-        // (d) Minor forward‐Y bonus (optional, small compared to path incentives)
-        {
-            int32 goalY = (RootPlayer == 1) ? 8 : 0;
-            int32 dy = FMath::Abs(Curr.Y - goalY);
-            Score += (8 - dy) * 2;
-        }
+        int32 goalY = (RootPlayer == 1 ? 8 : 0);
+        int32 dy = FMath::Abs(Curr.Y - goalY);
+        Score += (8 - dy) * 2;
     }
 
     return Score;
 }
+
+
 
 //-----------------------------------------------------------------------------
 // Apply Pawn Move
