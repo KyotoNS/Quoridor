@@ -970,104 +970,98 @@ void MinimaxEngine::PrintInventory(const FMinimaxState& S, const FString& Contex
 //-----------------------------------------------------------------------------
 int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
 {
-    int32 idxAI = RootPlayer - 1;
-    int32 idxOpponent = 1 - idxAI;
-    int32 OpponentPlayerNum = 3 - RootPlayer;
+    int32 idxAI       = RootPlayer - 1;
+    int32 idxOpp      = 1 - idxAI;
+    int32 OpponentNum = 3 - RootPlayer;
 
+    // 1) Compute shortest paths
     int32 AILen = 100, OppLen = 100;
-    TArray<FIntPoint> AIPath = ComputePathToGoal(S, RootPlayer, &AILen);
-    TArray<FIntPoint> OppPath = ComputePathToGoal(S, OpponentPlayerNum, &OppLen);
+    TArray<FIntPoint> AIPath  = ComputePathToGoal(S, RootPlayer, &AILen);
+    TArray<FIntPoint> OppPath = ComputePathToGoal(S, OpponentNum, &OppLen);
 
-    if (AILen == 0) return 50000;
-    if (OppLen == 0) return -50000;
+    // 2) Immediate win/lose
+    if (AILen == 0)   return +50000;
+    if (OppLen == 0)  return -50000;
     if (AILen >= 100) return -49000;
-    if (OppLen >= 100) return 49000;
+    if (OppLen >= 100) return +49000;
 
+    // 3) Base heuristics (path‐diff, wall count, board control)
     const int32 W_PathDiff      = 150;
     const int32 W_WallCount     = 8;
     const int32 W_BoardControl  = 3;
     const int32 W_StrategicWall = 15;
     const int32 W_PathDefense   = -7;
 
-    int32 Score = (OppLen - AILen) * W_PathDiff;
-    Score += (S.WallsRemaining[idxAI] - S.WallsRemaining[idxOpponent]) * W_WallCount;
+    int32 Score = 0;
+    Score += (OppLen - AILen) * W_PathDiff;
+    Score += (S.WallsRemaining[idxAI] - S.WallsRemaining[idxOpp]) * W_WallCount;
 
     int32 MyControl = 0, OppControl = 0;
     ComputeBoardControl(S, MyControl, OppControl, RootPlayer);
     Score += (MyControl - OppControl) * W_BoardControl;
 
-    // Strategic wall score for blocking finish row
+    // 4) Strategic wall bonus (only if opponent is close to winning)
     int oppBlockY = (RootPlayer == 1) ? 0 : 8;
-    for (int x = 0; x < 8; ++x)
+    if (OppLen <= 3)
     {
-        if (S.HorizontalBlocked[oppBlockY][x]) Score += W_StrategicWall;
+        for (int x = 0; x < 8; ++x)
+        {
+            if (S.HorizontalBlocked[oppBlockY][x])
+                Score += W_StrategicWall;
+        }
     }
 
-    // Opponent near my path penalty (optional)
-    int OppDistToMyPath = 100;
-    int OppX = S.PawnX[idxOpponent], OppY = S.PawnY[idxOpponent];
+    // 5) Reward/punish if opponent is near our path
+    int OppDistToPath = 100;
+    int OppX = S.PawnX[idxOpp], OppY = S.PawnY[idxOpp];
     for (const FIntPoint& p : AIPath)
     {
-        OppDistToMyPath = FMath::Min(OppDistToMyPath, FMath::Abs(p.X - OppX) + FMath::Abs(p.Y - OppY));
+        OppDistToPath = FMath::Min(
+            OppDistToPath,
+            FMath::Abs(p.X - OppX) + FMath::Abs(p.Y - OppY)
+        );
     }
-    if (OppDistToMyPath <= 2)
+    if (OppDistToPath <= 2)
     {
-        Score += (OppDistToMyPath - 3) * W_PathDefense;
-    }
-
-    // Position and movement info
-    const FIntPoint Curr(S.PawnX[idxAI], S.PawnY[idxAI]);
-    const FIntPoint& Prev = S.LastPawnPos[idxAI];
-    const FIntPoint& Prev2 = S.SecondLastPawnPos[idxAI];
-
-    // === Movement Evaluation Fixes ===
-
-    // 1. Reward if pawn moved to follow the path
-    if (AIPath.Num() > 1 && Curr == AIPath[1])
-    {
-        Score += 500; // Great move — exact path step
-    }
-    else if (AIPath.Num() > 2 && Curr == AIPath[2])
-    {
-        Score += 55; // Slight detour but still on path
-    }
-    else
-    {
-        Score -= 100; // Off-path
+        Score += (OppDistToPath - 3) * W_PathDefense;  
+        // 0→ +21, 1→ +14, 2→ +7
     }
 
-    // 2. Reward heading toward finish
-    Score += (8 - FMath::Abs(Curr.Y - (RootPlayer == 1 ? 8 : 0))) * 2;
-
-    // 3. Penalize backtracking
-    if (Curr == Prev)    Score -= 10000;
-    if (Curr == Prev2)   Score -= 10000;
-
-    // 4. Reward forward movement
-    if (AIPath.Num() > 1)
+    // 6) Pawn‐move‐vs‐path scoring
+    //    Reward following the A* path this turn, penalize off‐path, punish backtracking.
     {
-        const FIntPoint& Next = AIPath[1];
-        int dx = FMath::Abs(Next.X - Curr.X);
-        int dy = Next.Y - Curr.Y;
+        const FIntPoint Curr(S.PawnX[idxAI], S.PawnY[idxAI]);
+        const FIntPoint& Prev  = S.LastPawnPos[idxAI];
+        const FIntPoint& Prev2 = S.SecondLastPawnPos[idxAI];
 
-        const int GoalDir = (RootPlayer == 1 ? 1 : -1);
-        if (dx == 0 && dy == GoalDir)
+        // (a) Big bonus if we’re exactly on the next A* step:
+        if (AIPath.Num() > 1 && Curr == AIPath[1])
         {
-            Score += 40; // Vertical forward
+            Score += 500;
         }
-        else if (dx == 0 && dy == -GoalDir)
+        else
         {
-            Score -= 80; // Vertical backward
+            // (b) Compute “distance to any tile on AIPath”:
+            int32 DistToPath = INT_MAX;
+            for (const FIntPoint& p : AIPath) {
+                DistToPath = FMath::Min(
+                    DistToPath,
+                    FMath::Abs(p.X - Curr.X) + FMath::Abs(p.Y - Curr.Y)
+                );
+            }
+            // Off‐path penalty: –100 per square away from AIPath
+            Score -= DistToPath * 100;
         }
-    }
 
-    // 6. Minor bonus if standing on opponent’s path (disruption)
-    for (const FIntPoint& t : OppPath)
-    {
-        if (FMath::Abs(t.X - Curr.X) + FMath::Abs(t.Y - Curr.Y) <= 1)
+        // (c) Penalize moving back onto last or second‐last positions
+        if (Curr == Prev)  Score -= 10000;
+        if (Curr == Prev2) Score -= 10000;
+
+        // (d) Minor forward‐Y bonus (optional, small compared to path incentives)
         {
-            Score += 20;
-            break;
+            int32 goalY = (RootPlayer == 1) ? 8 : 0;
+            int32 dy = FMath::Abs(Curr.Y - goalY);
+            Score += (8 - dy) * 2;
         }
     }
 
@@ -1314,84 +1308,68 @@ int32 MinimaxEngine::CalculateWallScore(const FMinimaxState& Initial,const FMini
 
 // (3) Definition of CalculatePawnScore as a private static method,
 //     using the user’s custom “forward/path/shorter‐path/anti‐oscillation” logic:
-int32 MinimaxEngine::CalculatePawnScore(const FMinimaxState& Initial,const FMinimaxState& AfterState,int32 RootPlayer,int32 Opponent,int32 InitialAILength,const TArray<FIntPoint>& AIPath,const FMinimaxAction& Act)
+int32 MinimaxEngine::CalculatePawnScore(const FMinimaxState& Initial,const FMinimaxState& AfterState,int32 RootPlayer,int32 Opponent,int32 InitialAILength,const TArray<FIntPoint>& /*AIPath*/,const FMinimaxAction& Act)
 {
     int32 score = 0;
     const int32 idx = RootPlayer - 1;
 
-    // Recompute the new A* path after the pawn‐move:
-    int32 AfterAILen = 0;
-    TArray<FIntPoint> NewPath =
-        MinimaxEngine::ComputePathToGoal(AfterState, RootPlayer, &AfterAILen);
+    // 1) Compute the new A* path for AI after applying this pawn move:
+    int32 AfterAILen = 100;
+    TArray<FIntPoint> NewPath =ComputePathToGoal(AfterState, RootPlayer, &AfterAILen);
 
-    // 1) Forward bonus / backward penalty:
-    const int32 CurrY = Initial.PawnY[idx];
-    const int32 MoveY = Act.MoveY;
-    const int ForwardDelta = (RootPlayer == 1) ? (MoveY - CurrY)
-                                              : (CurrY - MoveY);
-
-    if (ForwardDelta > 0) {
-        score += 200;
+    // If there's no path to the goal, heavy penalty and bail out:
+    if (AfterAILen >= 100) {
+        return -2000;
     }
-    else if (ForwardDelta < 0) {
-        score -= 300;
+
+    // 2) If pawn is only one move away from finishing (AfterAILen == 1),
+    //    give a very large bonus so that moving wins over any wall placement.
+    if (AfterAILen == 1) {
+        return 100000; 
+    }
+
+    // 3) If this move follows the exact next step on the new shortest path (NewPath[1]), big bonus:
+    if (NewPath.Num() > 1 &&
+        Act.MoveX == NewPath[1].X &&
+        Act.MoveY == NewPath[1].Y)
+    {
+        score += 500;
     }
     else {
-        if (NewPath.Num() > 1 &&
-            FIntPoint(Act.MoveX, Act.MoveY) == NewPath[1])
-        {
-            score += 100;
-        }
-        else {
-            score -= 50;
-        }
+        // Not on the exact next step → small penalty
+        score -= 100;
     }
 
-    // 2) Path‐following bonus (based on the original AIPath):
-    if (AIPath.Num() > 1 &&
-        Act.MoveX == AIPath[1].X &&
-        Act.MoveY == AIPath[1].Y)
-    {
-        score += 200;
+    // 4) Reward any reduction in A* path length:
+    int32 deltaLen = InitialAILength - AfterAILen;
+    if (deltaLen > 0) {
+        // Each step shortened gives +20 points
+        score += deltaLen * 20;
     }
-    else if (AIPath.Num() > 2 &&
-             Act.MoveX == AIPath[2].X &&
-             Act.MoveY == AIPath[2].Y)
-    {
-        score += 100;
+    else if (deltaLen < 0) {
+        // If the path got longer, penalize by −50 per extra step
+        score += deltaLen * 50;  // deltaLen is negative here
     }
 
-    // 3) Shorter‐path gain:
-    if (AfterAILen < 100) {
-        score += (InitialAILength - AfterAILen) * 10;
-    }
-
-    // 4) Anti‐oscillation (immediate‐reversal) penalties:
-    if (MinimaxEngine::RecentMoves.Num() >= 1)
-    {
+    // 5) Anti‐oscillation: discourage reversing recent moves
+    if (MinimaxEngine::RecentMoves.Num() >= 1) {
         const FIntPoint& Last = MinimaxEngine::RecentMoves.Last();
         if (Act.MoveX == Last.X && Act.MoveY == Last.Y) {
             score -= 1000;
-            UE_LOG(LogTemp, Warning, TEXT(
-                "SolveParallelAlphaBeta: Penalizing immediate reversal to (%d,%d) for P%d"),
-                Act.MoveX, Act.MoveY, RootPlayer);
         }
     }
-    if (MinimaxEngine::RecentMoves.Num() >= 2)
-    {
+    if (MinimaxEngine::RecentMoves.Num() >= 2) {
         const FIntPoint& TwoAgo =
             MinimaxEngine::RecentMoves[
                 MinimaxEngine::RecentMoves.Num() - 2];
         if (Act.MoveX == TwoAgo.X && Act.MoveY == TwoAgo.Y) {
             score -= 500;
-            UE_LOG(LogTemp, Warning, TEXT(
-                "SolveParallelAlphaBeta: Penalizing reversal to 2-moves-ago (%d,%d) for P%d"),
-                Act.MoveX, Act.MoveY, RootPlayer);
         }
     }
 
     return score;
 }
+
 
 
 //-----------------------------------------------------------------------------
