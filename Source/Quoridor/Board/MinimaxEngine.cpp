@@ -982,7 +982,7 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
 
     // 2) Terminal conditions (no‐path for AI only)
     //    If AI cannot reach its goal, that’s catastrophic; give a large negative.
-    if (AILen >= 100) 
+    if (AILen >= 100)   
         return -49000;
 
     //    We do NOT immediately return +49000 for OppLen >= 100 here.
@@ -1053,6 +1053,11 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
         int32 goalY = (RootPlayer == 1 ? 8 : 0);
         int32 dy = FMath::Abs(CurrAI.Y - goalY);
         Score += (8 - dy) * 2;
+    }
+
+    if (AIPath.Num() > 1 && CurrAI == AIPath[1])
+    {
+        Score += 50;  // Strong reward for staying on the very next step
     }
 
     return Score;
