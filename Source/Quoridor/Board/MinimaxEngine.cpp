@@ -1027,37 +1027,11 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
             }
         }
     }
-
-    // 4e) “Opponent near‐path” bonus up to +21
-    //     If the opponent’s pawn is within 2 Manhattan steps of any tile on AIPath,
-    //     we add (OppDistToPath – 3) * (–7), which for distances 0,1,2 gives +21, +14, +7.
-    const int32 W_PathDefense = -7;
-    int32 OppDistToPath = INT_MAX;
-    int32 OppX = S.PawnX[idxOpp], OppY = S.PawnY[idxOpp];
-    for (const FIntPoint& p : AIPath)
-    {
-        int32 d = FMath::Abs(p.X - OppX) + FMath::Abs(p.Y - OppY);
-        OppDistToPath = FMath::Min(OppDistToPath, d);
-    }
-    if (OppDistToPath <= 2)
-    {
-        Score += (OppDistToPath - 3) * W_PathDefense;  // 0→+21, 1→+14, 2→+7
-    }
-
-    // 4f) Penalize backtracking: if AI’s current position equals its last two positions
-    if (CurrAI == PrevAI)   Score -= 2000;
-    if (CurrAI == Prev2AI)  Score -= 1000;
-
-    // 4g) Tiny forward‐Y bonus (tiebreaker): encourage moving toward the finish row
-    {
-        int32 goalY = (RootPlayer == 1 ? 8 : 0);
-        int32 dy = FMath::Abs(CurrAI.Y - goalY);
-        Score += (8 - dy) * 2;
-    }
+    
 
     if (AIPath.Num() > 1 && CurrAI == AIPath[1])
     {
-        Score += 50;  // Strong reward for staying on the very next step
+        Score += 500;  // Strong reward for staying on the very next step
     }
 
     return Score;
@@ -1331,7 +1305,7 @@ int32 MinimaxEngine::CalculatePawnScore(const FMinimaxState& Initial,const FMini
         Act.MoveX == NewPath[1].X &&
         Act.MoveY == NewPath[1].Y)
     {
-        score += 1000;
+        score += 10000;
     }
     else {
         // Not on the exact next step → small penalty
@@ -1346,7 +1320,7 @@ int32 MinimaxEngine::CalculatePawnScore(const FMinimaxState& Initial,const FMini
     }
     else if (deltaLen < 0) {
         // If the path got longer, penalize by −50 per extra step
-        score += deltaLen * 50;  // deltaLen is negative here
+        score += deltaLen * 30;  // deltaLen is negative here
     }
 
     // 5) Anti‐oscillation: discourage reversing recent moves
@@ -1567,6 +1541,7 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial,int32 
     // 2a) Pawn moves
     TArray<FIntPoint> PawnMoves = GetPawnMoves(Initial, RootPlayer);
     for (const auto& mv : PawnMoves) {
+        UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate: (%d, %d)"), mv.X, mv.Y);
         Candidates.Add(FMinimaxAction(mv.X, mv.Y));
     }
 
@@ -1750,6 +1725,7 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
     // 2a) Pawn moves
     TArray<FIntPoint> PawnMoves = GetPawnMoves(Initial, RootPlayer);
     for (const auto& mv : PawnMoves) {
+        UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate: (%d, %d)"), mv.X, mv.Y);
         Candidates.Add(FMinimaxAction(mv.X, mv.Y));
     }
 

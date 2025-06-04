@@ -163,7 +163,7 @@ void AMinimaxBoardAI::RunMinimaxForParallel(int32 Player)
                 });
             });
         },
-        0.5f,    // Delay in seconds
+        1.0f,    // Delay in seconds
         false    // Do not loop
     );
 }
