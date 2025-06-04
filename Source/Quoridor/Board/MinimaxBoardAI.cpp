@@ -22,7 +22,7 @@ void AMinimaxBoardAI::BeginPlay()
     AITypeName = "MinimaxParallel";
     
     // Randomly choose which AI will be Player 1 or Player 2
-    bool bAI1IsPlayer1 = FMath::RandBool();
+    bool bAI1IsPlayer1 = 1;
 
     if (bAI1IsPlayer1)
     {
@@ -194,7 +194,7 @@ void AMinimaxBoardAI::RunMinimaxForAlphaBeta(int32 Player)
                 ThinkingStartTimeP2 = FPlatformTime::Seconds();
             
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 3;
+            int32 Depth = 5;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
@@ -266,7 +266,7 @@ void AMinimaxBoardAI::RunMinimaxForParallelAlphaBeta(int32 Player)
                 ThinkingStartTimeP2 = FPlatformTime::Seconds();
             
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 3;
+            int32 Depth = 5;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()

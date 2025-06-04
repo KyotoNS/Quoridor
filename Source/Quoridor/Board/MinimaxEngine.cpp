@@ -7,6 +7,7 @@
 #include <algorithm> // Required for std::sort
 #include "Quoridor/Board/QuoridorBoard.h"
 #include "Quoridor/Wall/WallSlot.h"
+#include "Async/ParallelFor.h"
 #include "Quoridor/Pawn/QuoridorPawn.h"
 #include "Math/UnrealMathUtility.h"
 TArray<FIntPoint> MinimaxEngine::RecentMoves;
@@ -1711,23 +1712,24 @@ FMinimaxAction MinimaxEngine::SolveAlphaBeta(const FMinimaxState& Initial,int32 
 }
 
 
-
 FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initial,int32 Depth,int32 RootPlayer)
 {
     UE_LOG(LogTemp, Warning, TEXT(
-       "=== SolveParallelAlphaBeta | Root=%d | Depth=%d ==="),
-       RootPlayer, Depth);
+        "=== SolveParallelAlphaBeta | Root=%d | Depth=%d ==="),
+        RootPlayer, Depth);
     PrintInventory(Initial, TEXT("Start SolveParallelAlphaBeta"));
     PrintBlockedWalls(Initial, TEXT("Start SolveParallelAlphaBeta"));
+
     const int idx = RootPlayer - 1;
     const int Opponent = 3 - RootPlayer;
 
+    // 1) Compute “before” path lengths & store AIPath
     int32 InitialAILength = 0, InitialOppLength = 0;
     TArray<FIntPoint> AIPath =
         ComputePathToGoal(Initial, RootPlayer, &InitialAILength);
     TArray<FIntPoint> OppPath =
         ComputePathToGoal(Initial, Opponent, &InitialOppLength);
-    
+
     UE_LOG(LogTemp, Warning, TEXT(
         "Initial Paths: AI=%d | Opp=%d"),
         InitialAILength, InitialOppLength);
@@ -1737,157 +1739,116 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
             i, AIPath[i].X, AIPath[i].Y);
     }
 
-    // Generate “Candidates” (pawn moves + walls) exactly as before
+    // 2) Generate Candidate Moves
     TArray<FMinimaxAction> Candidates;
-    {
-        TArray<FIntPoint> PawnMoves = GetPawnMoves(Initial, RootPlayer);
-        for (const auto& mv : PawnMoves) {
-            Candidates.Add(FMinimaxAction(mv.X, mv.Y));
-        }
-        if (Initial.WallsRemaining[idx] > 0) {
-            TArray<FWallData> WallMoves =
-                GetAllUsefulWallPlacements(Initial, RootPlayer);
-            for (const auto& w : WallMoves) {
-                Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
-            }
-        }
-        if (Candidates.Num() == 0) {
-            UE_LOG(LogTemp, Error, TEXT("SolveParallelAlphaBeta: No candidates found!"));
-            return FMinimaxAction();
+
+    // 2a) Pawn moves
+    TArray<FIntPoint> PawnMoves = GetPawnMoves(Initial, RootPlayer);
+    for (const auto& mv : PawnMoves) {
+        Candidates.Add(FMinimaxAction(mv.X, mv.Y));
+    }
+
+    // 2b) Wall placements (if walls remain)
+    if (Initial.WallsRemaining[idx] > 0) {
+        TArray<FWallData> WallMoves =
+            GetAllUsefulWallPlacements(Initial, RootPlayer);
+        for (const auto& w : WallMoves) {
+            Candidates.Add(
+                FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
         }
     }
 
-    ///////////////////////////////////////////////////////////////////////////
-    // (2) “Ordering score” pass (serial).  For each candidate i:
-    //     • Build SS = Initial with that act applied.
-    //     • Compute baseScore = MinimaxAlphaBeta(SS, Depth-1, RootPlayer, Opponent, alpha=INT_MIN, beta=INT_MAX).
-    //     • Compute bonus   = CalculatePawnScore(...) or CalculateWallScore(...).
-    //     • Store rawScore[i] = baseScore + bonus.
-    // Then sort Candidates[] by that rawScore descending, so the “best guess” goes first.
-    ///////////////////////////////////////////////////////////////////////////
-    TArray<int32> OrderingScores;
-    OrderingScores.SetNum(Candidates.Num());
+    if (Candidates.Num() == 0) {
+        UE_LOG(LogTemp, Error, TEXT(
+            "SolveAlphaBeta: No candidates found!"));
+        return FMinimaxAction();
+    }
 
-    for (int32 i = 0; i < Candidates.Num(); ++i)
+    // 3) Heuristic‐score & sort for move ordering
+    //    Compute act.Score = CalculateX(...) in parallel
+    TArray<int32> HeuristicScores;
+    HeuristicScores.SetNum(Candidates.Num());
+
+    ParallelFor(Candidates.Num(), [&](int32 i)
     {
         const FMinimaxAction& act = Candidates[i];
         FMinimaxState SS = Initial;
         bool illegal = false;
 
-        if (act.bIsWall)
-        {
+        if (act.bIsWall) {
             // Apply and legality check
             FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
             FMinimaxState TempCheck = Initial;
             ApplyWall(TempCheck, RootPlayer, w);
             if (DoesWallBlockPlayer(TempCheck)) {
                 illegal = true;
-            } else {
+            }
+            else {
                 ApplyWall(SS, RootPlayer, w);
             }
         }
-        else
-        {
+        else {
             ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
         }
 
-        if (illegal)
-        {
-            OrderingScores[i] = INT_MIN;
-            continue;
+        if (illegal) {
+            HeuristicScores[i] = INT_MIN;
         }
-
-        // (2a) Compute baseScore via α/β
-        int32 baseScore = MinimaxAlphaBeta(
-            SS,
-            Depth - 1,
-            RootPlayer,
-            Opponent,
-            INT_MIN,
-            INT_MAX
-        );
-
-        // (2b) Compute actionBonus
-        int32 bonus = 0;
-        if (act.bIsWall)
-        {
-            bonus = CalculateWallScore(
-                Initial, SS, RootPlayer, Opponent,
-                InitialAILength, InitialOppLength
-            );
+        else {
+            // Compute action‐only heuristic (no α/β here)
+            if (act.bIsWall) {
+                HeuristicScores[i] = CalculateWallScore(
+                    Initial,
+                    SS,
+                    RootPlayer,
+                    Opponent,
+                    InitialAILength,
+                    InitialOppLength
+                );
+            }
+            else {
+                HeuristicScores[i] = CalculatePawnScore(
+                    Initial,
+                    SS,
+                    RootPlayer,
+                    Opponent,
+                    InitialAILength,
+                    AIPath,
+                    act
+                );
+            }
         }
-        else
-        {
-            bonus = CalculatePawnScore(
-                Initial, SS, RootPlayer, Opponent,
-                InitialAILength, AIPath, act
-            );
-        }
+    });
 
-        OrderingScores[i] = baseScore + bonus;
+    // Copy those scores into act.Score so we can sort
+    for (int32 i = 0; i < Candidates.Num(); ++i) {
+        Candidates[i].Score = HeuristicScores[i];
     }
 
-    // (2c) Sort Candidates by OrderingScores descending:
-    //      We must sort both arrays in parallel (Candidates[i], OrderingScores[i]).
-    //      A convenient way is to build an array of indices, sort by Scores[], then reorder both.
+    // Sort descending by act.Score so the highest heuristics are first
+    Candidates.Sort([](const FMinimaxAction& A, const FMinimaxAction& B) {
+        return A.Score > B.Score;
+    });
+
     {
-        TArray<int32> Indices;
-        Indices.SetNum(Candidates.Num());
-        for (int32 i = 0; i < Indices.Num(); ++i) Indices[i] = i;
+        // Prepare an array to hold each candidate’s final currentScore
+        TArray<int32> FinalScores;
+        FinalScores.SetNum(Candidates.Num());
 
-        Indices.Sort([&OrderingScores](int32 A, int32 B) {
-            return OrderingScores[A] > OrderingScores[B];
-        });
+        // Shared alpha for sibling pruning (initially −∞)
+        TAtomic<int32> SharedAlpha = INT_MIN;
 
-        // Build new, sorted arrays:
-        TArray<FMinimaxAction>  SortedCandidates;
-        TArray<int32>           SortedScores;
-        SortedCandidates.SetNum(Candidates.Num());
-        SortedScores.    SetNum(Candidates.Num());
-
-        for (int32 newIdx = 0; newIdx < Indices.Num(); ++newIdx)
-        {
-            int32 oldIdx = Indices[newIdx];
-            SortedCandidates[newIdx] = Candidates[oldIdx];
-            SortedScores[newIdx]     = OrderingScores[oldIdx];
-        }
-        Candidates = MoveTemp(SortedCandidates);
-        OrderingScores = MoveTemp(SortedScores);
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    // (3) Now that candidates are sorted by their “best‐guess scores,”
-    //     run the α/β loop sequentially (because α/β relies on an ordered list):
-    //
-    //     FMinimaxAction BestAct; BestAct.Score = INT_MIN;
-    //     int32 Alpha = INT_MIN, Beta = INT_MAX;
-    //
-    //     for (const auto& act : Candidates) {  // in descending “guess‐score” order
-    //         if (act’s guess‐score == INT_MIN) continue;
-    //
-    //         // Build SS = Initial with act applied (same legality check as above) 
-    //         // CurrentScore = MinimaxAlphaBeta(SS, Depth-1, RootPlayer, Opponent, Alpha, Beta);
-    //         // if (CurrentScore > BestAct.Score) { update BestAct, Alpha = max(Alpha, CurrentScore); if (Alpha >= Beta) break; }
-    //     }
-    //
-    //     That loop is identical to your existing SolveAlphaBeta’s step (4).
-    ///////////////////////////////////////////////////////////////////////////
-    {
-        FMinimaxAction BestAct;
-        BestAct.Score = INT_MIN;
-        int32 Alpha = INT_MIN, Beta = INT_MAX;
-
-        for (int32 i = 0; i < Candidates.Num(); ++i)
+        ParallelFor(Candidates.Num(), [&](int32 i)
         {
             const FMinimaxAction& act = Candidates[i];
 
-            // Skip illegal candidates (we marked any illegal wall with guess‐score == INT_MIN)
-            if (OrderingScores[i] == INT_MIN) 
-            {
-                continue;
+            // If we already marked this candidate illegal (Score == INT_MIN), skip it
+            if (act.Score == INT_MIN) {
+                FinalScores[i] = INT_MIN;
+                return;
             }
 
-            // Rebuild SS
+            // Rebuild SS = Initial and apply this candidate
             FMinimaxState SS = Initial;
             bool illegal = false;
             if (act.bIsWall) {
@@ -1899,47 +1860,67 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
                 } else {
                     ApplyWall(SS, RootPlayer, w);
                 }
-            } else {
+            }
+            else {
                 ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
             }
             if (illegal) {
-                continue;
+                FinalScores[i] = INT_MIN;
+                return;
             }
 
-            // Evaluate full α/β from this child, using the current alpha/beta:
-            int32 CurrentScore = MinimaxAlphaBeta(
+            // Each thread fetches the current shared alpha
+            int32 localAlpha = SharedAlpha.Load();
+
+            // Run α/β from this child with (alpha = localAlpha, beta = +∞)
+            int32 childScore = MinimaxAlphaBeta(
                 SS,
                 Depth - 1,
                 RootPlayer,
                 Opponent,
-                Alpha,
-                Beta
+                localAlpha,
+                INT_MAX
             );
 
-            if (CurrentScore > BestAct.Score) {
-                BestAct = act;
-                BestAct.Score = CurrentScore;
-                Alpha = FMath::Max(Alpha, CurrentScore);
-                if (Alpha >= Beta) {
-                    break;
-                }
+            // Store the raw α/β result (no per‐node bonus here)
+            FinalScores[i] = childScore;
+
+            // Atomically update sharedAlpha if this childScore is higher
+            int32 oldA = SharedAlpha.Load();
+            while (childScore > oldA && 
+                   !SharedAlpha.CompareExchange(oldA, childScore))
+            {
+                // On failure, CompareExchange updates oldA to current SharedAlpha; retry if childScore still higher
+            }
+        });
+
+        // Now pick the best candidate in a quick serial pass:
+        FMinimaxAction BestAct;
+        BestAct.Score = INT_MIN;
+        for (int32 i = 0; i < Candidates.Num(); ++i) {
+            int32 score = FinalScores[i];
+            if (score == INT_MIN) continue;
+            if (score > BestAct.Score) {
+                BestAct = Candidates[i];
+                BestAct.Score = score;
             }
         }
 
-        // Update move history if BestAct is a pawn move
+        // 5) Update move history if BestAct is a pawn move
         if (!BestAct.bIsWall && BestAct.Score > INT_MIN) {
             RecentMoves.Add(FIntPoint(BestAct.MoveX, BestAct.MoveY));
             if (RecentMoves.Num() > 4) {
                 RecentMoves.RemoveAt(0);
             }
             UE_LOG(LogTemp, Log, TEXT(
-                "SolveParallelAlphaBeta: P%d RecentMoves updated. Newest: (%d,%d). Count: %d"),
+                "SolveAlphaBeta (parallel) P%d RecentMoves updated. Newest: (%d,%d). Count: %d"),
                 RootPlayer,
-                BestAct.MoveX, BestAct.MoveY, RecentMoves.Num());
+                BestAct.MoveX, BestAct.MoveY,
+                RecentMoves.Num());
         }
 
         UE_LOG(LogTemp, Warning, TEXT(
-            "=> SolveParallelAlphaBeta selected: %s (Score=%d)"),
+            "=> SolveAlphaBeta (parallel) selected: %s (Score=%d)"),
             BestAct.bIsWall
                 ? *FString::Printf(TEXT("Wall L%d @(%d,%d) %s"),
                                    BestAct.WallLength,
@@ -1951,9 +1932,10 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
                                    BestAct.MoveY),
             BestAct.Score);
 
+        // 6) Fallback if nothing scored above INT_MIN
         if (BestAct.Score == INT_MIN && Candidates.Num() > 0) {
             for (int32 i = 0; i < Candidates.Num(); ++i) {
-                if (OrderingScores[i] > INT_MIN) {
+                if (FinalScores[i] > INT_MIN) {
                     return Candidates[i];
                 }
             }
@@ -1963,6 +1945,7 @@ FMinimaxAction MinimaxEngine::SolveParallelAlphaBeta(const FMinimaxState& Initia
         return BestAct;
     }
 }
+
 
 
 
