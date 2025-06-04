@@ -1319,8 +1319,8 @@ int32 MinimaxEngine::CalculatePawnScore(const FMinimaxState& Initial,const FMini
         score += deltaLen * 20;
     }
     else if (deltaLen < 0) {
-        // If the path got longer, penalize by −50 per extra step
-        score += deltaLen * 30;  // deltaLen is negative here
+        // If the path got longer, penalize by −20 per extra step
+        score += deltaLen * 20;  // deltaLen is negative here
     }
 
     // 5) Anti‐oscillation: discourage reversing recent moves
