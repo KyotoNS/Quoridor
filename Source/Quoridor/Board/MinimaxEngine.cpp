@@ -820,6 +820,14 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer)
     TArray<FIntPoint> AIPath  = ComputePathToGoal(S, RootPlayer,   &AILen);
     TArray<FIntPoint> OppPath = ComputePathToGoal(S, OpponentNum, &OppLen);
 
+    if (AILen == 0)
+    {
+        Score += 10000;
+    }
+    if (OppLen == 0)
+    {
+        Score -= 10000;
+    }
     // 5 ) kalau len Aipath tidak 0 maka 
     if (AIPath.Num()!= 0 )
     {
@@ -981,7 +989,9 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
     if (Depth == 0 || AILenCheck <= 0 || OppLenCheck <= 0)
     {
         // Kembalikan result: action kosong saja, value dari Evaluate
+        UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Max_ParallelMinimax"));
         int32 eval = Evaluate(S, RootPlayer);
+        UE_LOG(LogTemp, Warning, TEXT("Out Max_ParallelMinimax:, Return Evaluate = %d"), eval);
         return FMinimaxResult(FMinimaxAction(), eval);
     }
 
@@ -995,66 +1005,101 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
         }
     }
 
-    // 3) Jika masih punya wall, generate wall candidates
-    if (S.WallsRemaining[idxAI] > 0)
-    {
-        // Hanya ketika giliran RootPlayer (AI), karena RootPlayer adalah si yang maksimasi
-        TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(S, RootPlayer);
-        UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d ==="), RootPlayer);
+    // // 3) Jika masih punya wall, generate wall candidates
+    // if (S.WallsRemaining[idxAI] > 0)
+    // {
+    //     // Hanya ketika giliran RootPlayer (AI), karena RootPlayer adalah si yang maksimasi
+    //     TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(S, RootPlayer);
+    //     UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d ==="), RootPlayer);
+    //
+    //     for (const auto& w : WallMoves)
+    //     {
+    //         UE_LOG(
+    //             LogTemp, Warning,
+    //             TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
+    //             w.X, w.Y, w.Length,
+    //             w.bHorizontal ? TEXT("true") : TEXT("false")
+    //         );
+    //         Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
+    //     }
+    // }
 
-        for (const auto& w : WallMoves)
-        {
-            UE_LOG(
-                LogTemp, Warning,
-                TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
-                w.X, w.Y, w.Length,
-                w.bHorizontal ? TEXT("true") : TEXT("false")
-            );
-            Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
-        }
-    }
-
-    // 4) ParallelFor: evaluasi setiap candidate
-    ParallelFor(Candidates.Num(), [&](int32 i)
+    //4) ParallelFor: evaluasi setiap candidate
+    // ParallelFor(Candidates.Num(), [&](int32 i)
+    // {
+    //     const FMinimaxAction& act = Candidates[i];
+    //     FMinimaxState SS = S;
+    //
+    //     // 4.a) Terapkan aksi
+    //     if (act.bIsWall)
+    //     {
+    //         FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
+    //         FMinimaxState TempCheck = S;
+    //         ApplyWall(TempCheck, RootPlayer, w);
+    //
+    //         // Kalau illegal (memblokir semua path), skip
+    //         if (DoesWallBlockPlayer(TempCheck))
+    //         {
+    //             return;
+    //         }
+    //
+    //         ApplyWall(SS, RootPlayer, w);
+    //     }
+    //     else
+    //     {
+    //         ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
+    //     }
+    //     
+    //     // Panggil Min_ParallelMinimax (karena selanjutnya kita cari nilai minimum)
+    //     FMinimaxResult subResult = Min_ParallelMinimax(SS, Depth - 1, OpponentNum);
+    //     int32 v = subResult.BestValue;
+    //
+    //     // 4.c) Update bestValue & bestAction secara thread‐safe
+    //     {
+    //         FScopeLock Lock(&Mutex);
+    //         if (v > bestValue)
+    //         {
+    //             bestValue = v;
+    //             bestAction = act;
+    //             BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
+    //         }
+    //     }
+    // });
+    for (int32 i = 0; i < Candidates.Num(); ++i)
     {
+        UE_LOG(LogTemp, Warning, TEXT("IN Max_ParallelMinimax"));
         const FMinimaxAction& act = Candidates[i];
         FMinimaxState SS = S;
-
-        // 4.a) Terapkan aksi
+    
         if (act.bIsWall)
         {
             FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
             FMinimaxState TempCheck = S;
             ApplyWall(TempCheck, RootPlayer, w);
-
-            // Kalau illegal (memblokir semua path), skip
+    
             if (DoesWallBlockPlayer(TempCheck))
             {
-                return;
+                continue; // Ganti return; menjadi continue; pada loop biasa
             }
-
             ApplyWall(SS, RootPlayer, w);
         }
         else
         {
             ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
         }
-        
-        // Panggil Min_ParallelMinimax (karena selanjutnya kita cari nilai minimum)
+    
         FMinimaxResult subResult = Min_ParallelMinimax(SS, Depth - 1, OpponentNum);
         int32 v = subResult.BestValue;
-
-        // 4.c) Update bestValue & bestAction secara thread‐safe
+    
+        // 4.c) Update bestValue (cari nilai tertinggi)
+        if (v > bestValue)  
         {
-            FScopeLock Lock(&Mutex);
-            if (v > bestValue)
-            {
-                bestValue = v;
-                bestAction = act;
-                BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
-            }
+            bestValue = v;
+            bestAction = act;
         }
-    });
+        BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
+        UE_LOG(LogTemp, Warning, TEXT("out Max_ParallelMinimax"));
+    }
 
     for (const auto& Pair : BestHistory)
     {
@@ -1084,6 +1129,18 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
             *Description,
             Value
         );
+    }   
+
+    if (bestAction.bIsWall)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+            bestAction.SlotX, bestAction.SlotY,
+            bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+            bestAction.MoveX, bestAction.MoveY);
     }
 
     // 5) Setelah parallel selesai, kembalikan action + value
@@ -1116,8 +1173,11 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
 
     if (Depth <= 0 || AILenCheck == 0 || OppLenCheck == 0)
     {
+        UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Min_ParallelMinimax"));
         int32 eval = Evaluate(S, RootPlayer);
+        UE_LOG(LogTemp, Warning, TEXT("Out Min_ParallelMinimax:, Return Evaluate = %d"), eval);
         return FMinimaxResult(FMinimaxAction(), eval);
+        
     }
 
     // 2) Generate PawnMoves untuk CurrentPlayer (lawan RootPlayer di level Min)
@@ -1131,26 +1191,66 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
     }
 
     // 3) Generate WallMoves jika CurrentPlayer (lawan) masih punya wall
-    if (S.WallsRemaining[idxAI] > 0)
-    {
-        TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(S, RootPlayer);
-        UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d (Min) ==="), RootPlayer);
-
-        for (const auto& w : WallMoves)
-        {
-            UE_LOG(
-                LogTemp, Warning,
-                TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
-                w.X, w.Y, w.Length,
-                w.bHorizontal ? TEXT("true") : TEXT("false")
-            );
-            Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
-        }
-    }
+    // if (S.WallsRemaining[idxAI] > 0)
+    // {
+    //     TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(S, RootPlayer);
+    //     UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d (Min) ==="), RootPlayer);
+    //
+    //     for (const auto& w : WallMoves)
+    //     {
+    //         UE_LOG(
+    //             LogTemp, Warning,
+    //             TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
+    //             w.X, w.Y, w.Length,
+    //             w.bHorizontal ? TEXT("true") : TEXT("false")
+    //         );
+    //         Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
+    //     }
+    // }
 
     // 4) ParallelFor: evaluasi setiap candidate
-    ParallelFor(Candidates.Num(), [&](int32 i)
+    // ParallelFor(Candidates.Num(), [&](int32 i)
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("IN Min_ParallelMinimax"));
+    //     const FMinimaxAction& act = Candidates[i];
+    //     FMinimaxState SS = S;
+    //
+    //     if (act.bIsWall)
+    //     {
+    //         FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
+    //         FMinimaxState TempCheck = S;
+    //         ApplyWall(TempCheck, RootPlayer, w);
+    //
+    //         if (DoesWallBlockPlayer(TempCheck))
+    //         {
+    //             return;
+    //         }
+    //         ApplyWall(SS, RootPlayer, w);
+    //     }
+    //     else
+    //     {
+    //         ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
+    //     }
+    //     
+    //
+    //     FMinimaxResult subResult = Max_ParallelMinimax(SS, Depth - 1, OpponentNum);
+    //     int32 v = subResult.BestValue;
+    //
+    //     // 4.c) Update bestValue (cari nilai terendah) secara thread‐safe
+    //     {
+    //         FScopeLock Lock(&Mutex);
+    //         if (v < bestValue)  
+    //         {
+    //             bestValue = v;
+    //             bestAction = act;
+    //             BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
+    //         }
+    //         
+    //     }
+    // });
+    for (int32 i = 0; i < Candidates.Num(); ++i)
     {
+        UE_LOG(LogTemp, Warning, TEXT("IN Min_ParallelMinimax"));
         const FMinimaxAction& act = Candidates[i];
         FMinimaxState SS = S;
 
@@ -1162,7 +1262,7 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
 
             if (DoesWallBlockPlayer(TempCheck))
             {
-                return;
+                continue; // Ganti return; menjadi continue; pada loop biasa
             }
             ApplyWall(SS, RootPlayer, w);
         }
@@ -1170,23 +1270,20 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
         {
             ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
         }
-        
 
         FMinimaxResult subResult = Max_ParallelMinimax(SS, Depth - 1, OpponentNum);
         int32 v = subResult.BestValue;
 
-        // 4.c) Update bestValue (cari nilai terendah) secara thread‐safe
+        // 4.c) Update bestValue (cari nilai terendah)
+        if (v < bestValue)  
         {
-            FScopeLock Lock(&Mutex);
-            if (v < bestValue)  
-            {
-                bestValue = v;
-                bestAction = act;
-                BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
-            }
-            
+            bestValue = v;
+            bestAction = act;
         }
-    });
+        BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
+        UE_LOG(LogTemp, Warning, TEXT("out Min_ParallelMinimax"));
+    }
+
     for (const auto& Pair : BestHistory)
     {
         const FMinimaxAction& Act       = Pair.Key;
