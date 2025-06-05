@@ -73,6 +73,24 @@ struct FMinimaxState
     static FMinimaxState FromBoard(AQuoridorBoard* Board);
 };
 
+// Struct untuk menampung hasil Minimax: aksi terbaik + nilai evaluasi
+struct FMinimaxResult
+{
+    FMinimaxAction BestAction;
+    int32        BestValue;
+
+    // Constructor default
+    FMinimaxResult()
+        : BestAction(), BestValue(0)
+    {}
+
+    // Constructor dengan inisialisasi
+    FMinimaxResult(const FMinimaxAction& InAction, int32 InValue)
+        : BestAction(InAction), BestValue(InValue)
+    {}
+};
+
+
 //-----------------------------------------------------------------------------
 // MinimaxEngine - Contains the AI logic and search algorithms
 //-----------------------------------------------------------------------------
@@ -80,21 +98,23 @@ class MinimaxEngine // Or your project's API macro, or remove if not needed
 {
 public:
 
-    // --- Core AI Solvers ---
+    // --- Core AI Minimax ---
 
     /** Solves the current state using Minimax with Alpha-Beta Pruning (Recommended) */
     static FMinimaxAction SolveAlphaBeta(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
     static FMinimaxAction SolveParallelAlphaBeta(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
-
+    static FMinimaxResult RunSelectedAlgorithm(const FMinimaxState& Initial, int32 Depth, int32 PlayerTurn, int32 AlgorithmChoice);
     /** Solves the current state using Plain Minimax (Very Slow) */
     static FMinimaxAction Solve(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer); // Can wrap Minimax or AB
 
     /** Solves the current state using Plain Minimax in Parallel (Still Slow) */
     static FMinimaxAction SolveParallel(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
 
-
+    
     // --- Pathfinding & Evaluation ---
-
+    static int32 EvaluatePawnMove(const FMinimaxState& AfterState,int32 RootPlayer,int32 BeforeAILength,const TArray<FIntPoint>& BeforeAIPath,const FIntPoint& PrevPos,const FIntPoint& Prev2Pos);
+    static int32 EvaluateWallPlacement(const FMinimaxState& BeforeState,const FMinimaxState& AfterState,int32 RootPlayer,int32 BeforeAILength,int32 BeforeOppLength);
+    static int32 EvaluateCombined(const FMinimaxState& S,int32 RootPlayer,int32 BeforeAILength,int32 BeforeOppLength,const TArray<FIntPoint>& BeforeAIPath);
     /** Calculates the shortest path using A* (includes jumps) */
     static TArray<FIntPoint> ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength = nullptr);
 
@@ -122,7 +142,14 @@ private: // These are primarily internal helpers - could be in .cpp as static
     static void ApplyWall(FMinimaxState& S, int32 PlayerNum, const FWallData& W);
 
     /** The recursive Plain Minimax algorithm */
-    static int32 Minimax(FMinimaxState S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer);
+    static int32 Max_Minimax(FMinimaxState S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer);
+    static int32 Min_Minimax(FMinimaxState S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer);
+
+    static FMinimaxResult Max_ParallelMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
+    static FMinimaxResult Min_ParallelMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
+
+    static int32 Max_ParallelMinimaxAlphaBeta(FMinimaxState S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer);
+    static int32 Min_ParallelMinimaxAlphaBeta(FMinimaxState S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer);
 
     /** The recursive Minimax algorithm with Alpha-Beta Pruning */
     static int32 MinimaxAlphaBeta(FMinimaxState S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer, int32 Alpha, int32 Beta);

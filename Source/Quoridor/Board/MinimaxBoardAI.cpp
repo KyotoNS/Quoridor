@@ -56,45 +56,58 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         UE_LOG(LogTemp, Warning, TEXT("AI logic delay passed, starting AI..."));
     }
     
-    if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
-    {
-        AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
-        if (P && P->GetTile())
-        {
-            bIsAITurnRunning = true;
-            RunMinimaxForParallelAlphaBeta(AI1Player);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
-        }
-    }
     // if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
     // {
     //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
     //     if (P && P->GetTile())
     //     {
     //         bIsAITurnRunning = true;
-    //         RunMinimaxForParallel(AI1Player);
+    //         RunMinimaxForParallelAlphaBeta(AI1Player);
     //     }
     //     else
     //     {
     //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
     //     }
     // }
-    if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
+    if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
     {
         AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimaxForAlphaBeta(AI2Player);
+            RunMinimaxForParallel(AI1Player);
         }
         else
         {
             UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
         }
     }
+    if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
+    {
+        AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
+        if (P && P->GetTile())
+        {
+            bIsAITurnRunning = true;
+            RunMinimaxForParallel(AI2Player);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
+        }
+    }
+    // if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
+    // {
+    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
+    //     if (P && P->GetTile())
+    //     {
+    //         bIsAITurnRunning = true;
+    //         RunMinimaxForAlphaBeta(AI2Player);
+    //     }
+    //     else
+    //     {
+    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
+    //     }
+    // }
 }
 
 // Parallel
@@ -121,12 +134,12 @@ void AMinimaxBoardAI::RunMinimaxForParallel(int32 Player)
                 ThinkingStartTimeP2 = FPlatformTime::Seconds();
             
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 3;
+            int32 Depth = 2;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer]()
             {
-                FMinimaxAction Action = MinimaxEngine::SolveParallel(StateSnapshot, Depth, AIPlayer);
+                FMinimaxResult Action = MinimaxEngine::RunSelectedAlgorithm(StateSnapshot,Depth,AIPlayer,1);
 
                 // Once SolveParallel finishes, come back to GameThread to execute the move
                 AsyncTask(ENamedThreads::GameThread, [this, Action, AIPlayer]()
@@ -146,20 +159,32 @@ void AMinimaxBoardAI::RunMinimaxForParallel(int32 Player)
                         TotalThinkingTimeP2 += Elapsed;
                         UE_LOG(LogTemp, Warning, TEXT("[AI P2] Thinking Time: %.4f s | Total: %.4f s"), Elapsed, TotalThinkingTimeP2);
                     }
-                    ExecuteAction(Action);
+                    const FMinimaxAction& BestAct = Action.BestAction;
+                    ExecuteAction(BestAct);
 
                     // Swap turn after action is done
-                    CurrentPlayerTurn = (AIPlayer == 1) ? 2 : 1;
-                    SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
+                    // CurrentPlayerTurn = (AIPlayer == 1) ? 2 : 1;
+                    // SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
                     bMinimaxInProgress = false;
 
-                    UE_LOG(LogTemp, Warning, TEXT("=> Engine chose: %s (score=%d)"),
-                        Action.bIsWall
-                            ? *FString::Printf(TEXT("Wall @(%d,%d) %s"),
-                                Action.SlotX, Action.SlotY, Action.bHorizontal ? TEXT("H") : TEXT("V"))
-                            : *FString::Printf(TEXT("Move to (%d,%d)"),
-                                Action.MoveX, Action.MoveY),
-                        Action.Score);
+                    // 4) Log detail aksi dan skor:
+                    if (BestAct.bIsWall)
+                    {
+                        UE_LOG(LogTemp, Warning,
+                            TEXT("=> Engine chose: Wall @(%d,%d) %s (score=%d)"),
+                            BestAct.SlotX,
+                            BestAct.SlotY,
+                            BestAct.bHorizontal ? TEXT("H") : TEXT("V"),
+                            Action.BestValue);
+                    }
+                    else
+                    {
+                        UE_LOG(LogTemp, Warning,
+                            TEXT("=> Engine chose: Move to (%d,%d) (score=%d)"),
+                            BestAct.MoveX,
+                            BestAct.MoveY,
+                            Action.BestValue);
+                    }
                 });
             });
         },
