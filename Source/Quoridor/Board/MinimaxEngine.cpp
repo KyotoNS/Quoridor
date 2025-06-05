@@ -950,6 +950,7 @@ void MinimaxEngine::ApplyWall(FMinimaxState& S, int32 PlayerNum, const FWallData
 FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 Depth,int32 RootPlayer)
 {
     const int idxAI       = RootPlayer - 1;
+    const int idxOpp      = 2 - RootPlayer;
     const int OpponentNum = 3 - RootPlayer;
 
     // Atomic untuk menyimpan bestValue, mulai dengan nilai terendah
@@ -977,7 +978,7 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
              i, AIPath[i].X, AIPath[i].Y);
      }
 
-    if (Depth <= 0 || AILenCheck == 0 || OppLenCheck == 0)
+    if (Depth == 0 || AILenCheck <= 0 || OppLenCheck <= 0)
     {
         // Kembalikan result: action kosong saja, value dari Evaluate
         int32 eval = Evaluate(S, RootPlayer);
@@ -1050,8 +1051,8 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
             {
                 bestValue = v;
                 bestAction = act;
+                BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
             }
-            BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
         }
     });
 
@@ -1079,7 +1080,7 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
 
         UE_LOG(
             LogTemp, Warning,
-            TEXT("[History] Candidate: %s  → Value = %d"),
+            TEXT("[History] Candidate MAX: %s  → Value = %d"),
             *Description,
             Value
         );
@@ -1095,6 +1096,7 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
 FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 Depth,int32 RootPlayer)
 {
     const int idxAI       = RootPlayer - 1;
+    const int idxOpp      = 2 - RootPlayer;
     const int OpponentNum = 3 - RootPlayer;
     
     TAtomic<int32> bestValue;
@@ -1104,6 +1106,7 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
     FMinimaxAction bestAction;
 
     TArray<FMinimaxAction> Candidates;
+    TArray<TPair<FMinimaxAction,int32>> BestHistory;
 
     // 1) Cek terminal
     int32 AILenCheck = 100;
@@ -1179,9 +1182,40 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
             {
                 bestValue = v;
                 bestAction = act;
+                BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
             }
+            
         }
     });
+    for (const auto& Pair : BestHistory)
+    {
+        const FMinimaxAction& Act       = Pair.Key;
+        const int32         Value       = Pair.Value;
+        FString Description;
+
+        if (Act.bIsWall)
+        {
+            Description = FString::Printf(
+                TEXT("Wall@(%d,%d) %s"),
+                Act.SlotX, Act.SlotY,
+                Act.bHorizontal ? TEXT("H") : TEXT("V")
+            );
+        }
+        else
+        {
+            Description = FString::Printf(
+                TEXT("Move(%d,%d)"),
+                Act.MoveX, Act.MoveY
+            );
+        }
+
+        UE_LOG(
+            LogTemp, Warning,
+            TEXT("[History] Candidate MIN: %s  → Value = %d"),
+            *Description,
+            Value
+        );
+    }
 
     return FMinimaxResult(bestAction, bestValue);
 }
