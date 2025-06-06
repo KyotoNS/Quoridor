@@ -152,7 +152,7 @@ private: // These are primarily internal helpers - could be in .cpp as static
     static FMinimaxResult Min_MinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta);
     
     static FMinimaxResult Max_ParallelMinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta);
-    static FMinimaxResult Min_ParallelMinimaxAlphaBeta(const FMinimaxState S, int32 Depth, int32 RootPlayer);
+    static FMinimaxResult Min_ParallelMinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta);
 
     /** The recursive Minimax algorithm with Alpha-Beta Pruning */
     static int32 MinimaxAlphaBeta(FMinimaxState S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer, int32 Alpha, int32 Beta);
