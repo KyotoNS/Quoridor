@@ -108,7 +108,7 @@ public:
     static FMinimaxAction Solve(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer); // Can wrap Minimax or AB
 
     /** Solves the current state using Plain Minimax in Parallel (Still Slow) */
-    static FMinimaxAction SolveParallel(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
+    static FMinimaxResult SolveParallel(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
 
     
     // --- Pathfinding & Evaluation ---
@@ -142,8 +142,8 @@ private: // These are primarily internal helpers - could be in .cpp as static
     static void ApplyWall(FMinimaxState& S, int32 PlayerNum, const FWallData& W);
 
     /** The recursive Minimax algorithm */
-    static FMinimaxResult Max_Minimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
-    static FMinimaxResult Min_Minimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
+    static FMinimaxResult Max_Minimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 currturn);
+    static FMinimaxResult Min_Minimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 currturn);
 
     static FMinimaxResult Max_ParallelMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
     static FMinimaxResult Min_ParallelMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
@@ -153,6 +153,7 @@ private: // These are primarily internal helpers - could be in .cpp as static
     
     static FMinimaxResult Max_ParallelMinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta);
     static FMinimaxResult Min_ParallelMinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta);
+    static FMinimaxResult SolveMinimax(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
 
     /** The recursive Minimax algorithm with Alpha-Beta Pruning */
     static int32 MinimaxAlphaBeta(FMinimaxState S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer, int32 Alpha, int32 Beta);
