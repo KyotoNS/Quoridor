@@ -16,7 +16,7 @@ TArray<FIntPoint> MinimaxEngine::RecentMoves;
 //-----------------------------------------------------------------------------
 // FMinimaxState::FromBoard (bener)
 //-----------------------------------------------------------------------------
-FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
+    FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
 {
     FMinimaxState S;
 
@@ -1039,8 +1039,8 @@ FMinimaxResult MinimaxEngine::Max_Minimax(const FMinimaxState& S,int32 Depth,int
         if (Act.bIsWall)
         {
             Description = FString::Printf(
-                TEXT("Wall@(%d,%d) %s"),
-                Act.SlotX, Act.SlotY,
+                TEXT("Wall@(%d,%d) Len=%d %s"),
+                Act.SlotX, Act.SlotY, Act.WallLength,
                 Act.bHorizontal ? TEXT("H") : TEXT("V")
             );
         }
@@ -2204,78 +2204,6 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimaxAlphaBeta(const FMinimaxState& 
     return FMinimaxResult(bestAction, bestValue);
 }
 
-
-// FMinimaxResult MinimaxEngine::SolveMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer)
-// {
-//     const int idxAI       = RootPlayer - 1;
-//     const int idxOpp      = 2 - RootPlayer;
-//     const int OpponentNum = 3 - RootPlayer;
-//
-//     // Atomic untuk menyimpan bestValue, mulai dengan nilai terendah
-//     TAtomic<int32> bestValue;
-//
-//     // Akan di‐protect saat update
-//     FCriticalSection Mutex;
-//     // Simpan action yang menghasilkan bestValue
-//     FMinimaxAction bestAction; 
-//     TArray<TPair<FMinimaxAction,int32>> BestHistory;
-//     TArray<FMinimaxAction> Candidates;
-//     TArray<FMinimaxResult> AllResults;
-//
-//     // 1) Cek terminal (path length atau depth)
-//     int32 AILenCheck = 100;
-//     int32 OppLenCheck = 100;
-//     TArray<FIntPoint> AIPath = ComputePathToGoal(S, RootPlayer,  &AILenCheck);
-//     TArray<FIntPoint> OppPath = ComputePathToGoal(S, OpponentNum, &OppLenCheck);
-//     UE_LOG(LogTemp, Warning, TEXT(
-//          "Initial Paths: AI=%d | Opp=%d"),
-//          AILenCheck, OppLenCheck);
-//     for (int i = 0; i < AIPath.Num(); ++i) {
-//         UE_LOG(LogTemp, Warning, TEXT(
-//             "  AI[%d] = (%d,%d)"),
-//             i, AIPath[i].X, AIPath[i].Y);
-//     }
-//     
-//     // 2) Generate seluruh Pawn‐move untuk CurrentPlayer (RootPlayer di level pertama)
-//     {
-//         TArray<FIntPoint> PawnMoves = GetPawnMoves(S, RootPlayer);
-//         for (const auto& mv : PawnMoves)
-//         {
-//             UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate: (%d, %d)"), mv.X, mv.Y);
-//             Candidates.Add(FMinimaxAction(mv.X, mv.Y));
-//         }
-//     }
-//
-//     for (int32 i = 0; i < Candidates.Num(); ++i)
-//     {
-//         UE_LOG(LogTemp, Warning, TEXT("IN Solve_Minimax"));
-//         const FMinimaxAction& act = Candidates[i];
-//         FMinimaxState SS = S;
-//     
-//         if (act.bIsWall)
-//         {
-//             FWallData w{ act.SlotX, act.SlotY, act.WallLength, act.bHorizontal };
-//             FMinimaxState TempCheck = S;
-//             ApplyWall(TempCheck, RootPlayer, w);
-//     
-//             if (DoesWallBlockPlayer(TempCheck))
-//             {
-//                 continue; // Ganti return; menjadi continue; pada loop biasa
-//             }
-//             ApplyWall(SS, RootPlayer, w);
-//         }
-//         else
-//         {
-//             ApplyPawnMove(SS, RootPlayer, act.MoveX, act.MoveY);
-//         }
-//         
-//         FMinimaxResult R = Max_Minimax(SS, Depth - 1 , RootPlayer);
-//         AllResults.Add(FMinimaxResult(FMinimaxAction(mv.X, mv.Y), R.BestValue));
-//
-//     }
-//     
-//     return FMinimaxResult(bestAction, bestValue);
-// }
 //-----------------------------------------------------------------------------
 // Run Selected Algo 
 //-----------------------------------------------------------------------------
