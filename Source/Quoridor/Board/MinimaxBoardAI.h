@@ -23,7 +23,7 @@ public:
 	void RunMinimaxForParallelAlphaBeta(int32 Player);
 	bool ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length, bool bHorizontal);
 
-	void RunMinimaxForParallel(int32 Player);
+	void RunMinimaxForParallel(int32 Player, int32 choice);
 	void RunMinimaxForAlphaBeta(int32 Player);
 	UPROPERTY()
 	bool bIsAITurnRunning = false;

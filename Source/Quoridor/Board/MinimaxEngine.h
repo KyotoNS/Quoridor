@@ -142,8 +142,8 @@ private: // These are primarily internal helpers - could be in .cpp as static
     static void ApplyWall(FMinimaxState& S, int32 PlayerNum, const FWallData& W);
 
     /** The recursive Plain Minimax algorithm */
-    static int32 Max_Minimax(FMinimaxState S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer);
-    static int32 Min_Minimax(FMinimaxState S, int32 Depth, int32 RootPlayer, int32 CurrentPlayer);
+    static FMinimaxResult Max_Minimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
+    static FMinimaxResult Min_Minimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
 
     static FMinimaxResult Max_ParallelMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
     static FMinimaxResult Min_ParallelMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
