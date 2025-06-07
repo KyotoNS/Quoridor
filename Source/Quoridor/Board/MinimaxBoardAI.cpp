@@ -75,7 +75,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI1Player, 2);
+            RunMinimax(AI1Player, 3);
         }
         else
         {
@@ -88,7 +88,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI2Player, 2);
+            RunMinimax(AI2Player, 3);
         }
         else
         {
@@ -188,7 +188,7 @@ void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
                 });
             });
         },
-        1.0f,    // Delay in seconds
+        2.0f,    // Delay in seconds
         false    // Do not loop
     );
 }
