@@ -119,7 +119,7 @@ public:
     static TArray<FIntPoint> ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength = nullptr);
 
     /** Evaluates the board state from the perspective of RootPlayer */
-    static int32 Evaluate(const FMinimaxState& S, int32 RootPlayer);
+    static int32 Evaluate(const FMinimaxState& S, int32 RootPlayer, const TArray<FIntPoint>& IdealPath);
     static bool FindPathForPawn(const FMinimaxState& S, int32 PlayerNum, TArray<FIntPoint>& OutPath);
 
     // --- Move Generation ---
@@ -142,17 +142,21 @@ private: // These are primarily internal helpers - could be in .cpp as static
     static void ApplyWall(FMinimaxState& S, int32 PlayerNum, const FWallData& W);
 
     /** The recursive Minimax algorithm */
-    static FMinimaxResult Max_Minimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 currturn);
-    static FMinimaxResult Min_Minimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 currturn);
+    static FMinimaxResult Max_Minimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 currturn, const TArray<FIntPoint>& IdealPath);
+    static FMinimaxResult Min_Minimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 currturn, const TArray<FIntPoint>& IdealPath);
 
-    static FMinimaxResult Max_ParallelMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
-    static FMinimaxResult Min_ParallelMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer);
+    static FMinimaxResult Max_ParallelMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 currturn, const TArray<FIntPoint>& IdealPath);
+    static FMinimaxResult Min_ParallelMinimax(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 currturn, const TArray<FIntPoint>& IdealPath);
     
-    static FMinimaxResult Max_MinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta);
-    static FMinimaxResult Min_MinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta);
+    static FMinimaxResult Max_MinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta, int32 currturn, const TArray<FIntPoint>
+                                               & IdealPath);
+    static FMinimaxResult Min_MinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta, int32 currturn, const TArray<FIntPoint>
+                                               & IdealPath);
     
-    static FMinimaxResult Max_ParallelMinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta);
-    static FMinimaxResult Min_ParallelMinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta);
+    static FMinimaxResult Max_ParallelMinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta, int32 currturn, const TArray<FIntPoint>
+                                                       & IdealPath);
+    static FMinimaxResult Min_ParallelMinimaxAlphaBeta(const FMinimaxState& S, int32 Depth, int32 RootPlayer, int32 alpha, int32 beta, int32 currturn, const TArray<FIntPoint>
+                                                       & IdealPath);
     static FMinimaxResult SolveMinimax(const FMinimaxState& Initial, int32 Depth, int32 RootPlayer);
 
     /** The recursive Minimax algorithm with Alpha-Beta Pruning */
