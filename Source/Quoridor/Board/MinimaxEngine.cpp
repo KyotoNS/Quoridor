@@ -805,46 +805,43 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer, const TA
         
 
    
-    if (IdealPath.Num() > 1)
-    {
-        // k = 1 karena IdealPath[0] adalah posisi awal (pawn belum bergerak)
-        for (int k = 1; k < IdealPath.Num(); ++k)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Cek: CurrPawn = (%d,%d) | IdealPath[%d] = (%d,%d)"),
-                CurrPawn.X, CurrPawn.Y, k, IdealPath[k].X, IdealPath[k].Y);
+    // if (IdealPath.Num() > 1)
+    // {
+    //     // k = 1 karena IdealPath[0] adalah posisi awal (pawn belum bergerak)
+    //     for (int k = 1; k < IdealPath.Num(); ++k)
+    //     {
+    //         UE_LOG(LogTemp, Warning, TEXT("Cek: CurrPawn = (%d,%d) | IdealPath[%d] = (%d,%d)"),
+    //             CurrPawn.X, CurrPawn.Y, k, IdealPath[k].X, IdealPath[k].Y);
+    //
+    //         if (CurrPawn == IdealPath[k])
+    //         {
+    //             UE_LOG(LogTemp, Warning, TEXT("CurrPawn sesuai step ke-%d di IdealPath!"), k);
+    //             Score += 40; // atau sesuai tunning
+    //         }
+    //     }
+    // }
+    // else
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("IdealPath terlalu pendek (Num=%d), tidak dicek!"), IdealPath.Num());
+    // }
     
-            if (CurrPawn == IdealPath[k])
-            {
-                UE_LOG(LogTemp, Warning, TEXT("CurrPawn sesuai step ke-%d di IdealPath!"), k);
-                Score += 40; // atau sesuai tunning
-            }
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("IdealPath terlalu pendek (Num=%d), tidak dicek!"), IdealPath.Num());
-    }
-    
-    if (IdealPath.Num() > 1 && CurrPawn == IdealPath[1])
-    {
-        FIntPoint NextStep = IdealPath[1];
-        // UE_LOG(LogTemp, Warning, TEXT("CurrPawn = (%d, %d), IdealPath[1] = (%d, %d)"), 
-        // CurrPawn.X, CurrPawn.Y, NextStep.X, NextStep.Y);
-        // Cek juga arah Y ke goal (misal untuk Player 1 finish di Y=8)
-        if (RootPlayer == 1 && CurrPawn.Y > IdealPath[0].Y)
-        {
-            // UE_LOG(LogTemp, Warning, TEXT("sesuai path [1] masuk y"));
-            Score += 2; 
-        }
-    
-        // Untuk Player 2 (goal Y==0)
-        if (RootPlayer == 2 && CurrPawn.Y < IdealPath[0].Y)
-        {
-            Score += 2;
-        }
-        // UE_LOG(LogTemp, Warning, TEXT("sesuai path [1]"));
-        Score += 20;
-    }
+    // if (IdealPath.Num() > 1 && CurrPawn == IdealPath[1])
+    // {
+    //     FIntPoint NextStep = IdealPath[1];
+    //     if (RootPlayer == 1 && CurrPawn.Y > IdealPath[0].Y)
+    //     {
+    //         // UE_LOG(LogTemp, Warning, TEXT("sesuai path [1] masuk y"));
+    //         Score += 2; 
+    //     }
+    //
+    //     // Untuk Player 2 (goal Y==0)
+    //     if (RootPlayer == 2 && CurrPawn.Y < IdealPath[0].Y)
+    //     {
+    //         Score += 2;
+    //     }
+    //     // UE_LOG(LogTemp, Warning, TEXT("sesuai path [1]"));
+    //     Score += 20;
+    // }
     
     if (RootPlayer == 1 && CurrPawn.Y > IdealPath[0].Y)
     {
@@ -854,12 +851,12 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer, const TA
     // Untuk Player 2 (goal Y==0)
     if (RootPlayer == 2 && CurrPawn.Y < IdealPath[0].Y)
     {
-        Score += 15;
+        Score += 5;
     }
 
     if (RootPlayer == 1 && CurrPawn.Y == IdealPath[1].Y)
     {
-        Score += 15; 
+        Score += 5; 
     }
     
     // Untuk Player 2 (goal Y==0)
@@ -891,11 +888,18 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer, const TA
     //     Score -= 100; // Penalti jika balik ke posisi sebelumnya
     // }
     // Nilai bonus semakin dekat ke finish
+    
+    // if (AILen > 0)
+    //    Score += FMath::RoundToDouble(100.0 / AILen* 10000.0) / 10000.0; // Semakin pendek path AI, semakin bagus
+    //
+    // if (OppLen > 0)
+    //     Score -= FMath::RoundToDouble(50.0 / OppLen* 10000.0) / 10000.0; // Semakin pendek path Opp, semakin buruk
+    
     if (AILen > 0)
-       Score += FMath::RoundToDouble(100.0 / AILen* 10000.0) / 10000.0; // Semakin pendek path AI, semakin bagus
-
+       Score += FMath::RoundToDouble(100.0 - AILen) * 10; // Semakin pendek path AI, semakin bagus
+    
     if (OppLen > 0)
-        Score += FMath::RoundToDouble(50.0 / OppLen* 10000.0) / 10000.0; // Semakin pendek path Opp, semakin buruk
+        Score -= FMath::RoundToDouble(50 - OppLen) * 10; // Semakin pendek path Opp, semakin buruk
 
     // Wall inventory advantage
     Score += (S.WallsRemaining[idxAI] - S.WallsRemaining[idxOpp]) * 15;
@@ -1805,9 +1809,10 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
         if (Act.bIsWall)
         {
             Description = FString::Printf(
-                TEXT("Wall@(%d,%d) %s"),
+                TEXT("Wall@(%d,%d) %s Len=%d"),
                 Act.SlotX, Act.SlotY,
-                Act.bHorizontal ? TEXT("H") : TEXT("V")
+                Act.bHorizontal ? TEXT("H") : TEXT("V"),
+                Act.WallLength
             );
         }
         else
