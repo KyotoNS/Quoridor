@@ -1694,6 +1694,10 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
             bestAction = act;
         }
         BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
+        alpha = FMath::Max(alpha, v);
+
+        if (beta <= alpha)
+            break;
         
         UE_LOG(LogTemp, Warning, TEXT("out Max_MinimaxAlphabeta"));
     }
@@ -1839,6 +1843,10 @@ FMinimaxResult MinimaxEngine::Min_MinimaxAlphaBeta(const FMinimaxState& S, int32
             bestAction = act;
         }
         BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
+        beta = FMath::Min(beta, v);
+
+        if (beta <= alpha)
+            break;
         
         
         UE_LOG(LogTemp, Warning, TEXT("out Min_MinimaxAlphaBeta"));
