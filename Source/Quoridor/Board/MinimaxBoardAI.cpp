@@ -75,7 +75,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI1Player, 1);
+            RunMinimax(AI1Player, 2);
         }
         else
         {
@@ -88,7 +88,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI2Player, 1);
+            RunMinimax(AI2Player, 2);
         }
         else
         {

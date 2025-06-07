@@ -1314,21 +1314,21 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
     int32 OppLenCheck = 100;
     TArray<FIntPoint> AIPath = ComputePathToGoal(S, RootPlayer,  &AILenCheck);
     TArray<FIntPoint> OppPath = ComputePathToGoal(S, OpponentNum, &OppLenCheck);
-    UE_LOG(LogTemp, Warning, TEXT(
-         "Initial Paths: AI=%d | Opp=%d"),
-         AILenCheck, OppLenCheck);
-     for (int i = 0; i < AIPath.Num(); ++i) {
-         UE_LOG(LogTemp, Warning, TEXT(
-             "  AI[%d] = (%d,%d)"),
-             i, AIPath[i].X, AIPath[i].Y);
-     }
+    // UE_LOG(LogTemp, Warning, TEXT(
+    //      "Initial Paths: AI=%d | Opp=%d"),
+    //      AILenCheck, OppLenCheck);
+    //  for (int i = 0; i < AIPath.Num(); ++i) {
+    //      UE_LOG(LogTemp, Warning, TEXT(
+    //          "  AI[%d] = (%d,%d)"),
+    //          i, AIPath[i].X, AIPath[i].Y);
+    //  }
 
     if (Depth == 0 || AILenCheck <= 0 || OppLenCheck <= 0)
     {
         // Kembalikan result: action kosong saja, value dari Evaluate
-        UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Max_ParallelMinimax"));
+        // UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Max_ParallelMinimax"));
         int32 eval = Evaluate(S, currturn, IdealPath);
-        UE_LOG(LogTemp, Warning, TEXT("Out Max_ParallelMinimax:, Return Evaluate = %d"), eval);
+        // UE_LOG(LogTemp, Warning, TEXT("Out Max_ParallelMinimax:, Return Evaluate = %d"), eval);
         return FMinimaxResult(FMinimaxAction(), eval);
     }
 
@@ -1337,7 +1337,7 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
         TArray<FIntPoint> PawnMoves = GetPawnMoves(S, RootPlayer);
         for (const auto& mv : PawnMoves)
         {
-            UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate: (%d, %d)"), mv.X, mv.Y);
+            // UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate: (%d, %d)"), mv.X, mv.Y);
             Candidates.Add(FMinimaxAction(mv.X, mv.Y));
         }
     }
@@ -1347,16 +1347,16 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
     {
         // Hanya ketika giliran RootPlayer (AI), karena RootPlayer adalah si yang maksimasi
         TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(S, RootPlayer);
-        UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d ==="), RootPlayer);
+        // UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d ==="), RootPlayer);
     
         for (const auto& w : WallMoves)
         {
-            UE_LOG(
-                LogTemp, Warning,
-                TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
-                w.X, w.Y, w.Length,
-                w.bHorizontal ? TEXT("true") : TEXT("false")
-            );
+            // UE_LOG(
+            //     LogTemp, Warning,
+            //     TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
+            //     w.X, w.Y, w.Length,
+            //     w.bHorizontal ? TEXT("true") : TEXT("false")
+            // );
             Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
         }
     }
@@ -1364,7 +1364,7 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
     // 4) ParallelFor: evaluasi setiap candidate
      ParallelFor(Candidates.Num(), [&](int32 i)
      {
-         UE_LOG(LogTemp, Warning, TEXT("IN Max_ParallelMinimax"));
+         // UE_LOG(LogTemp, Warning, TEXT("IN Max_ParallelMinimax"));
          const FMinimaxAction& act = Candidates[i];
          FMinimaxState SS = S;
     
@@ -1402,51 +1402,51 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
              }
              BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
          }
-         UE_LOG(LogTemp, Warning, TEXT("out Max_ParallelMinimax"));
+         // UE_LOG(LogTemp, Warning, TEXT("out Max_ParallelMinimax"));
      });
     
 
-    for (const auto& Pair : BestHistory)
-    {
-        const FMinimaxAction& Act       = Pair.Key;
-        const int32         Value       = Pair.Value;
-        FString Description;
-
-        if (Act.bIsWall)
-        {
-            Description = FString::Printf(
-                TEXT("Wall@(%d,%d) %s"),
-                Act.SlotX, Act.SlotY,
-                Act.bHorizontal ? TEXT("H") : TEXT("V")
-            );
-        }
-        else
-        {
-            Description = FString::Printf(
-                TEXT("Move(%d,%d)"),
-                Act.MoveX, Act.MoveY
-            );
-        }
-
-        UE_LOG(
-            LogTemp, Warning,
-            TEXT("[History] Candidate MAX: %s  → Value = %d"),
-            *Description,
-            Value
-        );
-    }   
-
-    if (bestAction.bIsWall)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
-            bestAction.SlotX, bestAction.SlotY,
-            bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
-            bestAction.MoveX, bestAction.MoveY);
-    }
+    // for (const auto& Pair : BestHistory)
+    // {
+    //     const FMinimaxAction& Act       = Pair.Key;
+    //     const int32         Value       = Pair.Value;
+    //     FString Description;
+    //
+    //     if (Act.bIsWall)
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Wall@(%d,%d) %s"),
+    //             Act.SlotX, Act.SlotY,
+    //             Act.bHorizontal ? TEXT("H") : TEXT("V")
+    //         );
+    //     }
+    //     else
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Move(%d,%d)"),
+    //             Act.MoveX, Act.MoveY
+    //         );
+    //     }
+    //
+    //     UE_LOG(
+    //         LogTemp, Warning,
+    //         TEXT("[History] Candidate MAX: %s  → Value = %d"),
+    //         *Description,
+    //         Value
+    //     );
+    // }   
+    //
+    // if (bestAction.bIsWall)
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+    //         bestAction.SlotX, bestAction.SlotY,
+    //         bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+    // }
+    // else
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+    //         bestAction.MoveX, bestAction.MoveY);
+    // }
 
     // 5) Setelah parallel selesai, kembalikan action + value
     return FMinimaxResult(bestAction, bestValue);
@@ -1478,9 +1478,9 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
 
     if (Depth <= 0 || AILenCheck == 0 || OppLenCheck == 0)
     {
-        UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Min_ParallelMinimax"));
+        // UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Min_ParallelMinimax"));
         int32 eval = Evaluate(S, currturn, IdealPath);
-        UE_LOG(LogTemp, Warning, TEXT("Out Min_ParallelMinimax:, Return Evaluate = %d"), eval);
+        // UE_LOG(LogTemp, Warning, TEXT("Out Min_ParallelMinimax:, Return Evaluate = %d"), eval);
         return FMinimaxResult(FMinimaxAction(), eval);
         
     }
@@ -1490,7 +1490,7 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
         TArray<FIntPoint> PawnMoves = GetPawnMoves(S, RootPlayer);
         for (const auto& mv : PawnMoves)
         {
-            UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate (Min): (%d, %d)"), mv.X, mv.Y);
+            // UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate (Min): (%d, %d)"), mv.X, mv.Y);
             Candidates.Add(FMinimaxAction(mv.X, mv.Y));
         }
     }
@@ -1499,16 +1499,16 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
     if (S.WallsRemaining[idxAI] > 0)
     {
         TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(S, RootPlayer);
-        UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d (Min) ==="), RootPlayer);
+        // UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d (Min) ==="), RootPlayer);
     
         for (const auto& w : WallMoves)
         {
-            UE_LOG(
-                LogTemp, Warning,
-                TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
-                w.X, w.Y, w.Length,
-                w.bHorizontal ? TEXT("true") : TEXT("false")
-            );
+            // UE_LOG(
+            //     LogTemp, Warning,
+            //     TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
+            //     w.X, w.Y, w.Length,
+            //     w.bHorizontal ? TEXT("true") : TEXT("false")
+            // );
             Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
         }
     }
@@ -1516,7 +1516,7 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
     // 4) ParallelFor: evaluasi setiap candidate
     ParallelFor(Candidates.Num(), [&](int32 i)
     {
-        UE_LOG(LogTemp, Warning, TEXT("IN Min_ParallelMinimax"));
+        // UE_LOG(LogTemp, Warning, TEXT("IN Min_ParallelMinimax"));
         const FMinimaxAction& act = Candidates[i];
         FMinimaxState SS = S;
     
@@ -1552,39 +1552,39 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
             }
             
             BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
-            UE_LOG(LogTemp, Warning, TEXT("out Min_ParallelMinimax"));
+            // UE_LOG(LogTemp, Warning, TEXT("out Min_ParallelMinimax"));
         }
     });
 
-    for (const auto& Pair : BestHistory)
-    {
-        const FMinimaxAction& Act       = Pair.Key;
-        const int32         Value       = Pair.Value;
-        FString Description;
-
-        if (Act.bIsWall)
-        {
-            Description = FString::Printf(
-                TEXT("Wall@(%d,%d) %s"),
-                Act.SlotX, Act.SlotY,
-                Act.bHorizontal ? TEXT("H") : TEXT("V")
-            );
-        }
-        else
-        {
-            Description = FString::Printf(
-                TEXT("Move(%d,%d)"),
-                Act.MoveX, Act.MoveY
-            );
-        }
-
-        UE_LOG(
-            LogTemp, Warning,
-            TEXT("[History] Candidate MIN: %s  → Value = %d"),
-            *Description,
-            Value
-        );
-    }
+    // for (const auto& Pair : BestHistory)
+    // {
+    //     const FMinimaxAction& Act       = Pair.Key;
+    //     const int32         Value       = Pair.Value;
+    //     FString Description;
+    //
+    //     if (Act.bIsWall)
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Wall@(%d,%d) %s"),
+    //             Act.SlotX, Act.SlotY,
+    //             Act.bHorizontal ? TEXT("H") : TEXT("V")
+    //         );
+    //     }
+    //     else
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Move(%d,%d)"),
+    //             Act.MoveX, Act.MoveY
+    //         );
+    //     }
+    //
+    //     UE_LOG(
+    //         LogTemp, Warning,
+    //         TEXT("[History] Candidate MIN: %s  → Value = %d"),
+    //         *Description,
+    //         Value
+    //     );
+    // }
 
     return FMinimaxResult(bestAction, bestValue);
 }
@@ -1614,14 +1614,14 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
     int32 OppLenCheck = 100;
     TArray<FIntPoint> AIPath = ComputePathToGoal(S, RootPlayer,  &AILenCheck);
     TArray<FIntPoint> OppPath = ComputePathToGoal(S, OpponentNum, &OppLenCheck);
-    UE_LOG(LogTemp, Warning, TEXT(
-         "Initial Paths: AI=%d | Opp=%d"),
-         AILenCheck, OppLenCheck);
-     for (int i = 0; i < AIPath.Num(); ++i) {
-         UE_LOG(LogTemp, Warning, TEXT(
-             "  AI[%d] = (%d,%d)"),
-             i, AIPath[i].X, AIPath[i].Y);
-     }
+    // UE_LOG(LogTemp, Warning, TEXT(
+    //      "Initial Paths: AI=%d | Opp=%d"),
+    //      AILenCheck, OppLenCheck);
+    //  for (int i = 0; i < AIPath.Num(); ++i) {
+    //      UE_LOG(LogTemp, Warning, TEXT(
+    //          "  AI[%d] = (%d,%d)"),
+    //          i, AIPath[i].X, AIPath[i].Y);
+    //  }
 
     // if (Depth == 0 || AILenCheck <= 0 || OppLenCheck <= 0)
     // {
