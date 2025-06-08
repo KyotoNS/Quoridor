@@ -19,7 +19,6 @@ void AMinimaxBoardAI::BeginPlay()
     // Tick stays enabled, we use ElapsedTime to wait before acting
     ElapsedTime = 0.0f;
     bDelayPassed = false;
-    AITypeName = "MinimaxParallel";
     
     // Randomly choose which AI will be Player 1 or Player 2
     bool bAI1IsPlayer1 = 1;
