@@ -2081,21 +2081,21 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimaxAlphaBeta(const FMinimaxState& 
     int32 OppLenCheck = 100;
     TArray<FIntPoint> AIPath = ComputePathToGoal(S, RootPlayer,  &AILenCheck);
     TArray<FIntPoint> OppPath = ComputePathToGoal(S, OpponentNum, &OppLenCheck);
-    UE_LOG(LogTemp, Warning, TEXT(
-         "Initial Paths: AI=%d | Opp=%d"),
-         AILenCheck, OppLenCheck);
-     for (int i = 0; i < AIPath.Num(); ++i) {
-         UE_LOG(LogTemp, Warning, TEXT(
-             "  AI[%d] = (%d,%d)"),
-             i, AIPath[i].X, AIPath[i].Y);
-     }
+    // UE_LOG(LogTemp, Warning, TEXT(
+    //      "Initial Paths: AI=%d | Opp=%d"),
+    //      AILenCheck, OppLenCheck);
+    //  for (int i = 0; i < AIPath.Num(); ++i) {
+    //      UE_LOG(LogTemp, Warning, TEXT(
+    //          "  AI[%d] = (%d,%d)"),
+    //          i, AIPath[i].X, AIPath[i].Y);
+    //  }
 
     if (Depth == 0 || AILenCheck <= 0 || OppLenCheck <= 0)
     {
         // Kembalikan result: action kosong saja, value dari Evaluate
-        UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Max_MinimaxAlphaBeta"));
+        // UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Max_MinimaxAlphaBeta"));
         int32 eval = Evaluate(S, currturn, IdealPath);
-        UE_LOG(LogTemp, Warning, TEXT("Out Max_MinimaxAlphaBeta:, Return Evaluate = %d"), eval);
+        // UE_LOG(LogTemp, Warning, TEXT("Out Max_MinimaxAlphaBeta:, Return Evaluate = %d"), eval);
         return FMinimaxResult(FMinimaxAction(), eval);
     }
 
@@ -2118,12 +2118,12 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimaxAlphaBeta(const FMinimaxState& 
     
         for (const auto& w : WallMoves)
         {
-            UE_LOG(
-                LogTemp, Warning,
-                TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
-                w.X, w.Y, w.Length,
-                w.bHorizontal ? TEXT("true") : TEXT("false")
-            );
+            // UE_LOG(
+            //     LogTemp, Warning,
+            //     TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
+            //     w.X, w.Y, w.Length,
+            //     w.bHorizontal ? TEXT("true") : TEXT("false")
+            // );
             Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
         }
     }
@@ -2133,7 +2133,7 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimaxAlphaBeta(const FMinimaxState& 
     // 4) ParallelFor: evaluasi setiap candidate
     ParallelFor(Candidates.Num(), [&](int32 i)
     {
-        UE_LOG(LogTemp, Warning, TEXT("IN Min_ParallelMinimaxAlphaBeta"));
+        // UE_LOG(LogTemp, Warning, TEXT("IN Min_ParallelMinimaxAlphaBeta"));
         const FMinimaxAction& act = Candidates[i];
         FMinimaxState SS = S;
     
@@ -2157,7 +2157,7 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimaxAlphaBeta(const FMinimaxState& 
     
         RootResults[i] = Min_MinimaxAlphaBeta(SS, Depth - 1, OpponentNum,alpha,beta, currturn, IdealPath);
         
-            UE_LOG(LogTemp, Warning, TEXT("out Min_MinimaxAlphaBeta"));
+            // UE_LOG(LogTemp, Warning, TEXT("out Min_MinimaxAlphaBeta"));
     });
 
     for (int32 i = 0; i < Candidates.Num(); ++i)
@@ -2171,7 +2171,7 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimaxAlphaBeta(const FMinimaxState& 
             bestAction = act;
         }
         BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
-        UE_LOG(LogTemp, Warning, TEXT("out Max_ParallelMinimaxAlphabeta"));
+        // UE_LOG(LogTemp, Warning, TEXT("out Max_ParallelMinimaxAlphabeta"));
     }
 
     // Kumpulkan semua action yang memiliki nilai maksimum

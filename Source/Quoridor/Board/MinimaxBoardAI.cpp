@@ -75,7 +75,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI1Player, 2);
+            RunMinimax(AI1Player, 3);
         }
         else
         {
@@ -88,7 +88,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI2Player, 3);
+            RunMinimax(AI2Player, 4);
         }
         else
         {
@@ -156,7 +156,7 @@ void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
                 ThinkingStartTimeP2 = FPlatformTime::Seconds();
             
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 4;
+            int32 Depth = 5;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer,Choice]()
