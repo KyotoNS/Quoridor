@@ -75,7 +75,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI1Player, 3);
+            RunMinimax(AI1Player, 4);
         }
         else
         {
@@ -88,7 +88,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI2Player, 3);
+            RunMinimax(AI2Player, 4);
         }
         else
         {
@@ -113,7 +113,29 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
 // Parallel
 void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
 {
-    AITypeName = "MinimaxParallel";
+    switch (algo)
+    {
+    case 1:
+        this->AITypeName = TEXT("Plain Minimax");
+        break; // 'break' penting untuk keluar dari switch
+
+    case 2:
+        this->AITypeName = TEXT("Minimax Parallel");
+        break;
+
+    case 3:
+        this->AITypeName = TEXT("Minimax Alpha Beta");
+        break;
+
+    case 4:
+        this->AITypeName = TEXT("Parallel Minimax Alpha-Beta");
+        break;
+        
+    default:
+        // Jika pilihan tidak ada dalam case di atas, gunakan nilai default
+        // this->AITypeName = TEXT("Unknown AI");
+        break;
+    }
     if (bMinimaxInProgress)
         return;
 
@@ -155,6 +177,7 @@ void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
                     }
                     else if (AIPlayer == 2)
                     {
+                        
                         Elapsed = EndTime - ThinkingStartTimeP2;
                         TotalThinkingTimeP2 += Elapsed;
                         UE_LOG(LogTemp, Warning, TEXT("[AI P2] Thinking Time: %.4f s | Total: %.4f s"), Elapsed, TotalThinkingTimeP2);
