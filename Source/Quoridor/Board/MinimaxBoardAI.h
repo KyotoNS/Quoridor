@@ -40,7 +40,8 @@ public:
 	float GetTotalThinkingTimeForPlayer(int32 PlayerNum) const;
 	TArray<int32> InitialWallInventory;
 	UPROPERTY(BlueprintReadWrite)
-	FString AITypeName = "MinimaxParallel";
+	FString AITypeName1 = "MinimaxParallel";
+	FString AITypeName2 = "MinimaxParallel";
 	// Tracks AI thinking start time
 	double ThinkingStartTimeP1 = 0.0;
 	double ThinkingStartTimeP2 = 0.0;
