@@ -113,32 +113,35 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
 // Parallel
 void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
 {
+    FString SelectedAIType;
     switch (algo)
     {
     case 1:
-        this->AITypeName2 = TEXT("Plain Minimax");
-        this->AITypeName1 = TEXT("Plain Minimax");
-        break; // 'break' penting untuk keluar dari switch
-
+        SelectedAIType = TEXT("Plain Minimax");
+        break;
     case 2:
-        this->AITypeName2 = TEXT("Minimax Parallel");
-        this->AITypeName1 = TEXT("Minimax Parallel");
+        SelectedAIType = TEXT("Minimax Parallel");
         break;
-
     case 3:
-        this->AITypeName2 = TEXT("Minimax Alpha Beta");
-        this->AITypeName1 = TEXT("Minimax Alpha Beta");
-        break;
-
+        SelectedAIType = TEXT("Minimax Alpha Beta");
+        break;  
     case 4:
-        this->AITypeName2 = TEXT("Parallel Minimax Alpha-Beta");
-        this->AITypeName1 = TEXT("Parallel Minimax Alpha-Beta");
+        SelectedAIType = TEXT("Parallel Minimax Alpha-Beta");
         break;
-        
     default:
-        // Jika pilihan tidak ada dalam case di atas, gunakan nilai default
-        // this->AITypeName = TEXT("Unknown AI");
+        SelectedAIType = TEXT("Unknown AI");
         break;
+    }
+
+    if (Player == 1)
+    {
+        this->AITypeName1 = SelectedAIType;
+        UE_LOG(LogTemp, Log, TEXT("Player 1 AI type set to: %s"), *this->AITypeName1);
+    }
+    else if (Player == 2)
+    {
+        this->AITypeName2 = SelectedAIType;
+        UE_LOG(LogTemp, Log, TEXT("Player 2 AI type set to: %s"), *this->AITypeName2);
     }
     if (bMinimaxInProgress)
         return;
