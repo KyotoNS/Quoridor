@@ -833,62 +833,93 @@ void AQuoridorBoard::RevertWallBlock(const TMap<TPair<ATile*, ATile*>, bool>& Re
 	}
 }
 
+// Di dalam AQuoridorBoard.cpp
+
 void AQuoridorBoard::HandleWin(int32 WinningPlayer)
 {
-	if (!IsValid(this) || GetWorld() == nullptr)
-		return;
+    // Pemeriksaan awal untuk memastikan world valid
+    if (!IsValid(this) || GetWorld() == nullptr)
+       return;
 
-	FString Message = FString::Printf(TEXT("PLAYER %d WINS!"), WinningPlayer);
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
-	UE_LOG(LogTemp, Warning, TEXT("%s"), *Message);
+    // Tampilkan pesan kemenangan di layar dan di log
+    FString Message = FString::Printf(TEXT("PLAYER %d WINS!"), WinningPlayer);
+    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
+    UE_LOG(LogTemp, Warning, TEXT("%s"), *Message);
 
-	// === Stop AI logic if we're running a MinimaxBoardAI ===
-	AMinimaxBoardAI* AI = Cast<AMinimaxBoardAI>(this);
-	if (AI)
-	{
-		AI->bMinimaxInProgress = false;
-		AI->bIsAITurnRunning = false;
-		AI->SetActorTickEnabled(false);
+    // Coba cast board ke AMinimaxBoardAI untuk mengakses properti AI
+    AMinimaxBoardAI* AI = Cast<AMinimaxBoardAI>(this);
 
-		// ✅ Save stats if either AI1 or AI2 wins
-		if (WinningPlayer == AI->AI1Player || WinningPlayer == AI->AI2Player)
-		{
-			float WinningThinkingTime = (WinningPlayer == 1)
-				? AI->TotalThinkingTimeP1
-				: AI->TotalThinkingTimeP2;
+    // Jika cast berhasil (berarti ini adalah permainan yang melibatkan AI)
+    if (AI)
+    {
+       // Hentikan semua proses berpikir AI yang sedang berjalan
+       AI->bMinimaxInProgress = false;
+       AI->bIsAITurnRunning = false;
+       AI->SetActorTickEnabled(false);
 
-			SaveAIStatsToTextFile(
-				WinningPlayer,
-				AI->AITypeName,
-				TurnCount,
-				WinningThinkingTime,
-				AI->InitialWallInventory
-			);
-		}
-	}
+       // =================================================================
+       // === Logika untuk menyimpan statistik Pemenang DAN Pecundang ===
+       // =================================================================
 
-	// Disable player input
-	for (int32 Player = 1; Player <= 2; ++Player)
-	{
-		if (AQuoridorPawn* P = GetPawnForPlayer(Player))
-		{
-			if (APlayerController* PC = Cast<APlayerController>(P->GetController()))
-			{
-				P->DisableInput(PC);
-			}
-		}
-	}
+       // 1. Tentukan siapa pemain yang kalah berdasarkan pemenang
+       const int32 LosingPlayer = (WinningPlayer == 1) ? 2 : 1;
 
-	// Delay and do end-of-game action
-	FTimerHandle EndTimerHandle;
-	GetWorld()->GetTimerManager().SetTimer(EndTimerHandle, [this]()
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Game Over. Add end UI or return to menu here."));
-		// UGameplayStatics::OpenLevel(this, FName("MainMenu"));
-	}, 2.0f, false);
+       // 2. Simpan statistik PEMENANG jika pemenangnya adalah AI
+       if (WinningPlayer == AI->AI1Player || WinningPlayer == AI->AI2Player)
+       {
+          float WinningThinkingTime = (WinningPlayer == 1)
+             ? AI->TotalThinkingTimeP1
+             : AI->TotalThinkingTimeP2;
+
+          SaveAIStatsToTextFile(
+             WinningPlayer,
+             AI->AITypeName,
+             TurnCount,
+             WinningThinkingTime,
+             AI->InitialWallInventory
+          );
+       }
+
+       // 3. Simpan statistik PECUNDANG jika pecundangnya adalah AI
+       //    (Pemeriksaan ini dilakukan secara terpisah dari pemeriksaan pemenang)
+       if (LosingPlayer == AI->AI1Player || LosingPlayer == AI->AI2Player)
+       {
+          float LosingThinkingTime = (LosingPlayer == 1)
+             ? AI->TotalThinkingTimeP1
+             : AI->TotalThinkingTimeP2;
+           
+          // Panggil fungsi untuk menyimpan data yang kalah
+          SaveLosingAIStatsToTextFile(
+             LosingPlayer,
+             AI->AITypeName,
+             TurnCount,
+             LosingThinkingTime,
+             AI->InitialWallInventory
+          );
+       }
+       // ==============================================================
+    }
+
+    // Matikan input untuk kedua pemain setelah permainan berakhir
+    for (int32 Player = 1; Player <= 2; ++Player)
+    {
+       if (AQuoridorPawn* P = GetPawnForPlayer(Player))
+       {
+          if (APlayerController* PC = Cast<APlayerController>(P->GetController()))
+          {
+             P->DisableInput(PC);
+          }
+       }
+    }
+
+    // Atur timer untuk tindakan akhir permainan (misalnya kembali ke menu utama)
+    FTimerHandle EndTimerHandle;
+    GetWorld()->GetTimerManager().SetTimer(EndTimerHandle, [this]()
+    {
+       UE_LOG(LogTemp, Warning, TEXT("Game Over. Tampilkan UI atau kembali ke menu di sini."));
+       // Contoh: UGameplayStatics::OpenLevel(this, FName("MainMenu"));
+    }, 2.0f, false);
 }
-
-
 
 void AQuoridorBoard::PrintLastComputedPath(int32 PlayerNumber)
 {
@@ -985,6 +1016,38 @@ void AQuoridorBoard::SaveAIStatsToTextFile(int32 WinningPlayer, const FString& A
 	);
 
 	UE_LOG(LogTemp, Warning, TEXT("Appended to AIStatsLog.txt: %s"), *LogText);
+}
+
+void AQuoridorBoard::SaveLosingAIStatsToTextFile(int32 WinningPlayer, const FString& AIType, int32 TotalTurns, float TotalThinkingTime, const TArray<int32>& WallInventory)
+{
+	FString FilePath = FPaths::ProjectDir() + "Saved/AILosingStatsLog.txt";
+
+	FString Timestamp = FDateTime::Now().ToString();
+	FString WallString = FString::Printf(TEXT("[L1=%d, L2=%d, L3=%d]"),
+		WallInventory.IsValidIndex(0) ? WallInventory[0] : -1,
+		WallInventory.IsValidIndex(1) ? WallInventory[1] : -1,
+		WallInventory.IsValidIndex(2) ? WallInventory[2] : -1);
+
+	FString LogText = FString::Printf(
+		TEXT("[%s] AI Player %d (%s) won in %d turns. Time: %.2f sec. Walls at start: %s\n"),
+		*Timestamp,
+		WinningPlayer,
+		*AIType,
+		TotalTurns,
+		TotalThinkingTime,
+		*WallString
+	);
+
+	// Always append, never overwrite
+	FFileHelper::SaveStringToFile(
+		LogText,
+		*FilePath,
+		FFileHelper::EEncodingOptions::AutoDetect,
+		&IFileManager::Get(),
+		FILEWRITE_Append
+	);
+
+	UE_LOG(LogTemp, Warning, TEXT("Appended to AILosingStatsLog.txt: %s"), *LogText);
 }
 
 

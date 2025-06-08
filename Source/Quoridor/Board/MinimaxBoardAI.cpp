@@ -69,19 +69,19 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
     //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
     //     }
     // }
-    // if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
-    // {
-    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
-    //     if (P && P->GetTile())
-    //     {
-    //         bIsAITurnRunning = true;
-    //         RunMinimax(AI1Player, 3);
-    //     }
-    //     else
-    //     {
-    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
-    //     }
-    // }
+    if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
+    {
+        AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
+        if (P && P->GetTile())
+        {
+            bIsAITurnRunning = true;
+            RunMinimax(AI1Player, 3);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
+        }
+    }
     if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
     {
         AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
@@ -134,7 +134,7 @@ void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
                 ThinkingStartTimeP2 = FPlatformTime::Seconds();
             
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 3;
+            int32 Depth = 4;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer,Choice]()

@@ -1134,6 +1134,42 @@ FMinimaxResult MinimaxEngine::Max_Minimax(const FMinimaxState& S,int32 Depth,int
         // UE_LOG(LogTemp, Warning, TEXT("out Max_Minimax"));
     }
 
+    // Kumpulkan semua action yang memiliki nilai maksimum
+    TArray<FMinimaxAction> AllMoveActions;
+    for (const auto& Pair : BestHistory)
+    {
+        if (!Pair.Key.bIsWall)
+        {
+            AllMoveActions.Add(Pair.Key);
+        }
+    }
+
+    if (bestAction.bIsWall)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+            bestAction.SlotX, bestAction.SlotY,
+            bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+    }
+    else
+    {
+        // Jika IdealPath tersedia, cari move yang cocok dengan langkah berikutnya (IdealPath[1])
+        if (IdealPath.Num() > 1)
+        {
+            const FIntPoint& NextStep = IdealPath[1];
+            for (const FMinimaxAction& Move : AllMoveActions)
+            {
+                if (Move.MoveX == NextStep.X && Move.MoveY == NextStep.Y)
+                {
+                    bestAction = Move;
+                    break;
+                }
+            }
+        }
+
+        UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+            bestAction.MoveX, bestAction.MoveY);
+    }
+
     // for (const auto& Pair : BestHistory)
     // {
     //     const FMinimaxAction& Act       = Pair.Key;
@@ -1458,6 +1494,42 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
          }
          // UE_LOG(LogTemp, Warning, TEXT("out Max_ParallelMinimax"));
      });
+
+    // Kumpulkan semua action yang memiliki nilai maksimum
+    TArray<FMinimaxAction> AllMoveActions;
+    for (const auto& Pair : BestHistory)
+    {
+        if (!Pair.Key.bIsWall)
+        {
+            AllMoveActions.Add(Pair.Key);
+        }
+    }
+
+    if (bestAction.bIsWall)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+            bestAction.SlotX, bestAction.SlotY,
+            bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+    }
+    else
+    {
+        // Jika IdealPath tersedia, cari move yang cocok dengan langkah berikutnya (IdealPath[1])
+        if (IdealPath.Num() > 1)
+        {
+            const FIntPoint& NextStep = IdealPath[1];
+            for (const FMinimaxAction& Move : AllMoveActions)
+            {
+                if (Move.MoveX == NextStep.X && Move.MoveY == NextStep.Y)
+                {
+                    bestAction = Move;
+                    break;
+                }
+            }
+        }
+
+        UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+            bestAction.MoveX, bestAction.MoveY);
+    }
     
 
     for (const auto& Pair : BestHistory)
@@ -2100,6 +2172,42 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimaxAlphaBeta(const FMinimaxState& 
         }
         BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
         UE_LOG(LogTemp, Warning, TEXT("out Max_ParallelMinimaxAlphabeta"));
+    }
+
+    // Kumpulkan semua action yang memiliki nilai maksimum
+    TArray<FMinimaxAction> AllMoveActions;
+    for (const auto& Pair : BestHistory)
+    {
+        if (!Pair.Key.bIsWall)
+        {
+            AllMoveActions.Add(Pair.Key);
+        }
+    }
+
+    if (bestAction.bIsWall)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+            bestAction.SlotX, bestAction.SlotY,
+            bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+    }
+    else
+    {
+        // Jika IdealPath tersedia, cari move yang cocok dengan langkah berikutnya (IdealPath[1])
+        if (IdealPath.Num() > 1)
+        {
+            const FIntPoint& NextStep = IdealPath[1];
+            for (const FMinimaxAction& Move : AllMoveActions)
+            {
+                if (Move.MoveX == NextStep.X && Move.MoveY == NextStep.Y)
+                {
+                    bestAction = Move;
+                    break;
+                }
+            }
+        }
+
+        UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+            bestAction.MoveX, bestAction.MoveY);
     }
 
     for (const auto& Pair : BestHistory)
