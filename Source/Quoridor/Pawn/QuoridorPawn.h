@@ -19,6 +19,7 @@ public:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	AQuoridorBoard* BoardReference;
+	AQuoridorPawn* GetOccupyingPawn() const;
 
 	UFUNCTION(BlueprintCallable)
 	void MoveToTile(ATile* NewTile, bool bForceMove);

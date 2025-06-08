@@ -118,18 +118,16 @@ FMinimaxState FMinimaxState::FromBoard(AQuoridorBoard* Board)
 //-----------------------------------------------------------------------------
 // ComputePathToGoal (A* with Jumps)(bener, kayaknya )
 //-----------------------------------------------------------------------------
-TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 PlayerNum,int32* OutLength)
+TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S, int32 PlayerNum, int32* OutLength)
 {
     const int goalY = (PlayerNum == 1 ? 8 : 0);
     const int idx   = PlayerNum - 1;
-
     int sx = S.PawnX[idx];
     int sy = S.PawnY[idx];
+
     if (sx < 0 || sx > 8 || sy < 0 || sy > 8)
     {
-        UE_LOG(LogTemp, Error,
-            TEXT("ComputePathToGoal: Invalid pawn position for Player %d => (%d,%d)"),
-            PlayerNum, sx, sy);
+        UE_LOG(LogTemp, Error, TEXT("Invalid pawn position for Player %d => (%d,%d)"), PlayerNum, sx, sy);
         if (OutLength) *OutLength = 100;
         return {};
     }
@@ -137,35 +135,28 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
     bool closed[9][9] = {};
     int gCost[9][9];
     FIntPoint cameFrom[9][9];
-
     for (int y = 0; y < 9; ++y)
-    {
         for (int x = 0; x < 9; ++x)
         {
-            gCost[y][x]    = INT_MAX;
+            gCost[y][x] = INT_MAX;
             cameFrom[y][x] = FIntPoint(-1, -1);
         }
-    }
 
-    auto Heuristic = [&](int x, int y) {
-        return FMath::Abs(goalY - y);
-    };
+    auto Heuristic = [&](int x, int y) { return FMath::Abs(goalY - y); };
 
     struct Node { int f, g, x, y; };
-    struct Cmp { bool operator()(Node const &A, Node const &B) const { return A.f > B.f; } };
+    struct Cmp { bool operator()(const Node& A, const Node& B) const { return A.f > B.f; } };
     std::priority_queue<Node, std::vector<Node>, Cmp> open;
 
     gCost[sy][sx] = 0;
     open.push({ Heuristic(sx, sy), 0, sx, sy });
 
     const FIntPoint dirs[4] = {
-        FIntPoint(+1,  0),
-        FIntPoint(-1,  0),
-        FIntPoint( 0, +1),
-        FIntPoint( 0, -1)
+        FIntPoint(+1, 0), FIntPoint(-1, 0),
+        FIntPoint(0, +1), FIntPoint(0, -1)
     };
 
-    int OpponentIdx = 1 - idx;
+    const int OpponentIdx = 1 - idx;
 
     while (!open.empty())
     {
@@ -177,7 +168,8 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
         {
             if (OutLength) *OutLength = n.g;
             TArray<FIntPoint> Path;
-            for (int cx = n.x, cy = n.y; cx != -1 && cy != -1; ) {
+            for (int cx = n.x, cy = n.y; cx != -1 && cy != -1; )
+            {
                 Path.Insert(FIntPoint(cx, cy), 0);
                 FIntPoint p = cameFrom[cy][cx];
                 cx = p.X; cy = p.Y;
@@ -191,57 +183,64 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
             int ny = n.y + d.Y;
             if (nx < 0 || nx > 8 || ny < 0 || ny > 8) continue;
 
+            // Cek apakah dinding menghalangi arah ini
             bool blocked = false;
             if (d.X == 1 && S.VerticalBlocked[n.y][n.x]) blocked = true;
-            else if (d.X == -1 && S.VerticalBlocked[n.y][n.x - 1]) blocked = true;
+            else if (d.X == -1 && n.x > 0 && S.VerticalBlocked[n.y][n.x - 1]) blocked = true;
             else if (d.Y == 1 && S.HorizontalBlocked[n.y][n.x]) blocked = true;
-            else if (d.Y == -1 && S.HorizontalBlocked[n.y - 1][n.x]) blocked = true;
+            else if (d.Y == -1 && n.y > 0 && S.HorizontalBlocked[n.y - 1][n.x]) blocked = true;
 
             if (blocked) continue;
 
-            bool isJump = (nx == S.PawnX[OpponentIdx] && ny == S.PawnY[OpponentIdx]);
-            if (isJump)
+            bool isOpponent = (nx == S.PawnX[OpponentIdx] && ny == S.PawnY[OpponentIdx]);
+            if (isOpponent)
             {
                 int jx = nx + d.X;
                 int jy = ny + d.Y;
+                bool jumpBlocked = false;
 
                 if (jx >= 0 && jx <= 8 && jy >= 0 && jy <= 8)
                 {
-                    bool jumpBlocked = false;
                     if (d.X == 1 && S.VerticalBlocked[ny][nx]) jumpBlocked = true;
-                    else if (d.X == -1 && S.VerticalBlocked[ny][nx - 1]) jumpBlocked = true;
+                    else if (d.X == -1 && nx > 0 && S.VerticalBlocked[ny][nx - 1]) jumpBlocked = true;
                     else if (d.Y == 1 && S.HorizontalBlocked[ny][nx]) jumpBlocked = true;
-                    else if (d.Y == -1 && S.HorizontalBlocked[ny - 1][nx]) jumpBlocked = true;
+                    else if (d.Y == -1 && ny > 0 && S.HorizontalBlocked[ny - 1][nx]) jumpBlocked = true;
 
                     if (!jumpBlocked && !closed[jy][jx])
                     {
-                        int ng = n.g + 2;
+                        int ng = n.g + 1;
                         if (ng < gCost[jy][jx])
                         {
                             gCost[jy][jx] = ng;
                             cameFrom[jy][jx] = FIntPoint(n.x, n.y);
-                            int h = Heuristic(jx, jy);
-                            open.push({ ng + h, ng, jx, jy });
+                            open.push({ ng + Heuristic(jx, jy), ng, jx, jy });
                         }
+                        continue;
                     }
                 }
-                else
+
+                // Side-step jika tidak bisa lompat
+                for (const FIntPoint& side : { FIntPoint(d.Y, d.X), FIntPoint(-d.Y, -d.X) })
                 {
-                    for (const FIntPoint& side : { FIntPoint(d.Y, d.X), FIntPoint(-d.Y, -d.X) })
+                    int sideX = nx + side.X;
+                    int sideY = ny + side.Y;
+                    if (sideX < 0 || sideX > 8 || sideY < 0 || sideY > 8) continue;
+                    if (closed[sideY][sideX]) continue;
+
+                    bool sideBlocked = false;
+                    if (side.X == 1 && S.VerticalBlocked[ny][nx]) sideBlocked = true;
+                    else if (side.X == -1 && nx > 0 && S.VerticalBlocked[ny][nx - 1]) sideBlocked = true;
+                    else if (side.Y == 1 && S.HorizontalBlocked[ny][nx]) sideBlocked = true;
+                    else if (side.Y == -1 && ny > 0 && S.HorizontalBlocked[ny - 1][nx]) sideBlocked = true;
+
+                    if (sideBlocked) continue;
+
+                    int ng = n.g + 1;
+                    if (ng < gCost[sideY][sideX])
                     {
-                        int sideX = nx + side.X;
-                        int sideY = ny + side.Y;
-                        if (sideX >= 0 && sideX <= 8 && sideY >= 0 && sideY <= 8 && !closed[sideY][sideX])
-                        {
-                            int ng = n.g + 2;
-                            if (ng < gCost[sideY][sideX])
-                            {
-                                gCost[sideY][sideX] = ng;
-                                cameFrom[sideY][sideX] = FIntPoint(n.x, n.y);
-                                int h = Heuristic(sideX, sideY);
-                                open.push({ ng + h, ng, sideX, sideY });
-                            }
-                        }
+                        gCost[sideY][sideX] = ng;
+                        cameFrom[sideY][sideX] = FIntPoint(n.x, n.y);
+                        open.push({ ng + Heuristic(sideX, sideY), ng, sideX, sideY });
                     }
                 }
             }
@@ -252,8 +251,7 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
                 {
                     gCost[ny][nx] = ng;
                     cameFrom[ny][nx] = FIntPoint(n.x, n.y);
-                    int h = Heuristic(nx, ny);
-                    open.push({ ng + h, ng, nx, ny });
+                    open.push({ ng + Heuristic(nx, ny), ng, nx, ny });
                 }
             }
         }
@@ -262,6 +260,7 @@ TArray<FIntPoint> MinimaxEngine::ComputePathToGoal(const FMinimaxState& S,int32 
     if (OutLength) *OutLength = 100;
     return {};
 }
+
 
 //-----------------------------------------------------------------------------
 // Wall Legality Check (bener)
@@ -852,7 +851,7 @@ int32 MinimaxEngine::Evaluate(const FMinimaxState& S, int32 RootPlayer, const TA
     if (RootPlayer == 2 && CurrPawn.Y < IdealPath[0].Y)
     {
         Score += 5;
-    }
+        }
 
     if (RootPlayer == 1 && CurrPawn.Y == IdealPath[1].Y)
     {
@@ -1757,20 +1756,13 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
         // UE_LOG(LogTemp, Warning, TEXT("out Max_MinimaxAlphabeta"));
     }
 
-    // Cari nilai maksimum
-    int32 maxValue = INT_MIN;
-    for (const auto& Pair : BestHistory)
-    {
-        maxValue = FMath::Max(maxValue, Pair.Value);
-    }
-
     // Kumpulkan semua action yang memiliki nilai maksimum
-    TArray<FMinimaxAction> MaxValueMoves;
+    TArray<FMinimaxAction> AllMoveActions;
     for (const auto& Pair : BestHistory)
     {
-        if (Pair.Value == maxValue && !Pair.Key.bIsWall)
+        if (!Pair.Key.bIsWall)
         {
-            MaxValueMoves.Add(Pair.Key);
+            AllMoveActions.Add(Pair.Key);
         }
     }
 
@@ -1782,12 +1774,13 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
     }
     else
     {
-        // Jika ada lebih dari satu move dengan skor maksimum, cek terhadap IdealPath[1]
-        if (MaxValueMoves.Num() > 1 && IdealPath.Num() > 1)
+        // Jika IdealPath tersedia, cari move yang cocok dengan langkah berikutnya (IdealPath[1])
+        if (IdealPath.Num() > 1)
         {
-            for (const auto& Move : MaxValueMoves)
+            const FIntPoint& NextStep = IdealPath[1];
+            for (const FMinimaxAction& Move : AllMoveActions)
             {
-                if (Move.MoveX == IdealPath[1].X && Move.MoveY == IdealPath[1].Y)
+                if (Move.MoveX == NextStep.X && Move.MoveY == NextStep.Y)
                 {
                     bestAction = Move;
                     break;
@@ -1851,7 +1844,7 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
     }
 
     // 5) Setelah parallel selesai, kembalikan action + value
-    return FMinimaxResult(bestAction, maxValue);
+    return FMinimaxResult(bestAction, bestValue);
 }
 
 //-----------------------------------------------------------------------------

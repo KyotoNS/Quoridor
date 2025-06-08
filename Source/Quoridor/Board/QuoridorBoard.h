@@ -63,6 +63,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	bool IsPathAvailableForPawn(AQuoridorPawn* Pawn);
+	ATile* GetTileAtWorldPosition(const FVector& WorldPosition);
 
 	UFUNCTION(BlueprintCallable)
 	void HandleWin(int32 WinningPlayer);

@@ -8,6 +8,7 @@
 #include "Quoridor/Board/MinimaxBoardAI.h"
 #include "Quoridor/Tile/Tile.h"
 #include "Engine/World.h"
+#include "Quoridor/Board/MinimaxEngine.h"
 #include "Quoridor/Wall/WallPreview.h"
 #include "Containers/Queue.h"
 #include "Containers/Set.h"
@@ -210,10 +211,6 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 			SelectedPawn->MoveToTile(ClickedTile, false);
 			CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
 			TurnCount++;
-			IsPathAvailableForPawn(GetPawnForPlayer(1));
-			IsPathAvailableForPawn(GetPawnForPlayer(2));
-			PrintLastComputedPath(1);
-			PrintLastComputedPath(2);
 		}
 
 		ClearSelection();
@@ -240,128 +237,138 @@ void AQuoridorBoard::SpawnWall(FVector Location, FRotator Rotation, FVector Scal
 
 bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 {
-	if (!StartSlot || WallLength == 0)
-	{
-		return false;
-	}
+    if (!StartSlot || WallLength == 0)
+    {
+       return false;
+    }
 
-	const bool bIsHumanPlacing = bIsPlacingWall;
-	const bool bIsAIPlacing = !bIsHumanPlacing && IsA(AMinimaxBoardAI::StaticClass());
+    const bool bIsHumanPlacing = bIsPlacingWall;
+    const bool bIsAIPlacing = !bIsHumanPlacing && IsA(AMinimaxBoardAI::StaticClass());
 
-	if (!bIsHumanPlacing && !bIsAIPlacing)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Blocked — neither human nor AI placement active"));
-		return false;
-	}
+    if (!bIsHumanPlacing && !bIsAIPlacing)
+    {
+       UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall: Blocked — neither human nor AI placement active"));
+       return false;
+    }
 
-	if (StartSlot->Orientation != PendingWallOrientation)
-	{
-		return false;
-	}
+    if (StartSlot->Orientation != PendingWallOrientation)
+    {
+       return false;
+    }
 
-	SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
-	if (!SelectedPawn || !SelectedPawn->HasWallOfLength(WallLength))
-	{
-		return false;
-	}
+    SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
+    if (!SelectedPawn || !SelectedPawn->HasWallOfLength(WallLength))
+    {
+       return false;
+    }
 
-	if (!StartSlot->CanPlaceWall())
-	{
-		return false;
-	}
+    if (!StartSlot->CanPlaceWall())
+    {
+       return false;
+    }
 
-	// Collect all wall slots that will be affected
-	int32 StartX = StartSlot->GridX;
-	int32 StartY = StartSlot->GridY;
-	EWallOrientation Orientation = StartSlot->Orientation;
+    // Collect all wall slots that will be affected
+    int32 StartX = StartSlot->GridX;
+    int32 StartY = StartSlot->GridY;
+    EWallOrientation Orientation = StartSlot->Orientation;
 
-	TArray<AWallSlot*> AffectedSlots;
-	AWallSlot* FirstSlot = FindWallSlotAt(StartX, StartY, Orientation);
-	if (!FirstSlot || FirstSlot->bIsOccupied)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: First slot invalid or occupied"));
-		return false;
-	}
-	AffectedSlots.Add(FirstSlot);
+    TArray<AWallSlot*> AffectedSlots;
+    AWallSlot* FirstSlot = FindWallSlotAt(StartX, StartY, Orientation);
+    if (!FirstSlot || FirstSlot->bIsOccupied)
+    {
+       UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: First slot invalid or occupied"));
+       return false;
+    }
+    AffectedSlots.Add(FirstSlot);
 
-	for (int32 i = 1; i < WallLength; ++i)
-	{
-		int32 NextX = StartX + (Orientation == EWallOrientation::Horizontal ? i : 0);
-		int32 NextY = StartY + (Orientation == EWallOrientation::Vertical ? i : 0);
+    for (int32 i = 1; i < WallLength; ++i)
+    {
+       int32 NextX = StartX + (Orientation == EWallOrientation::Horizontal ? i : 0);
+       int32 NextY = StartY + (Orientation == EWallOrientation::Vertical ? i : 0);
 
-		if ((Orientation == EWallOrientation::Horizontal && NextX >= GridSize) ||
-			(Orientation == EWallOrientation::Vertical && NextY >= GridSize))
-		{
-			UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Exceeds bounds"));
-			return false;
-		}
+       if ((Orientation == EWallOrientation::Horizontal && NextX >= GridSize) ||
+          (Orientation == EWallOrientation::Vertical && NextY >= GridSize))
+       {
+          UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Exceeds bounds"));
+          return false;
+       }
       
-		AWallSlot* NextSlot = FindWallSlotAt(NextX, NextY, Orientation);
-		if (!NextSlot || NextSlot->bIsOccupied)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Next slot invalid or occupied"));
-			return false;
-		}
-		AffectedSlots.Add(NextSlot);
-	}
+       AWallSlot* NextSlot = FindWallSlotAt(NextX, NextY, Orientation);
+       if (!NextSlot || NextSlot->bIsOccupied)
+       {
+          UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Next slot invalid or occupied"));
+          return false;
+       }
+       AffectedSlots.Add(NextSlot);
+    }
 
-	// Simulate wall block
-	TMap<TPair<ATile*, ATile*>, bool> RemovedConnections;
-	SimulateWallBlock(AffectedSlots, RemovedConnections);
+    // 1. Simulate the wall placement by temporarily marking slots as occupied.
+    for (AWallSlot* Slot : AffectedSlots)
+    {
+        Slot->SetOccupied(true);
+    }
 
-	bool bPath1 = IsPathAvailableForPawn(GetPawnForPlayer(1));
-	bool bPath2 = IsPathAvailableForPawn(GetPawnForPlayer(2));
-	PrintLastComputedPath(1);
-	PrintLastComputedPath(2);
+    // 2. Create a Minimax state from this simulated board.
+    FMinimaxState SimulatedState = FMinimaxState::FromBoard(this);
 
-	if (!bPath1 || !bPath2)
-	{
-		RevertWallBlock(RemovedConnections);
-		UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Path would be blocked"));
-		return false;
-	}
+    // 3. Check paths for both players using the Minimax engine's pathfinder.
+    int32 PathLen1 = 100; // Default to "no path"
+    int32 PathLen2 = 100;
+    MinimaxEngine::ComputePathToGoal(SimulatedState, 1, &PathLen1);
+    MinimaxEngine::ComputePathToGoal(SimulatedState, 2, &PathLen2);
 
-	// Mark all slots as occupied
-	for (AWallSlot* Slot : AffectedSlots)
-	{
-		Slot->SetOccupied(true);
-		UE_LOG(LogTemp, Warning, TEXT("Wall segment occupied at (%d, %d) [%s] => Ptr: %p"),
-			Slot->GridX, Slot->GridY,
-			*UEnum::GetValueAsString(Slot->Orientation), Slot);
-	}
+    UE_LOG(LogTemp, Log, TEXT("Path check after simulation: Player 1 Length = %d, Player 2 Length = %d"), PathLen1, PathLen2);
 
-	// Visual wall placement
-	FVector BaseLocation = StartSlot->GetActorLocation();
-	FRotator WallRotation = Orientation == EWallOrientation::Horizontal ? FRotator::ZeroRotator : FRotator(0, 90, 0);
+    // 4. If either path is blocked (length >= 100 signifies no path), revert the simulation and fail.
+    if (PathLen1 >= 100 || PathLen2 >= 100)
+    {
+        // Revert the temporary change by un-occupying the slots.
+        for (AWallSlot* Slot : AffectedSlots)
+        {
+            Slot->SetOccupied(false);
+        }
+        UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Failed: Path would be blocked (checked with MinimaxEngine)"));
+        return false;
+    }
 
-	for (int32 i = 0; i < WallLength; ++i)
-	{
-		FVector SegmentLocation = BaseLocation + (Orientation == EWallOrientation::Horizontal
-			? FVector(i * TileSize, 0, 100)
-			: FVector(0, i * TileSize, 100));
+    // 5. If we reach here, the placement is legal. The slots are already marked as occupied
+    //    from the simulation, so we can just proceed with spawning the wall.
+    // =======================================================================
+    // ======================= END OF NEW LOGIC ==============================
+    // =======================================================================
 
-		AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, SegmentLocation, WallRotation);
-		if (NewWall)
-		{
-			NewWall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-		}
-	}
+    // Visual wall placement
+    FVector BaseLocation = StartSlot->GetActorLocation();
+    FRotator WallRotation = Orientation == EWallOrientation::Horizontal ? FRotator::ZeroRotator : FRotator(0, 90, 0);
 
-	if (SelectedPawn)
-	{
-		SelectedPawn->RemoveWallOfLength(WallLength);
-	}
+    for (int32 i = 0; i < WallLength; ++i)
+    {
+       FVector SegmentLocation = BaseLocation + (Orientation == EWallOrientation::Horizontal
+          ? FVector(i * TileSize, 0, 100)
+          : FVector(0, i * TileSize, 100));
 
-	// Cleanup
-	bIsPlacingWall = false;
-	PendingWallLength = 0;
-	HideWallPreview();
+       AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, SegmentLocation, WallRotation);
+       if (NewWall)
+       {
+          NewWall->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+       }
+    }
 
-	CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
-	TurnCount++;
+    if (SelectedPawn)
+    {
+       SelectedPawn->RemoveWallOfLength(WallLength);
+    }
 
-	UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed. Turn now: Player %d"), CurrentPlayerTurn);
-	return true;
+    // Cleanup
+    bIsPlacingWall = false;
+    PendingWallLength = 0;
+    HideWallPreview();
+
+    CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
+    TurnCount++;
+
+    UE_LOG(LogTemp, Warning, TEXT("TryPlaceWall Success: Wall placed. Turn now: Player %d"), CurrentPlayerTurn);
+    return true;
 }
 
 
@@ -566,9 +573,6 @@ bool AQuoridorBoard::IsPathAvailableForPawn(AQuoridorPawn* Pawn)
     if (!Pawn || !Pawn->CurrentTile)
         return false;
 
-    // --------------------------------------------
-    // 1) Define a simple A* node struct
-    // --------------------------------------------
     struct FNode
     {
         ATile* Tile;
@@ -579,144 +583,140 @@ bool AQuoridorBoard::IsPathAvailableForPawn(AQuoridorPawn* Pawn)
         FNode(ATile* InTile, int32 InGCost, int32 InHCost, FNode* InParent = nullptr)
             : Tile(InTile), GCost(InGCost), HCost(InHCost), Parent(InParent) {}
 
-        int32 FCost() const
-        {
-            return GCost + HCost;
-        }
+        int32 FCost() const { return GCost + HCost; }
     };
 
     ATile* StartTile = Pawn->CurrentTile;
     const int32 TargetRow = (Pawn->PlayerNumber == 1) ? (GridSize - 1) : 0;
 
-    // --------------------------------------------
-    // 2) OpenSet = nodes to explore, ClosedSet = visited tiles
-    //    AllNodes = every FNode* we ever allocated
-    // --------------------------------------------
-    TArray<FNode*>        OpenSet;
-    TSet<ATile*>          ClosedSet;
-    TArray<FNode*>        AllNodes;  
+    TArray<FNode*> OpenSet;
+    TSet<ATile*> ClosedSet;
+    TArray<FNode*> AllNodes;
 
     auto Heuristic = [TargetRow](int32 X, int32 Y)
     {
         return FMath::Abs(TargetRow - Y);
     };
 
-    // Create the first node and add it to both OpenSet & AllNodes
-    {
-        FNode* StartNode = new FNode(
-            StartTile,
-            /*GCost=*/0,
-            /*HCost=*/Heuristic(StartTile->GridX, StartTile->GridY),
-            /*Parent=*/nullptr
-        );
-        OpenSet.Add(StartNode);
-        AllNodes.Add(StartNode);
-    }
+    FNode* StartNode = new FNode(StartTile, 0, Heuristic(StartTile->GridX, StartTile->GridY), nullptr);
+    OpenSet.Add(StartNode);
+    AllNodes.Add(StartNode);
 
-    // --------------------------------------------
-    // 3) Main A* loop (no deletes until after path reconstruction!)
-    // --------------------------------------------
     while (OpenSet.Num() > 0)
     {
-        // 3a) Find node in OpenSet with lowest FCost (tie-breaker: lower HCost)
         FNode* Current = OpenSet[0];
         for (FNode* Node : OpenSet)
         {
-            if (Node->FCost() < Current->FCost() ||
-                (Node->FCost() == Current->FCost() && Node->HCost < Current->HCost))
+            if (Node->FCost() < Current->FCost() || (Node->FCost() == Current->FCost() && Node->HCost < Current->HCost))
             {
                 Current = Node;
             }
         }
 
-        // 3b) Remove Current from OpenSet, mark its tile as closed
         OpenSet.Remove(Current);
         ClosedSet.Add(Current->Tile);
 
-        // 3c) If Current is on the target row, we have a valid path!
         if ((Pawn->PlayerNumber == 1 && Current->Tile->GridY == TargetRow) ||
             (Pawn->PlayerNumber == 2 && Current->Tile->GridY == TargetRow))
         {
-            // ------------------------------
-            // 4) Reconstruct the path (while all nodes are still alive!)
-            // ------------------------------
             TArray<FIntPoint> PathTiles;
             FNode* PathNode = Current;
             while (PathNode)
             {
                 if (PathNode->Tile)
                 {
-                    int32 X = PathNode->Tile->GridX;
-                    int32 Y = PathNode->Tile->GridY;
-                    PathTiles.Insert(FIntPoint(X, Y), 0);
+                    PathTiles.Insert(FIntPoint(PathNode->Tile->GridX, PathNode->Tile->GridY), 0);
                 }
                 PathNode = PathNode->Parent;
             }
 
-            // ------------------------------
-            // 5) Delete every single FNode* we allocated
-            // ------------------------------
-            for (FNode* NodePtr : AllNodes)
-            {
-                delete NodePtr;
-            }
+            for (FNode* NodePtr : AllNodes) delete NodePtr;
             AllNodes.Empty();
-            OpenSet.Empty();  // (not strictly needed, but cleans up immediately)
+            OpenSet.Empty();
 
-            // ------------------------------
-            // 6) Cache the path and return true
-            // ------------------------------
             CachedPaths.Add(Pawn->PlayerNumber, PathTiles);
             return true;
         }
 
-        // 3d) Otherwise, expand neighbors
+        TArray<ATile*> CandidateMoves;
+
         for (ATile* Neighbor : Current->Tile->ConnectedTiles)
         {
-            if (!Neighbor || ClosedSet.Contains(Neighbor) || Neighbor->IsOccupied())
-            {
+            if (!Neighbor)
                 continue;
-            }
 
-            // Check if this neighbor is already in OpenSet
-            bool bAlreadyInOpenSet = false;
-            for (FNode* Node : OpenSet)
+            AQuoridorPawn* BlockingPawn = Neighbor->GetOccupyingPawn();
+            if (BlockingPawn)
             {
-                if (Node->Tile == Neighbor)
+                // Attempt to jump over the pawn
+                FVector Dir = Neighbor->GetActorLocation() - Current->Tile->GetActorLocation();
+                FVector JumpTargetLoc = Neighbor->GetActorLocation() + Dir;
+
+                ATile* JumpTile = GetTileAtWorldPosition(JumpTargetLoc);
+                if (JumpTile && Neighbor->ConnectedTiles.Contains(JumpTile) && !JumpTile->IsOccupied())
                 {
-                    bAlreadyInOpenSet = true;
-                    break;
+                    CandidateMoves.Add(JumpTile); // Jump over
+                }
+                else
+                {
+                    // Side steps
+                    FVector SideStep1 = FVector::CrossProduct(Dir.GetSafeNormal(), FVector::UpVector) * TileSize;
+                    FVector SideStep2 = -SideStep1;
+
+                    ATile* SideTile1 = GetTileAtWorldPosition(Neighbor->GetActorLocation() + SideStep1);
+                    ATile* SideTile2 = GetTileAtWorldPosition(Neighbor->GetActorLocation() + SideStep2);
+
+                    if (SideTile1 && Neighbor->ConnectedTiles.Contains(SideTile1) && !SideTile1->IsOccupied())
+                        CandidateMoves.Add(SideTile1);
+                    if (SideTile2 && Neighbor->ConnectedTiles.Contains(SideTile2) && !SideTile2->IsOccupied())
+                        CandidateMoves.Add(SideTile2);
                 }
             }
+            else if (!ClosedSet.Contains(Neighbor) && !Neighbor->IsOccupied())
+            {
+                CandidateMoves.Add(Neighbor);
+            }
+        }
 
+        for (ATile* MoveTile : CandidateMoves)
+        {
+            if (ClosedSet.Contains(MoveTile))
+                continue;
+
+            bool bAlreadyInOpenSet = OpenSet.ContainsByPredicate([&](FNode* Node) { return Node->Tile == MoveTile; });
             if (!bAlreadyInOpenSet)
             {
                 int32 G = Current->GCost + 1;
-                int32 H = Heuristic(Neighbor->GridX, Neighbor->GridY);
-                FNode* NewNode = new FNode(Neighbor, G, H, Current);
+                int32 H = Heuristic(MoveTile->GridX, MoveTile->GridY);
+                FNode* NewNode = new FNode(MoveTile, G, H, Current);
                 OpenSet.Add(NewNode);
                 AllNodes.Add(NewNode);
             }
         }
-
-        // **DO NOT delete Current here**—we need it alive in case one of its children becomes the goal later.
     }
 
-    // --------------------------------------------
-    // 7) If we exit the while‐loop, no path was found:
-    //    * Clean up every FNode* in AllNodes
-    //    * Remove any cached path for this pawn (just in case)
-    // --------------------------------------------
-    for (FNode* NodePtr : AllNodes)
-    {
-        delete NodePtr;
-    }
+    for (FNode* NodePtr : AllNodes) delete NodePtr;
     AllNodes.Empty();
     CachedPaths.Remove(Pawn->PlayerNumber);
     return false;
 }
 
 
+
+ATile* AQuoridorBoard::GetTileAtWorldPosition(const FVector& WorldPosition)
+{
+	for (int32 y = 0; y < GridSize; ++y)
+	{
+		for (int32 x = 0; x < GridSize; ++x)
+		{
+			if (Tiles[y][x] && FVector::DistSquared(Tiles[y][x]->GetActorLocation(), WorldPosition) < TileSize * TileSize * 0.5f)
+			{
+				return Tiles[y][x];
+			}
+		}
+	}
+	return nullptr;
+}
 
 void AQuoridorBoard::UpdateAllTileConnections()
 {

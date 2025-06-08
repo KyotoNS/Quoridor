@@ -20,6 +20,21 @@ AQuoridorPawn::AQuoridorPawn()
 	GridY = 0;
 	PlayerNumber = 1;
 }
+AQuoridorPawn* ATile::GetOccupyingPawn() const
+{
+	TArray<AActor*> OverlappingActors;
+	GetOverlappingActors(OverlappingActors, AQuoridorPawn::StaticClass());
+
+	for (AActor* Actor : OverlappingActors)
+	{
+		if (AQuoridorPawn* Pawn = Cast<AQuoridorPawn>(Actor))
+		{
+			return Pawn;
+		}
+	}
+
+	return nullptr;
+}
 
 void AQuoridorPawn::MoveToTile(ATile* NewTile, bool bForceMove)
 {
