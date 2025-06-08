@@ -116,19 +116,23 @@ void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
     switch (algo)
     {
     case 1:
-        this->AITypeName = TEXT("Plain Minimax");
+        this->AITypeName2 = TEXT("Plain Minimax");
+        this->AITypeName1 = TEXT("Plain Minimax");
         break; // 'break' penting untuk keluar dari switch
 
     case 2:
-        this->AITypeName = TEXT("Minimax Parallel");
+        this->AITypeName2 = TEXT("Minimax Parallel");
+        this->AITypeName1 = TEXT("Minimax Parallel");
         break;
 
     case 3:
-        this->AITypeName = TEXT("Minimax Alpha Beta");
+        this->AITypeName2 = TEXT("Minimax Alpha Beta");
+        this->AITypeName1 = TEXT("Minimax Alpha Beta");
         break;
 
     case 4:
-        this->AITypeName = TEXT("Parallel Minimax Alpha-Beta");
+        this->AITypeName2 = TEXT("Parallel Minimax Alpha-Beta");
+        this->AITypeName1 = TEXT("Parallel Minimax Alpha-Beta");
         break;
         
     default:

@@ -873,7 +873,7 @@ void AQuoridorBoard::HandleWin(int32 WinningPlayer)
 
           SaveAIStatsToTextFile(
              WinningPlayer,
-             AI->AITypeName,
+             AI->AITypeName1,
              TurnCount,
              WinningThinkingTime,
              AI->InitialWallInventory
@@ -891,7 +891,7 @@ void AQuoridorBoard::HandleWin(int32 WinningPlayer)
           // Panggil fungsi untuk menyimpan data yang kalah
           SaveLosingAIStatsToTextFile(
              LosingPlayer,
-             AI->AITypeName,
+             AI->AITypeName2,
              TurnCount,
              LosingThinkingTime,
              AI->InitialWallInventory
