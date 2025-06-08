@@ -156,7 +156,7 @@ void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
                 ThinkingStartTimeP2 = FPlatformTime::Seconds();
             
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 5;
+            int32 Depth = 4;
 
             // Run the actual minimax on a background thread
             Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer,Choice]()
