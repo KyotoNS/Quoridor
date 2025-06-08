@@ -1433,23 +1433,23 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
     }
 
     // 3) Jika masih punya wall, generate wall candidates
-    // if (S.WallsRemaining[idxAI] > 0)
-    // {
-    //     // Hanya ketika giliran RootPlayer (AI), karena RootPlayer adalah si yang maksimasi
-    //     TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(S, RootPlayer);
-    //     // UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d ==="), RootPlayer);
-    //
-    //     for (const auto& w : WallMoves)
-    //     {
-    //         // UE_LOG(
-    //         //     LogTemp, Warning,
-    //         //     TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
-    //         //     w.X, w.Y, w.Length,
-    //         //     w.bHorizontal ? TEXT("true") : TEXT("false")
-    //         // );
-    //         Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
-    //     }
-    // }
+    if (S.WallsRemaining[idxAI] > 0)
+    {
+        // Hanya ketika giliran RootPlayer (AI), karena RootPlayer adalah si yang maksimasi
+        TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(S, RootPlayer);
+        // UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d ==="), RootPlayer);
+    
+        for (const auto& w : WallMoves)
+        {
+            // UE_LOG(
+            //     LogTemp, Warning,
+            //     TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
+            //     w.X, w.Y, w.Length,
+            //     w.bHorizontal ? TEXT("true") : TEXT("false")
+            // );
+            Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
+        }
+    }
 
     // 4) ParallelFor: evaluasi setiap candidate
      ParallelFor(Candidates.Num(), [&](int32 i)
@@ -1622,22 +1622,22 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
     }
 
     // 3) Generate WallMoves jika CurrentPlayer (lawan) masih punya wall
-    // if (S.WallsRemaining[idxAI] > 0)
-    // {
-    //     TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(S, RootPlayer);
-    //     // UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d (Min) ==="), RootPlayer);
-    //
-    //     for (const auto& w : WallMoves)
-    //     {
-    //         // UE_LOG(
-    //         //     LogTemp, Warning,
-    //         //     TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
-    //         //     w.X, w.Y, w.Length,
-    //         //     w.bHorizontal ? TEXT("true") : TEXT("false")
-    //         // );
-    //         Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
-    //     }
-    // }
+    if (S.WallsRemaining[idxAI] > 0)
+    {
+        TArray<FWallData> WallMoves = GetAllUsefulWallPlacements(S, RootPlayer);
+        // UE_LOG(LogTemp, Warning, TEXT("=== Wall Candidates for Player %d (Min) ==="), RootPlayer);
+    
+        for (const auto& w : WallMoves)
+        {
+            // UE_LOG(
+            //     LogTemp, Warning,
+            //     TEXT("  Candidate Wall @ (%d, %d)  Length=%d  Horizontal=%s"),
+            //     w.X, w.Y, w.Length,
+            //     w.bHorizontal ? TEXT("true") : TEXT("false")
+            // );
+            Candidates.Add(FMinimaxAction(w.X, w.Y, w.Length, w.bHorizontal));
+        }
+    }
 
     // 4) ParallelFor: evaluasi setiap candidate
     ParallelFor(Candidates.Num(), [&](int32 i)
