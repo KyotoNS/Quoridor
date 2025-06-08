@@ -1166,8 +1166,8 @@ FMinimaxResult MinimaxEngine::Max_Minimax(const FMinimaxState& S,int32 Depth,int
             }
         }
 
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
-            bestAction.MoveX, bestAction.MoveY);
+        // UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+        //     bestAction.MoveX, bestAction.MoveY);
     }
 
     // for (const auto& Pair : BestHistory)
@@ -1200,17 +1200,17 @@ FMinimaxResult MinimaxEngine::Max_Minimax(const FMinimaxState& S,int32 Depth,int
     //     );
     // }   
 
-    if (bestAction.bIsWall)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
-            bestAction.SlotX, bestAction.SlotY,
-            bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
-            bestAction.MoveX, bestAction.MoveY);
-    }
+    // if (bestAction.bIsWall)
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+    //         bestAction.SlotX, bestAction.SlotY,
+    //         bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+    // }
+    // else
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+    //         bestAction.MoveX, bestAction.MoveY);
+    // }
 
     // 5) Setelah parallel selesai, kembalikan action + value
     return FMinimaxResult(bestAction, bestValue);
@@ -1312,7 +1312,7 @@ FMinimaxResult MinimaxEngine::Min_Minimax(const FMinimaxState& S,int32 Depth,int
     // });
     for (int32 i = 0; i < Candidates.Num(); ++i)
     {
-        UE_LOG(LogTemp, Warning, TEXT("IN Min_Minimax"));
+        // UE_LOG(LogTemp, Warning, TEXT("IN Min_Minimax"));
         const FMinimaxAction& act = Candidates[i];
         FMinimaxState SS = S;
 
@@ -1343,7 +1343,7 @@ FMinimaxResult MinimaxEngine::Min_Minimax(const FMinimaxState& S,int32 Depth,int
             bestAction = act;
         }
         BestHistory.Add(TPair<FMinimaxAction,int32>(act, v));
-        UE_LOG(LogTemp, Warning, TEXT("out Min_Minimax"));
+        // UE_LOG(LogTemp, Warning, TEXT("out Min_Minimax"));
     }
 
     // for (const auto& Pair : BestHistory)
@@ -1507,9 +1507,9 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
 
     if (bestAction.bIsWall)
     {
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
-            bestAction.SlotX, bestAction.SlotY,
-            bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+        // UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+        //     bestAction.SlotX, bestAction.SlotY,
+        //     bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
     }
     else
     {
@@ -1527,52 +1527,52 @@ FMinimaxResult MinimaxEngine::Max_ParallelMinimax(const FMinimaxState& S,int32 D
             }
         }
 
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
-            bestAction.MoveX, bestAction.MoveY);
+        // UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+        //     bestAction.MoveX, bestAction.MoveY);
     }
     
 
-    for (const auto& Pair : BestHistory)
-    {
-        const FMinimaxAction& Act       = Pair.Key;
-        const int32         Value       = Pair.Value;
-        FString Description;
-    
-        if (Act.bIsWall)
-        {
-            Description = FString::Printf(
-                TEXT("Wall@(%d,%d) %s"),
-                Act.SlotX, Act.SlotY,
-                Act.bHorizontal ? TEXT("H") : TEXT("V")
-            );
-        }
-        else
-        {
-            Description = FString::Printf(
-                TEXT("Move(%d,%d)"),
-                Act.MoveX, Act.MoveY
-            );
-        }
-    
-        UE_LOG(
-            LogTemp, Warning,
-            TEXT("[History] Candidate MAX: %s  → Value = %d"),
-            *Description,
-            Value
-        );
-    }   
-    
-    if (bestAction.bIsWall)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
-            bestAction.SlotX, bestAction.SlotY,
-            bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
-            bestAction.MoveX, bestAction.MoveY);
-    }
+    // for (const auto& Pair : BestHistory)
+    // {
+    //     const FMinimaxAction& Act       = Pair.Key;
+    //     const int32         Value       = Pair.Value;
+    //     FString Description;
+    //
+    //     if (Act.bIsWall)
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Wall@(%d,%d) %s"),
+    //             Act.SlotX, Act.SlotY,
+    //             Act.bHorizontal ? TEXT("H") : TEXT("V")
+    //         );
+    //     }
+    //     else
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Move(%d,%d)"),
+    //             Act.MoveX, Act.MoveY
+    //         );
+    //     }
+    //
+    //     UE_LOG(
+    //         LogTemp, Warning,
+    //         TEXT("[History] Candidate MAX: %s  → Value = %d"),
+    //         *Description,
+    //         Value
+    //     );
+    // }   
+    //
+    // if (bestAction.bIsWall)
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+    //         bestAction.SlotX, bestAction.SlotY,
+    //         bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+    // }
+    // else
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+    //         bestAction.MoveX, bestAction.MoveY);
+    // }
 
     // 5) Setelah parallel selesai, kembalikan action + value
     return FMinimaxResult(bestAction, bestValue);
@@ -1682,35 +1682,35 @@ FMinimaxResult MinimaxEngine::Min_ParallelMinimax(const FMinimaxState& S,int32 D
         }
     });
 
-    for (const auto& Pair : BestHistory)
-    {
-        const FMinimaxAction& Act       = Pair.Key;
-        const int32         Value       = Pair.Value;
-        FString Description;
-    
-        if (Act.bIsWall)
-        {
-            Description = FString::Printf(
-                TEXT("Wall@(%d,%d) %s"),
-                Act.SlotX, Act.SlotY,
-                Act.bHorizontal ? TEXT("H") : TEXT("V")
-            );
-        }
-        else
-        {
-            Description = FString::Printf(
-                TEXT("Move(%d,%d)"),
-                Act.MoveX, Act.MoveY
-            );
-        }
-    
-        UE_LOG(
-            LogTemp, Warning,
-            TEXT("[History] Candidate MIN: %s  → Value = %d"),
-            *Description,
-            Value
-        );
-    }
+    // for (const auto& Pair : BestHistory)
+    // {
+    //     const FMinimaxAction& Act       = Pair.Key;
+    //     const int32         Value       = Pair.Value;
+    //     FString Description;
+    //
+    //     if (Act.bIsWall)
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Wall@(%d,%d) %s"),
+    //             Act.SlotX, Act.SlotY,
+    //             Act.bHorizontal ? TEXT("H") : TEXT("V")
+    //         );
+    //     }
+    //     else
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Move(%d,%d)"),
+    //             Act.MoveX, Act.MoveY
+    //         );
+    //     }
+    //
+    //     UE_LOG(
+    //         LogTemp, Warning,
+    //         TEXT("[History] Candidate MIN: %s  → Value = %d"),
+    //         *Description,
+    //         Value
+    //     );
+    // }
 
     return FMinimaxResult(bestAction, bestValue);
 }
@@ -2429,11 +2429,11 @@ FMinimaxResult MinimaxEngine::RunSelectedAlgorithm(const FMinimaxState& Initial,
     int32 alpha = INT_MIN;
     int32 beta = INT_MAX;
     TArray<FIntPoint> IdealPath = ComputePathToGoal(Initial, PlayerTurn, nullptr);
-    UE_LOG(LogTemp, Warning, TEXT("IdealPath untuk Player %d, Length = %d"), PlayerTurn, IdealPath.Num());
-    for (int32 i = 0; i < IdealPath.Num(); ++i)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("  Path[%d] = (%d,%d)"), i, IdealPath[i].X, IdealPath[i].Y);
-    }
+    // UE_LOG(LogTemp, Warning, TEXT("IdealPath untuk Player %d, Length = %d"), PlayerTurn, IdealPath.Num());
+    // for (int32 i = 0; i < IdealPath.Num(); ++i)
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("  Path[%d] = (%d,%d)"), i, IdealPath[i].X, IdealPath[i].Y);
+    // }
     switch (AlgorithmChoice)
     {
     case 1:
@@ -2450,14 +2450,14 @@ FMinimaxResult MinimaxEngine::RunSelectedAlgorithm(const FMinimaxState& Initial,
 
     case 3:
         UE_LOG(LogTemp, Warning,
-            TEXT("RunSelectedAlgorithm: Pilih Parallel Minimax dengan Alpha-Beta (Choice=3)"));
+            TEXT("RunSelectedAlgorithm: Pilih Minimax dengan Alpha-Beta (Choice=3)"));
         // Ganti dengan pemanggilan fungsi yang sesungguhnya, misalnya:
         // return Max_ParallelAlphaBeta(Initial, Depth, PlayerTurn, CurrPlayerTurn);
         return Max_MinimaxAlphaBeta(Initial, Depth, PlayerTurn,alpha,beta, PlayerTurn, IdealPath);
         
     case 4:
         UE_LOG(LogTemp, Warning,
-            TEXT("RunSelectedAlgorithm: Pilih Parallel Minimax dengan Alpha-Beta (Choice=3)"));
+            TEXT("RunSelectedAlgorithm: Pilih Parallel Minimax dengan Alpha-Beta (Choice=4)"));
         // Ganti dengan pemanggilan fungsi yang sesungguhnya, misalnya:
         // return Max_ParallelAlphaBeta(Initial, Depth, PlayerTurn, CurrPlayerTurn);
         return Max_ParallelMinimaxAlphaBeta(Initial, Depth, PlayerTurn,alpha,beta, PlayerTurn, IdealPath);
