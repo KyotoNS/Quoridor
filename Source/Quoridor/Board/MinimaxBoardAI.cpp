@@ -20,8 +20,8 @@ void AMinimaxBoardAI::BeginPlay()
     ElapsedTime = 0.0f;
     bDelayPassed = false;
     
-    // Randomly choose which AI will be Player 1 or Player 2
-    bool bAI1IsPlayer1 = 1;
+    // Randomly choose which AI will be Player 1 or Player 2    
+    bool bAI1IsPlayer1 = false;
 
     if (bAI1IsPlayer1)
     {
