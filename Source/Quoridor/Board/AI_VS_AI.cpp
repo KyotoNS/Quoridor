@@ -74,7 +74,7 @@ void AAI_VS_AI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI1Player, 3);
+            RunMinimax(AI1Player, AI1_AlgorithmChoice);
         }
         else
         {
@@ -87,7 +87,7 @@ void AAI_VS_AI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI2Player, 3);
+            RunMinimax(AI2Player, AI2_AlgorithmChoice);
         }
         else
         {

@@ -21,7 +21,10 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 	bool ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length, bool bHorizontal);
-
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
+	int32 AI1_AlgorithmChoice;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
+	int32 AI2_AlgorithmChoice;
 	void RunMinimax(int32 Player, int32 algo);
 	UPROPERTY()
 	bool bIsAITurnRunning = false;
