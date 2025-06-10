@@ -4,27 +4,28 @@
 #include "Quoridor/Board/QuoridorBoard.h"
 #include "MinimaxEngine.h"
 #include "Async/Async.h"
-#include "MinimaxBoardAI.generated.h"
+#include "AI_VS_AI.generated.h"
 
 /**
  * A minimal AI subclass that captures board state, calls the pure-data
  * engine, then executes the returned action.
  */
 UCLASS()
-class QUORIDOR_API AMinimaxBoardAI : public AQuoridorBoard
+class QUORIDOR_API AAI_VS_AI : public AQuoridorBoard
 {
 	GENERATED_BODY()
 
 public:
-	AMinimaxBoardAI();
+	AAI_VS_AI();
 	void BeginPlay();
 
 	virtual void Tick(float DeltaTime) override;
-	void RunMinimaxForParallelAlphaBeta(int32 Player);
 	bool ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length, bool bHorizontal);
-
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
+	int32 AI1_AlgorithmChoice;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
+	int32 AI2_AlgorithmChoice;
 	void RunMinimax(int32 Player, int32 algo);
-	void RunMinimaxForAlphaBeta(int32 Player);
 	UPROPERTY()
 	bool bIsAITurnRunning = false;
 	float ElapsedTime;

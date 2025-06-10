@@ -1,4 +1,4 @@
-﻿#include "MinimaxBoardAI.h"
+﻿#include "AI_VS_AI.h"
 #include "MinimaxEngine.h"
 #include "Quoridor/Board/QuoridorBoard.h"
 #include "Quoridor/Pawn/QuoridorPawn.h"
@@ -7,12 +7,12 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 
-AMinimaxBoardAI::AMinimaxBoardAI()
+AAI_VS_AI::AAI_VS_AI()
 {
     // Enable ticking on this AI board if you plan to do per-frame logic
     PrimaryActorTick.bCanEverTick = true;
 }
-void AMinimaxBoardAI::BeginPlay()
+void AAI_VS_AI::BeginPlay()
 {
     Super::BeginPlay();
 
@@ -21,7 +21,7 @@ void AMinimaxBoardAI::BeginPlay()
     bDelayPassed = false;
     
     // Randomly choose which AI will be Player 1 or Player 2
-    bool bAI1IsPlayer1 = 1;
+    bool bAI1IsPlayer1 = false;
 
     if (bAI1IsPlayer1)
     {
@@ -37,7 +37,7 @@ void AMinimaxBoardAI::BeginPlay()
     }
 }
 
-void AMinimaxBoardAI::Tick(float DeltaTime)
+void AAI_VS_AI::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
@@ -74,7 +74,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI1Player, 3);
+            RunMinimax(AI1Player, AI1_AlgorithmChoice);
         }
         else
         {
@@ -87,7 +87,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
         if (P && P->GetTile())
         {
             bIsAITurnRunning = true;
-            RunMinimax(AI2Player, 4);
+            RunMinimax(AI2Player, AI2_AlgorithmChoice);
         }
         else
         {
@@ -110,7 +110,7 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
 }
 
 // Parallel
-void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
+void AAI_VS_AI::RunMinimax(int32 Player, int32 algo)
 {
     FString SelectedAIType;
     switch (algo)
@@ -222,7 +222,7 @@ void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
     );
 }
 
-float AMinimaxBoardAI::GetTotalThinkingTimeForPlayer(int32 PlayerNum) const
+float AAI_VS_AI::GetTotalThinkingTimeForPlayer(int32 PlayerNum) const
 {
     if (PlayerNum == 1)
         return TotalThinkingTimeP1;
@@ -232,7 +232,7 @@ float AMinimaxBoardAI::GetTotalThinkingTimeForPlayer(int32 PlayerNum) const
     return 0.0f;
 }
 
-bool AMinimaxBoardAI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length, bool bHorizontal)
+bool AAI_VS_AI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length, bool bHorizontal)
 {
     EWallOrientation Orientation = bHorizontal ? EWallOrientation::Horizontal : EWallOrientation::Vertical;
     AWallSlot* StartSlot = FindWallSlotAt(SlotX, SlotY, Orientation);
@@ -309,7 +309,7 @@ bool AMinimaxBoardAI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length
 }
 
 
-void AMinimaxBoardAI::ExecuteAction(const FMinimaxAction& Act)
+void AAI_VS_AI::ExecuteAction(const FMinimaxAction& Act)
 {
     const int32 ActingPlayer = CurrentPlayerTurn;
 
