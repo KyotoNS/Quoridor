@@ -1,6 +1,7 @@
 ﻿
 #include "QuoridorBoard.h"
 
+#include "AI_VS_AI.h"
 #include "EngineUtils.h"
 #include "Quoridor/Pawn/QuoridorPawn.h"
 #include "Quoridor/Wall/WallSlot.h"
@@ -155,7 +156,7 @@ void AQuoridorBoard::SpawnPawn(FIntPoint GridPosition, int32 PlayerNumber)
                 }
 
                 NewPawn->PlayerWalls = RandomWalls;
-            	if (AMinimaxBoardAI* AI = Cast<AMinimaxBoardAI>(this))
+            	if (AAI_VS_AI* AI = Cast<AAI_VS_AI>(this))
             	{
             		if (PlayerNumber == AI->AI1Player || PlayerNumber == AI->AI2Player)
             		{
@@ -243,7 +244,7 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
     }
 
     const bool bIsHumanPlacing = bIsPlacingWall;
-    const bool bIsAIPlacing = !bIsHumanPlacing && IsA(AMinimaxBoardAI::StaticClass());
+    const bool bIsAIPlacing = !bIsHumanPlacing && IsA(AAI_VS_AI::StaticClass());
 
     if (!bIsHumanPlacing && !bIsAIPlacing)
     {
@@ -847,7 +848,7 @@ void AQuoridorBoard::HandleWin(int32 WinningPlayer)
     UE_LOG(LogTemp, Warning, TEXT("%s"), *Message);
 
     // Coba cast board ke AMinimaxBoardAI untuk mengakses properti AI
-    AMinimaxBoardAI* AI = Cast<AMinimaxBoardAI>(this);
+    AAI_VS_AI* AI = Cast<AAI_VS_AI>(this);
 
     // Jika cast berhasil (berarti ini adalah permainan yang melibatkan AI)
     if (AI)
