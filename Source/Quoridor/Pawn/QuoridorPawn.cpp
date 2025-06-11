@@ -158,7 +158,7 @@ void AQuoridorPawn::InitializePawn(ATile* StartTile, AQuoridorBoard* Board)
 	{
 		CurrentTile = StartTile;
 		BoardReference = Board;  // Store the board reference
-		SetActorLocation(StartTile->GetActorLocation() + FVector(0, 0, 50));
+		SetActorLocation(StartTile->GetActorLocation() + FVector(0, 0, 85));
 		StartTile->SetPawnOnTile(this);
 	}
 	UE_LOG(LogTemp, Warning, TEXT("InitializePawn Success: Player %d initialized at tile (%d, %d) with BoardReference set"),
