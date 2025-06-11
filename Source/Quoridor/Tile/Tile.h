@@ -5,6 +5,8 @@
 #include "GameFramework/Actor.h"
 #include "Tile.generated.h"
 
+class AQuoridorPawn;
+
 UCLASS()
 class QUORIDOR_API ATile : public AActor
 {
