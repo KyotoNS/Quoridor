@@ -356,7 +356,7 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
     }
 
     if (SelectedPawn)
-    {
+    { 
        SelectedPawn->RemoveWallOfLength(WallLength);
     }
 
