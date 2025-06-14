@@ -345,8 +345,8 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
     for (int32 i = 0; i < WallLength; ++i)
     {
        FVector SegmentLocation = BaseLocation + (Orientation == EWallOrientation::Horizontal
-          ? FVector(i * TileSize, 0, 100)
-          : FVector(0, i * TileSize, 100));
+          ? FVector(i * TileSize, 0, 0)
+          : FVector(0, i * TileSize, 0));
 
        AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, SegmentLocation, WallRotation);
        if (NewWall)
