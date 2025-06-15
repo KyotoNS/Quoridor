@@ -14,7 +14,7 @@ AQuoridorPawn::AQuoridorPawn()
 
 	SelectionCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("SelectionCollision"));
 	SelectionCollision->SetupAttachment(RootComponent);
-	SelectionCollision->SetBoxExtent(FVector(50, 50, 100));
+	SelectionCollision->SetBoxExtent(FVector(50, 50, 50));
 
 	GridX = 0;
 	GridY = 0;
@@ -158,7 +158,7 @@ void AQuoridorPawn::InitializePawn(ATile* StartTile, AQuoridorBoard* Board)
 	{
 		CurrentTile = StartTile;
 		BoardReference = Board;  // Store the board reference
-		SetActorLocation(StartTile->GetActorLocation() + FVector(0, 0, 85));
+		SetActorLocation(StartTile->GetActorLocation() + FVector(0, 0, 50));
 		StartTile->SetPawnOnTile(this);
 	}
 	UE_LOG(LogTemp, Warning, TEXT("InitializePawn Success: Player %d initialized at tile (%d, %d) with BoardReference set"),
