@@ -296,8 +296,9 @@ bool AMinimaxBoardAI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length
     }
 
     // Advance turn
-    CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
-    SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
+    // CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
+    // SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
+    // SelectedPawn = nullptr;
 
     UE_LOG(LogTemp, Warning, TEXT("[ForcePlaceWallForAI] Wall placed (%d,%d) [%s] L=%d | Turn -> Player %d"),
         SlotX, SlotY, *UEnum::GetValueAsString(Orientation), Length, CurrentPlayerTurn);
@@ -360,6 +361,7 @@ void AMinimaxBoardAI::ExecuteAction(const FMinimaxAction& Act)
     // Advance turn to the other player
     CurrentPlayerTurn = (ActingPlayer == 1) ? 2 : 1;
     SelectedPawn = GetPawnForPlayer(CurrentPlayerTurn);
+    SelectedPawn = nullptr;
     TurnCount++;
     bIsAITurnRunning = false;
 }
