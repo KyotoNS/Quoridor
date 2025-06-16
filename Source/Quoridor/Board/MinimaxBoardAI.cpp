@@ -281,8 +281,8 @@ bool AMinimaxBoardAI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length
     for (int i = 0; i < Length; ++i)
     {
         FVector SegmentLocation = BaseLocation + (bHorizontal
-            ? FVector(i * TileSize, 0, 100)
-            : FVector(0, i * TileSize, 100));
+            ? FVector(i * TileSize, 0, 50)
+            : FVector(0, i * TileSize, 50));
 
         AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, SegmentLocation, WallRotation);
         if (NewWall)

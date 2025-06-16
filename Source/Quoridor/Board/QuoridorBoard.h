@@ -29,6 +29,11 @@ public:
 	UPROPERTY(BlueprintReadWrite, VisibleInstanceOnly)
 	AQuoridorPawn* SelectedPawn;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
+	int32 AI1_AlgorithmChoice;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
+	int32 AI2_AlgorithmChoice;
+	
 	UPROPERTY(BlueprintReadOnly)
 	TArray<EPlayerType> PlayerTypes;
 
