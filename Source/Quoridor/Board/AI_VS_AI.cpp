@@ -21,9 +21,9 @@ void AAI_VS_AI::BeginPlay()
     bDelayPassed = false;
     
     // Randomly choose which AI will be Player 1 or Player 2
-    bool bAI1IsPlayer1 = false;
+    bool AI1IsPlayer1 = bAI1IsPlayer1;
 
-    if (bAI1IsPlayer1)
+    if (AI1IsPlayer1)
     {
         UE_LOG(LogTemp, Warning, TEXT("Random Assignment: AI1 is Player 1, AI2 is Player 2"));
         AI1Player = 1;

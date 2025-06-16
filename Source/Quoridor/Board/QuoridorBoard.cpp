@@ -39,7 +39,6 @@ void AQuoridorBoard::BeginPlay()
 	const float BoardHalfLength = (GridSize * TileSize) / 2.0f;
 	const float HalfTileSize = TileSize / 2.0f;
 	const FVector BoardCenter = GetActorLocation();
-	Depth = 4;
 
 	// // North Wall
 	// SpawnWall(BoardCenter + FVector(0.0f, BoardHalfLength + HalfTileSize, 0.0f), FRotator::ZeroRotator, FVector(GridSize, 1, 1));
@@ -212,6 +211,7 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 		{
 			SelectedPawn->MoveToTile(ClickedTile, false);
 			CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
+			SelectedPawn = nullptr;
 			TurnCount++;
 		}
 

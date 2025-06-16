@@ -2438,26 +2438,26 @@ FMinimaxResult MinimaxEngine::RunSelectedAlgorithm(const FMinimaxState& Initial,
     {
     case 1:
         UE_LOG(LogTemp, Warning,
-            TEXT("RunSelectedAlgorithm: Pilih Plain Parallel Minimax (Choice=1)"));
+            TEXT("RunSelectedAlgorithm: Pilih Plain Parallel Minimax (Choice=1) dengan Depth: %d"), Depth);
         return Max_Minimax(Initial, Depth, PlayerTurn, PlayerTurn, IdealPath);
 
     case 2:
         UE_LOG(LogTemp, Warning,
-            TEXT("RunSelectedAlgorithm: Pilih Serial Minimax dengan Alpha-Beta (Choice=2)"));
+            TEXT("RunSelectedAlgorithm: Pilih Serial Minimax dengan Alpha-Beta (Choice=2 dengan Depth: %d"), Depth);
         // Ganti dengan pemanggilan fungsi yang sesungguhnya, misalnya:
         // return Max_SerialAlphaBeta(Initial, Depth, PlayerTurn, CurrPlayerTurn);
         return Max_ParallelMinimax(Initial, Depth, PlayerTurn, PlayerTurn, IdealPath);
 
     case 3:
         UE_LOG(LogTemp, Warning,
-            TEXT("RunSelectedAlgorithm: Pilih Minimax dengan Alpha-Beta (Choice=3)"));
+        TEXT("RunSelectedAlgorithm: Pilih Minimax dengan Alpha-Beta (Choice=3) dengan Depth: %d"), Depth);
         // Ganti dengan pemanggilan fungsi yang sesungguhnya, misalnya:
         // return Max_ParallelAlphaBeta(Initial, Depth, PlayerTurn, CurrPlayerTurn);
         return Max_MinimaxAlphaBeta(Initial, Depth, PlayerTurn,alpha,beta, PlayerTurn, IdealPath);
         
     case 4:
         UE_LOG(LogTemp, Warning,
-            TEXT("RunSelectedAlgorithm: Pilih Parallel Minimax dengan Alpha-Beta (Choice=4)"));
+            TEXT("RunSelectedAlgorithm: Pilih Parallel Minimax dengan Alpha-Beta (Choice=4) dengan Depth: %d"), Depth);
         // Ganti dengan pemanggilan fungsi yang sesungguhnya, misalnya:
         // return Max_ParallelAlphaBeta(Initial, Depth, PlayerTurn, CurrPlayerTurn);
         return Max_ParallelMinimaxAlphaBeta(Initial, Depth, PlayerTurn,alpha,beta, PlayerTurn, IdealPath);

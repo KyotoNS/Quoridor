@@ -29,16 +29,16 @@ public:
 	bool bIsAITurnRunning = false;
 	float ElapsedTime;
 	bool bDelayPassed;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
 	int AI1Player;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
 	int AI2Player;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
-	bool bAI1IsPlayer1;
 	
 	bool bMinimaxInProgress = false;
 	bool bDelayBeforeNextAI = false;
-	float AITurnDelayTimer = 3.0f;
-	float AITurnDelayDuration = 3.0f; // Change to any delay you want
+	float AITurnDelayTimer = 2.0f;
+	float AITurnDelayDuration = 2.0f; // Change to any delay you want
 
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	float GetTotalThinkingTimeForPlayer(int32 PlayerNum) const;
