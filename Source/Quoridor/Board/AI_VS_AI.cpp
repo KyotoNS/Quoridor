@@ -162,12 +162,12 @@ void AAI_VS_AI::RunMinimax(int32 Player, int32 algo)
                 ThinkingStartTimeP2 = FPlatformTime::Seconds();
             
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 4;
+            int32 defaultDepth = Depth;
 
             // Run the actual minimax on a background thread
-            Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer,Choice]()
+            Async(EAsyncExecution::Thread, [this, StateSnapshot, defaultDepth, AIPlayer,Choice]()
             {
-                FMinimaxResult Action = MinimaxEngine::RunSelectedAlgorithm(StateSnapshot,Depth,AIPlayer,Choice);
+                FMinimaxResult Action = MinimaxEngine::RunSelectedAlgorithm(StateSnapshot,defaultDepth,AIPlayer,Choice);
 
                 // Once SolveParallel finishes, come back to GameThread to execute the move
                 AsyncTask(ENamedThreads::GameThread, [this, Action, AIPlayer]()

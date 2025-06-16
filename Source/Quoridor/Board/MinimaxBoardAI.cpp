@@ -21,9 +21,9 @@ void AMinimaxBoardAI::BeginPlay()
     bDelayPassed = false;
     
     // Randomly choose which AI will be Player 1 or Player 2
-    bool bAI1IsPlayer1 = 1;
+    bool AI1IsPlayer1 = bAI1IsPlayer1;
 
-    if (bAI1IsPlayer1)
+    if (AI1IsPlayer1)
     {
         UE_LOG(LogTemp, Warning, TEXT("Random Assignment: AI1 is Player 1, AI2 is Player 2"));
         AI1Player = 1;
@@ -81,19 +81,19 @@ void AMinimaxBoardAI::Tick(float DeltaTime)
             UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
         }
     }
-    if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
-    {
-        AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
-        if (P && P->GetTile())
-        {
-            bIsAITurnRunning = true;
-            RunMinimax(AI2Player, 4);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
-        }
-    }
+    // if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
+    // {
+    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
+    //     if (P && P->GetTile())
+    //     {
+    //         bIsAITurnRunning = true;
+    //         RunMinimax(AI2Player, 4);
+    //     }
+    //     else
+    //     {
+    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
+    //     }
+    // }
     // if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
     // {
     //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
@@ -162,12 +162,12 @@ void AMinimaxBoardAI::RunMinimax(int32 Player, int32 algo)
                 ThinkingStartTimeP2 = FPlatformTime::Seconds();
             
             FMinimaxState StateSnapshot = FMinimaxState::FromBoard(this);
-            int32 Depth = 4;
+            int32 defaultDepth = Depth;
 
             // Run the actual minimax on a background thread
-            Async(EAsyncExecution::Thread, [this, StateSnapshot, Depth, AIPlayer,Choice]()
+            Async(EAsyncExecution::Thread, [this, StateSnapshot, defaultDepth, AIPlayer,Choice]()
             {
-                FMinimaxResult Action = MinimaxEngine::RunSelectedAlgorithm(StateSnapshot,Depth,AIPlayer,Choice);
+                FMinimaxResult Action = MinimaxEngine::RunSelectedAlgorithm(StateSnapshot,defaultDepth,AIPlayer,Choice);
 
                 // Once SolveParallel finishes, come back to GameThread to execute the move
                 AsyncTask(ENamedThreads::GameThread, [this, Action, AIPlayer]()

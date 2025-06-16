@@ -31,6 +31,10 @@ public:
 	bool bDelayPassed;
 	int AI1Player;
 	int AI2Player;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
+	bool bAI1IsPlayer1;
+	
 	bool bMinimaxInProgress = false;
 	bool bDelayBeforeNextAI = false;
 	float AITurnDelayTimer = 3.0f;
