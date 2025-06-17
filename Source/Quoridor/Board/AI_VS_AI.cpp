@@ -261,8 +261,8 @@ bool AAI_VS_AI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length, bool
     for (int i = 0; i < Length; ++i)
     {
         FVector SegmentLocation = BaseLocation + (bHorizontal
-            ? FVector(i * TileSize, 0, 50)
-            : FVector(0, i * TileSize, 50));
+            ? FVector(i * TileSize, 0, 0)
+            : FVector(0, i * TileSize, 0));
 
         AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, SegmentLocation, WallRotation);
         if (NewWall)

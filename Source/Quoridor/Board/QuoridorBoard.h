@@ -149,6 +149,8 @@ protected:
 
 	UFUNCTION(BlueprintCallable, Category="Walls")
 	int32 GetCurrentPlayerWallCount(int32 WallLength) const;
+	UFUNCTION(BlueprintCallable, Category="Walls")
+	int32 GetWallCountForPlayer(int32 PlayerNum, int32 WallLength) const;
 	UFUNCTION(BlueprintCallable)
 	void HideWallPreview();
 	

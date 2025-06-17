@@ -495,7 +495,24 @@ int32 AQuoridorBoard::GetCurrentPlayerWallCount(int32 WallLength) const
 	}
 	return 0;
 }
+int32 AQuoridorBoard::GetWallCountForPlayer(int32 PlayerNum, int32 WallLength) const
+{
+	// Loop melalui semua aktor AQuoridorPawn di dalam world
+	for (TActorIterator<AQuoridorPawn> It(GetWorld()); It; ++It)
+	{
+		AQuoridorPawn* Pawn = *It;
 
+		// Cek apakah pion ini adalah milik pemain yang kita cari (sesuai parameter)
+		if (Pawn && Pawn->PlayerNumber == PlayerNum) // <-- PERUBAHAN UTAMA DI SINI
+		{
+			// Jika ya, panggil fungsi di pion tersebut dan kembalikan hasilnya
+			return Pawn->GetWallCountOfLength(WallLength);
+		}
+	}
+
+	// Jika setelah loop selesai pion untuk pemain tersebut tidak ditemukan, kembalikan 0
+	return 0;
+}
 void AQuoridorBoard::ShowWallPreviewAtSlot(AWallSlot* HoveredSlot)
 {
 	if (!bIsPlacingWall || !HoveredSlot || !WallPreviewClass) return;
