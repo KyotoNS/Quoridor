@@ -38,7 +38,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Settings")
 	bool bAI1IsPlayer1;
-	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio")
+	USoundBase* PawnMoveSound;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio")
+	USoundBase* WallClickSound;
 	UPROPERTY(BlueprintReadOnly)
 	TArray<EPlayerType> PlayerTypes;
 

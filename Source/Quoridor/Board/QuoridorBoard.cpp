@@ -7,6 +7,7 @@
 #include "Quoridor/Wall/WallSlot.h"
 #include "Quoridor/Wall/WallDefinition.h"
 #include "Quoridor/Board/MinimaxBoardAI.h"
+#include "Kismet/GameplayStatics.h"
 #include "Quoridor/Tile/Tile.h"
 #include "Engine/World.h"
 #include "Quoridor/Board/MinimaxEngine.h"
@@ -209,6 +210,10 @@ void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 
 		if (bIsAI || SelectedPawn->CanMoveToTile(ClickedTile))
 		{
+			if (PawnMoveSound)
+			{
+				UGameplayStatics::PlaySound2D(this, PawnMoveSound);
+			}
 			SelectedPawn->MoveToTile(ClickedTile, false);
 			CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
 			SelectedPawn = nullptr;
@@ -333,11 +338,10 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
         return false;
     }
 
-    // 5. If we reach here, the placement is legal. The slots are already marked as occupied
-    //    from the simulation, so we can just proceed with spawning the wall.
-    // =======================================================================
-    // ======================= END OF NEW LOGIC ==============================
-    // =======================================================================
+	if (WallClickSound)
+	{
+		UGameplayStatics::PlaySound2D(this, WallClickSound);
+	}
 
     // Visual wall placement
     FVector BaseLocation = StartSlot->GetActorLocation();

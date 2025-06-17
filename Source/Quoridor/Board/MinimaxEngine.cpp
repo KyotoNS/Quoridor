@@ -1838,31 +1838,31 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
         }
     }
 
-    // if (bestAction.bIsWall)
-    // {
-    //     // UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
-    //     //     bestAction.SlotX, bestAction.SlotY,
-    //     //     bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
-    // }
-    // else
-    // {
-    //     // Jika IdealPath tersedia, cari move yang cocok dengan langkah berikutnya (IdealPath[1])
-    //     if (IdealPath.Num() > 1)
-    //     {
-    //         const FIntPoint& NextStep = IdealPath[1];
-    //         for (const FMinimaxAction& Move : AllMoveActions)
-    //         {
-    //             if (Move.MoveX == NextStep.X && Move.MoveY == NextStep.Y)
-    //             {
-    //                 bestAction = Move;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    //
-    //     // UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
-    //     //     bestAction.MoveX, bestAction.MoveY);
-    // }
+    if (bestAction.bIsWall)
+    {
+        // UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+        //     bestAction.SlotX, bestAction.SlotY,
+        //     bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+    }
+    else
+    {
+        // Jika IdealPath tersedia, cari move yang cocok dengan langkah berikutnya (IdealPath[1])
+        if (IdealPath.Num() > 1)
+        {
+            const FIntPoint& NextStep = IdealPath[1];
+            for (const FMinimaxAction& Move : AllMoveActions)
+            {
+                if (Move.MoveX == NextStep.X && Move.MoveY == NextStep.Y)
+                {
+                    bestAction = Move;
+                    break;
+                }
+            }
+        }
+    
+        // UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+        //     bestAction.MoveX, bestAction.MoveY);
+    }
     
 
     // for (const auto& Pair : BestHistory)

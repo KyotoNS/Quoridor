@@ -2,6 +2,7 @@
 #include "MinimaxEngine.h"
 #include "Quoridor/Board/QuoridorBoard.h"
 #include "Quoridor/Pawn/QuoridorPawn.h"
+#include "Kismet/GameplayStatics.h"
 #include "Quoridor/tile/Tile.h"
 #include "Quoridor/Wall/WallSlot.h"
 #include "Engine/World.h"
@@ -21,9 +22,8 @@ void AAI_VS_AI::BeginPlay()
     bDelayPassed = false;
     
     // Randomly choose which AI will be Player 1 or Player 2
-    bool AI1IsPlayer1 = bAI1IsPlayer1;
 
-    if (AI1IsPlayer1)
+    if (bAI1IsPlayer1)
     {
         UE_LOG(LogTemp, Warning, TEXT("Random Assignment: AI1 is Player 1, AI2 is Player 2"));
         AI1Player = 1;
@@ -55,19 +55,6 @@ void AAI_VS_AI::Tick(float DeltaTime)
         UE_LOG(LogTemp, Warning, TEXT("AI logic delay passed, starting AI..."));
     }
     
-    // if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
-    // {
-    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
-    //     if (P && P->GetTile())
-    //     {
-    //         bIsAITurnRunning = true;
-    //         RunMinimaxForParallelAlphaBeta(AI1Player);
-    //     }
-    //     else
-    //     {
-    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
-    //     }
-    // }
     if (bDelayPassed && CurrentPlayerTurn == AI1Player && !bIsAITurnRunning)
     {
         AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
@@ -94,19 +81,6 @@ void AAI_VS_AI::Tick(float DeltaTime)
             UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
         }
     }
-    // if (bDelayPassed && CurrentPlayerTurn == AI2Player && !bIsAITurnRunning)
-    // {
-    //     AQuoridorPawn* P = GetPawnForPlayer(CurrentPlayerTurn);
-    //     if (P && P->GetTile())
-    //     {
-    //         bIsAITurnRunning = true;
-    //         RunMinimaxForAlphaBeta(AI2Player);
-    //     }
-    //     else
-    //     {
-    //         UE_LOG(LogTemp, Warning, TEXT("AI pawn not ready yet"));
-    //     }
-    // }
 }
 
 // Parallel
@@ -265,6 +239,7 @@ bool AAI_VS_AI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length, bool
 
         AffectedSlots.Add(NextSlot);
     }
+    
 
     // Mark slots as occupied
     for (AWallSlot* Slot : AffectedSlots)
@@ -272,6 +247,11 @@ bool AAI_VS_AI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length, bool
         Slot->SetOccupied(true);
         UE_LOG(LogTemp, Warning, TEXT("Wall segment marked occupied at (%d,%d) [%s]"),
             Slot->GridX, Slot->GridY, *UEnum::GetValueAsString(Orientation));
+    }
+    
+    if (WallClickSound)
+    {
+        UGameplayStatics::PlaySound2D(this, WallClickSound);
     }
 
     // Spawn visual wall mesh segments
@@ -347,6 +327,10 @@ void AAI_VS_AI::ExecuteAction(const FMinimaxAction& Act)
             if (Pawn && TargetTile)
             {
                 UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Player %d moving to tile (%d, %d)"), ActingPlayer, Act.MoveX, Act.MoveY);
+                if (PawnMoveSound)
+                {
+                    UGameplayStatics::PlaySound2D(this, PawnMoveSound);
+                }
                 Pawn->MoveToTile(TargetTile, true);  // Skip CanMoveToTile check for AI
             }
             else

@@ -2,6 +2,7 @@
 #include "MinimaxEngine.h"
 #include "Quoridor/Board/QuoridorBoard.h"
 #include "Quoridor/Pawn/QuoridorPawn.h"
+#include "Kismet/GameplayStatics.h"
 #include "Quoridor/tile/Tile.h"
 #include "Quoridor/Wall/WallSlot.h"
 #include "Engine/World.h"
@@ -270,6 +271,11 @@ bool AMinimaxBoardAI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length
         UE_LOG(LogTemp, Warning, TEXT("Wall segment marked occupied at (%d,%d) [%s]"),
             Slot->GridX, Slot->GridY, *UEnum::GetValueAsString(Orientation));
     }
+    
+    if (WallClickSound)
+    {
+        UGameplayStatics::PlaySound2D(this, WallClickSound);
+    }
 
     // Spawn visual wall mesh segments
     FVector BaseLocation = StartSlot->GetActorLocation();
@@ -278,8 +284,8 @@ bool AMinimaxBoardAI::ForcePlaceWallForAI(int32 SlotX, int32 SlotY, int32 Length
     for (int i = 0; i < Length; ++i)
     {
         FVector SegmentLocation = BaseLocation + (bHorizontal
-            ? FVector(i * TileSize, 0, 50)
-            : FVector(0, i * TileSize, 50));
+            ? FVector(i * TileSize, 0, 0)
+            : FVector(0, i * TileSize, 0));
 
         AActor* NewWall = GetWorld()->SpawnActor<AActor>(WallPlacementClass, SegmentLocation, WallRotation);
         if (NewWall)
@@ -345,6 +351,10 @@ void AMinimaxBoardAI::ExecuteAction(const FMinimaxAction& Act)
             if (Pawn && TargetTile)
             {
                 UE_LOG(LogTemp, Warning, TEXT("ExecuteAction: Player %d moving to tile (%d, %d)"), ActingPlayer, Act.MoveX, Act.MoveY);
+                if (PawnMoveSound)
+                {
+                    UGameplayStatics::PlaySound2D(this, PawnMoveSound);
+                }
                 Pawn->MoveToTile(TargetTile, true);  // Skip CanMoveToTile check for AI
             }
             else
