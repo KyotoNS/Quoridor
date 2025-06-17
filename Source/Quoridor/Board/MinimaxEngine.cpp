@@ -1840,9 +1840,9 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
 
     if (bestAction.bIsWall)
     {
-        // UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
-        //     bestAction.SlotX, bestAction.SlotY,
-        //     bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+        UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+            bestAction.SlotX, bestAction.SlotY,
+            bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
     }
     else
     {

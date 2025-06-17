@@ -64,93 +64,46 @@ void AQuoridorPawn::MoveToTile(ATile* NewTile, bool bForceMove)
 }
 
 
+// Di dalam file QuoridorPawn.cpp
+
 bool AQuoridorPawn::CanMoveToTile(const ATile* TargetTile) const
 {
-    if (!TargetTile || !CurrentTile || !BoardReference)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile: Invalid input (TargetTile, CurrentTile, or BoardReference is nullptr)"));
-        return false;
-    }
+	// Langkah 1: Lakukan pengecekan dasar (selalu merupakan ide bagus)
+	if (!TargetTile || !BoardReference)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CanMoveToTile: TargetTile or BoardReference is null!"));
+		return false;
+	}
 
-    if (TargetTile->IsOccupied())
-    {
-        UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile: TargetTile (%d, %d) is occupied"), TargetTile->GridX, TargetTile->GridY);
-        return false;
-    }
+	// Langkah 2: Buat "snapshot" dari kondisi papan permainan saat ini
+	// Fungsi ini harus ada di struct FMinimaxState Anda untuk mengonversi board nyata ke state AI.
+	const FMinimaxState CurrentState = FMinimaxState::FromBoard(BoardReference);
 
-    // Step 1: Periksa langkah normal (ke petak tetangga yang terhubung)
-    if (CurrentTile->ConnectedTiles.Contains(TargetTile))
-    {
-        UE_LOG(LogTemp, Log, TEXT("CanMoveToTile: Normal move to (%d, %d) is valid"), TargetTile->GridX, TargetTile->GridY);
-        return true;
-    }
+	// Langkah 3: Dapatkan SEMUA kemungkinan gerakan yang sah untuk pion ini dari MinimaxEngine
+	// Engine akan menangani semua aturan rumit (lompatan, blokade tembok, dll.)
+	const TArray<FIntPoint> PossibleMoves = MinimaxEngine::GetPawnMoves(CurrentState, this->PlayerNumber);
 
-    // Step 2: Periksa lompatan melewati pion lawan
-    for (ATile* Neighbor : CurrentTile->ConnectedTiles)
-    {
-        if (!Neighbor || !Neighbor->IsOccupied())
-            continue;
+	// Langkah 4: Buat FIntPoint untuk tile yang ingin kita tuju
+	const FIntPoint TargetCoords(TargetTile->GridX, TargetTile->GridY);
 
-        AQuoridorPawn* OtherPawn = Neighbor->PawnOnTile;
-        if (!OtherPawn || OtherPawn == this)
-            continue;
+	// Langkah 5: Periksa apakah koordinat target ada di dalam daftar gerakan yang memungkinkan
+	// Fungsi TArray::Contains() akan melakukan semua pekerjaan untuk kita.
+	const bool bIsMoveValid = PossibleMoves.Contains(TargetCoords);
 
-        // Pion lawan ditemukan di petak tetangga
-        int32 NDeltaX = Neighbor->GridX - CurrentTile->GridX;
-        int32 NDeltaY = Neighbor->GridY - CurrentTile->GridY;
+	// (Opsional tapi membantu) Tambahkan log untuk melihat hasilnya
+	if (bIsMoveValid)
+	{
+		UE_LOG(LogTemp, Log, TEXT("CanMoveToTile: Move to (%d, %d) is VALID based on GetPawnMoves result."), TargetCoords.X, TargetCoords.Y);
+	}
+	else
+	{
+		// Log ini bisa dinonaktifkan jika terlalu ramai di console
+		// UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile: Move to (%d, %d) is INVALID."), TargetCoords.X, TargetCoords.Y);
+	}
 
-        // Tentukan petak di belakang pion lawan (lompatan lurus)
-        int32 BehindX = Neighbor->GridX + NDeltaX;
-        int32 BehindY = Neighbor->GridY + NDeltaY;
-        bool bJumpPossible = false;
-
-        // Periksa apakah petak di belakang valid
-        if (BehindX >= 0 && BehindX < BoardReference->GridSize && BehindY >= 0 && BehindY < BoardReference->GridSize)
-        {
-            ATile* BehindTile = BoardReference->Tiles[BehindY][BehindX];
-            if (BehindTile && !BehindTile->IsOccupied() && Neighbor->ConnectedTiles.Contains(BehindTile))
-            {
-                bJumpPossible = true;
-                // Jika TargetTile adalah petak di belakang, lompatan lurus valid
-                if (TargetTile == BehindTile)
-                {
-                    UE_LOG(LogTemp, Log, TEXT("CanMoveToTile: Straight jump to (%d, %d) is valid"), TargetTile->GridX, TargetTile->GridY);
-                    return true;
-                }
-            }
-        }
-
-        // Step 3: Periksa side step jika lompatan lurus tidak memungkinkan
-        if (!bJumpPossible)
-        {
-            for (ATile* SideTile : Neighbor->ConnectedTiles)
-            {
-                if (!SideTile || SideTile == CurrentTile || SideTile->IsOccupied())
-                    continue;
-
-                // Pastikan side step adalah kiri/kanan relatif terhadap arah lompatan
-                bool bIsSideStep = false;
-                if (NDeltaX != 0) // Lompatan horizontal, side step adalah vertikal (kiri/kanan)
-                {
-                    bIsSideStep = (SideTile->GridX == Neighbor->GridX && SideTile->GridY != Neighbor->GridY);
-                }
-                else if (NDeltaY != 0) // Lompatan vertikal, side step adalah horizontal (kiri/kanan)
-                {
-                    bIsSideStep = (SideTile->GridY == Neighbor->GridY && SideTile->GridX != Neighbor->GridX);
-                }
-
-                if (bIsSideStep && SideTile == TargetTile)
-                {
-                    UE_LOG(LogTemp, Log, TEXT("CanMoveToTile: Side step to (%d, %d) is valid"), SideTile->GridX, SideTile->GridY);
-                    return true;
-                }
-            }
-        }
-    }
-
-    UE_LOG(LogTemp, Warning, TEXT("CanMoveToTile: No valid move to (%d, %d)"), TargetTile->GridX, TargetTile->GridY);
-    return false;
+	return bIsMoveValid;
 }
+
 
 void AQuoridorPawn::InitializePawn(ATile* StartTile, AQuoridorBoard* Board)
 {

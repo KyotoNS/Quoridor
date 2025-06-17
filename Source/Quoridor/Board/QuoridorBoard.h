@@ -57,6 +57,7 @@ public:
 	TArray<TArray<ATile*>> Tiles;
 	UFUNCTION(BlueprintCallable)
 	void Debug_PrintOccupiedWalls() const;
+	
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TArray<AQuoridorPawn*> Pawns;
@@ -70,9 +71,7 @@ public:
 	
 	UPROPERTY(VisibleAnywhere)
 	TArray<AWallSlot*> VerticalWallSlots;
-	
-	UFUNCTION(BlueprintCallable)
-	AWallSlot* FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation);
+	AWallSlot* FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation)const;
 	
 	UFUNCTION(BlueprintCallable)
 	bool IsPathAvailableForPawn(AQuoridorPawn* Pawn);
@@ -123,6 +122,7 @@ protected:
     
     UFUNCTION(BlueprintCallable, Category = "Wall")
     bool TryPlaceWall(AWallSlot* StartSlot, int32 WallLength);
+	
 
 	bool bIsPlacingWall = false;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly)

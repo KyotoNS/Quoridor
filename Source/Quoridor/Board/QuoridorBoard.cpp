@@ -204,23 +204,45 @@ void AQuoridorBoard::HandlePawnClick(AQuoridorPawn* ClickedPawn)
 
 void AQuoridorBoard::HandleTileClick(ATile* ClickedTile)
 {
-	if (SelectedPawn && ClickedTile)
+	// Hanya proses jika ada pion yang dipilih dan tile yang valid
+	if (!SelectedPawn || !ClickedTile)
 	{
-		bool bIsAI = (SelectedPawn == GetPawnForPlayer(2));
+		return;
+	}
 
-		if (bIsAI || SelectedPawn->CanMoveToTile(ClickedTile))
+	// Cek apakah gerakan valid menggunakan fungsi CanMoveToTile
+	if (SelectedPawn->CanMoveToTile(ClickedTile))
+	{
+		// --- GERAKAN VALID ---
+		UE_LOG(LogTemp, Log, TEXT("HandleTileClick: Move is valid. Executing..."));
+
+		// Mainkan suara
+		if (PawnMoveSound)
 		{
-			if (PawnMoveSound)
-			{
-				UGameplayStatics::PlaySound2D(this, PawnMoveSound);
-			}
-			SelectedPawn->MoveToTile(ClickedTile, false);
-			CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
-			SelectedPawn = nullptr;
-			TurnCount++;
+			UGameplayStatics::PlaySound2D(this, PawnMoveSound);
 		}
 
+		// Pindahkan pion
+		SelectedPawn->MoveToTile(ClickedTile, false);
+
+		// Ganti giliran
+		CurrentPlayerTurn = (CurrentPlayerTurn == 1) ? 2 : 1;
+		TurnCount++;
+
+		// Bersihkan seleksi HANYA SETELAH aksi berhasil
 		ClearSelection();
+	}
+	else
+	{
+		// --- GERAKAN TIDAK VALID ---
+		// Biarkan pion tetap terpilih agar pemain bisa mencoba lagi.
+		// Jangan panggil ClearSelection() di sini.
+		// Anda bisa memberikan feedback ke pemain.
+		UE_LOG(LogTemp, Warning, TEXT("HandleTileClick: Move is invalid."));
+		GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Red, TEXT("Gerakan tidak valid!"));
+        
+		// Anda juga bisa memainkan suara "error" di sini jika punya
+		// if (ErrorSound) { UGameplayStatics::PlaySound2D(this, ErrorSound); }
 	}
 }
 
@@ -378,17 +400,35 @@ bool AQuoridorBoard::TryPlaceWall(AWallSlot* StartSlot, int32 WallLength)
 }
 
 
-AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation)
+AWallSlot* AQuoridorBoard::FindWallSlotAt(int32 X, int32 Y, EWallOrientation Orientation) const
 {
-	const TArray<AWallSlot*>& SlotList = (Orientation == EWallOrientation::Horizontal) ? HorizontalWallSlots : VerticalWallSlots;
+	// Buat sebuah pointer yang akan menunjuk ke TArray yang benar.
+	// Pointer ini menunjuk ke sebuah TArray konstan.
+	const TArray<AWallSlot*>* pSlotList = nullptr;
 
-	for (AWallSlot* Slot : SlotList)
+	if (Orientation == EWallOrientation::Horizontal)
 	{
-		if (Slot && Slot->GridX == X && Slot->GridY == Y)
+		// Arahkan pointer ke HorizontalWallSlots
+		pSlotList = &HorizontalWallSlots;
+	}
+	else
+	{
+		// Arahkan pointer ke VerticalWallSlots
+		pSlotList = &VerticalWallSlots;
+	}
+
+	// Selalu baik untuk memeriksa apakah pointer valid sebelum digunakan
+	if (pSlotList)
+	{
+		// Gunakan operator dereference (*) untuk mengakses isi TArray yang ditunjuk oleh pointer
+		for (AWallSlot* Slot : *pSlotList)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("FindWallSlotAt => Found Slot at (%d, %d) [%s] => Ptr: %p"),
-				X, Y, *UEnum::GetValueAsString(Orientation), Slot);
-			return Slot;
+			if (Slot && Slot->GridX == X && Slot->GridY == Y)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("FindWallSlotAt => Found Slot at (%d, %d) [%s] => Ptr: %p"),
+					X, Y, *UEnum::GetValueAsString(Orientation), Slot);
+				return Slot;
+			}
 		}
 	}
 
