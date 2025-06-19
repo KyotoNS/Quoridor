@@ -40,6 +40,8 @@ void AQuoridorBoard::BeginPlay()
 	const float BoardHalfLength = (GridSize * TileSize) / 2.0f;
 	const float HalfTileSize = TileSize / 2.0f;
 	const FVector BoardCenter = GetActorLocation();
+	bIsGameFinished = false;
+	WinningTurn = 0;
 
 	// // North Wall
 	// SpawnWall(BoardCenter + FVector(0.0f, BoardHalfLength + HalfTileSize, 0.0f), FRotator::ZeroRotator, FVector(GridSize, 1, 1));
@@ -900,9 +902,18 @@ void AQuoridorBoard::RevertWallBlock(const TMap<TPair<ATile*, ATile*>, bool>& Re
 
 void AQuoridorBoard::HandleWin(int32 WinningPlayer)
 {
+	
+	if (bIsGameFinished)
+	{
+		return;
+	}
+	bIsGameFinished = true;
+	WinningTurn = TurnCount;
+	
     // Pemeriksaan awal untuk memastikan world valid
     if (!IsValid(this) || GetWorld() == nullptr)
        return;
+	
 
     // Tampilkan pesan kemenangan di layar dan di log
     FString Message = FString::Printf(TEXT("PLAYER %d WINS!"), WinningPlayer);
@@ -1113,7 +1124,15 @@ void AQuoridorBoard::SaveLosingAIStatsToTextFile(int32 WinningPlayer, const FStr
 	UE_LOG(LogTemp, Warning, TEXT("Appended to AILosingStatsLog.txt: %s"), *LogText);
 }
 
+bool AQuoridorBoard::IsGameFinished() const
+{
+	return bIsGameFinished;
+}
 
+int32 AQuoridorBoard::GetWinningTurn() const
+{
+	return WinningTurn;
+}
 
 
 

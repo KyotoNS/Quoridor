@@ -68,6 +68,17 @@ public:
 	
 	UPROPERTY(VisibleAnywhere)
 	TArray<AWallSlot*> HorizontalWallSlots;
+
+	/** Menyimpan status apakah permainan telah berakhir atau masih berjalan. */
+	UPROPERTY(BlueprintReadOnly, Category = "Quoridor|Game State")
+	bool bIsGameFinished;
+	UFUNCTION(BlueprintPure, Category = "Quoridor|Game State")
+	bool IsGameFinished() const;
+	UFUNCTION(BlueprintPure, Category = "Quoridor|Game State")
+	int32 GetWinningTurn() const;
+	/** Menyimpan nomor giliran (TurnCount) saat permainan dimenangkan. */
+	UPROPERTY(BlueprintReadOnly, Category = "Quoridor|Game State")
+	int32 WinningTurn;
 	
 	UPROPERTY(VisibleAnywhere)
 	TArray<AWallSlot*> VerticalWallSlots;
@@ -123,7 +134,7 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "Wall")
     bool TryPlaceWall(AWallSlot* StartSlot, int32 WallLength);
 	
-
+	
 	bool bIsPlacingWall = false;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly)
 	int32 PendingWallLength = 0;
