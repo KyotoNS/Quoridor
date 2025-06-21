@@ -2443,7 +2443,7 @@ FMinimaxResult MinimaxEngine::RunSelectedAlgorithm(const FMinimaxState& Initial,
 
     case 2:
         UE_LOG(LogTemp, Warning,
-            TEXT("RunSelectedAlgorithm: Pilih Serial Minimax dengan Alpha-Beta (Choice=2 dengan Depth: %d"), Depth);
+            TEXT("RunSelectedAlgorithm: Pilih Parallel Minimax (Choice=2 dengan Depth: %d"), Depth);
         // Ganti dengan pemanggilan fungsi yang sesungguhnya, misalnya:
         // return Max_SerialAlphaBeta(Initial, Depth, PlayerTurn, CurrPlayerTurn);
         return Max_ParallelMinimax(Initial, Depth, PlayerTurn, PlayerTurn, IdealPath);
