@@ -497,6 +497,31 @@ int32 AQuoridorBoard::GetCurrentPlayerWallCount(int32 WallLength) const
 	}
 	return 0;
 }
+int32 AQuoridorBoard::GetPlayerTotalWallCount(int32 PlayerNumber) const
+{
+	// Memeriksa jika nomor pemain yang diberikan valid (opsional, tapi praktik yang baik)
+	if (PlayerNumber <= 0)
+	{
+		return 0; // Nomor pemain tidak valid
+	}
+
+	// Melakukan iterasi pada semua AQuoridorPawn di dalam world
+	for (TActorIterator<AQuoridorPawn> It(GetWorld()); It; ++It)
+	{
+		AQuoridorPawn* Pawn = *It;
+
+		// Memeriksa apakah Pawn valid dan PlayerNumber-nya cocok dengan yang dicari
+		if (Pawn && Pawn->PlayerNumber == PlayerNumber)
+		{
+			// Jika cocok, kembalikan total jumlah dinding dari Pawn tersebut.
+			// Fungsi ini bergantung pada GetTotalWallCount() di kelas AQuoridorPawn.
+			return Pawn->GetTotalWallCount();
+		}
+	}
+
+	// Mengembalikan 0 jika Pawn dengan PlayerNumber tersebut tidak ditemukan
+	return 0;
+}
 int32 AQuoridorBoard::GetWallCountForPlayer(int32 PlayerNum, int32 WallLength) const
 {
 	// Loop melalui semua aktor AQuoridorPawn di dalam world
@@ -908,21 +933,21 @@ void AQuoridorBoard::HandleWin(int32 WinningPlayer)
 		return;
 	}
 	bIsGameFinished = true;
-	WinningTurn = TurnCount;
+	
+	WinningTurn = WinningPlayer;
 	
     // Pemeriksaan awal untuk memastikan world valid
     if (!IsValid(this) || GetWorld() == nullptr)
        return;
-	
-
+		
     // Tampilkan pesan kemenangan di layar dan di log
     FString Message = FString::Printf(TEXT("PLAYER %d WINS!"), WinningPlayer);
     GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, Message);
     UE_LOG(LogTemp, Warning, TEXT("%s"), *Message);
 
-    // Coba cast board ke AMinimaxBoardAI untuk mengakses properti AI
+    // Coba cast board ke untuk mengakses properti AI
     AAI_VS_AI* AI = Cast<AAI_VS_AI>(this);
-
+	
     // Jika cast berhasil (berarti ini adalah permainan yang melibatkan AI)
     if (AI)
     {

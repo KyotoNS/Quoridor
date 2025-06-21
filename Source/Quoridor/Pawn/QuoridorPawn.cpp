@@ -140,7 +140,11 @@ int32 AQuoridorPawn::GetWallCountOfLength(int32 Length) const
 	}
 	return Count;
 }
-
+int32 AQuoridorPawn::GetTotalWallCount() const
+{
+	
+	return GetWallCountOfLength(1)+GetWallCountOfLength(2) + GetWallCountOfLength(3); 
+}
 bool AQuoridorPawn::RemoveWallOfLength(int32 Length)
 {
 	for (int32 i = 0; i < PlayerWalls.Num(); ++i)
