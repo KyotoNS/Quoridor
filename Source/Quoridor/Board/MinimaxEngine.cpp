@@ -1754,9 +1754,9 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
     if (Depth == 0 || AILenCheck <= 0 || OppLenCheck <= 0)
     {
         // Kembalikan result: action kosong saja, value dari Evaluate
-        // UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Max_MinimaxAlphaBeta"));
+        UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Max_MinimaxAlphaBeta"));
         int32 eval = Evaluate(S, currturn, IdealPath);
-        // UE_LOG(LogTemp, Warning, TEXT("Out Max_MinimaxAlphaBeta:, Return Evaluate = %d"), eval);
+        UE_LOG(LogTemp, Warning, TEXT("Out Max_MinimaxAlphaBeta:, Return Evaluate = %d"), eval);
         return FMinimaxResult(FMinimaxAction(), eval);
     }
 
@@ -1765,7 +1765,7 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
         TArray<FIntPoint> PawnMoves = GetPawnMoves(S, RootPlayer);
         for (const auto& mv : PawnMoves)
         {
-            // UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate: (%d, %d)"), mv.X, mv.Y);
+            UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate: (%d, %d)"), mv.X, mv.Y);
             Candidates.Add(FMinimaxAction(mv.X, mv.Y));
         }
     }
@@ -1825,7 +1825,63 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
         alpha = FMath::Max(alpha, v);
 
         if (beta <= alpha)
+        {
+            // // --- START: MODIFIED CODE FOR DETAILED PRUNING LOG ---
+            //
+            // // 1. Describe the action that TRIGGERED the prune
+            // FString PruningTriggerDescription;
+            // if (act.bIsWall)
+            // {
+            //     PruningTriggerDescription = FString::Printf(
+            //         TEXT("Wall@(%d,%d) %s"),
+            //         act.SlotX, act.SlotY,
+            //         act.bHorizontal ? TEXT("H") : TEXT("V")
+            //     );
+            // }
+            // else
+            // {
+            //     PruningTriggerDescription = FString::Printf(
+            //         TEXT("Move(%d,%d)"),
+            //         act.MoveX, act.MoveY
+            //     );
+            // }
+            //
+            // UE_LOG(LogTemp, Warning, TEXT(">> Alpha-Beta Pruning Triggered in MAX Node! Beta (%d) <= Alpha (%d)"), beta, alpha);
+            // UE_LOG(LogTemp, Warning, TEXT("   Triggered by Candidate: [%s] with value %d"), *PruningTriggerDescription, v);
+            //
+            // // 2. Describe the best action found so far at this node, which is now being discarded
+            // // Note: bestValue is a TAtomic, so we use .Load() to safely read it.
+            // if (bestValue.Load() != INT_MIN)
+            // {
+            //     FString LastBestDescription;
+            //     if (bestAction.bIsWall)
+            //     {
+            //         LastBestDescription = FString::Printf(
+            //             TEXT("Wall@(%d,%d) %s"),
+            //             bestAction.SlotX, bestAction.SlotY,
+            //             bestAction.bHorizontal ? TEXT("H") : TEXT("V")
+            //         );
+            //     }
+            //     else
+            //     {
+            //         LastBestDescription = FString::Printf(
+            //             TEXT("Move(%d,%d)"),
+            //             bestAction.MoveX, bestAction.MoveY
+            //         );
+            //     }
+            //     UE_LOG(LogTemp, Warning, TEXT("   The previous 'Best Candidate' at this node was: [%s] with value %d"), *LastBestDescription, bestValue.Load());
+            // }
+            // else
+            // {
+            //     // This case happens if the very first candidate checked triggers the prune.
+            //     UE_LOG(LogTemp, Warning, TEXT("   No 'Best Candidate So Far' had been established at this node yet."));
+            // }
+            //
+            // UE_LOG(LogTemp, Warning, TEXT("   Pruning all further sibling candidates at this level."));
+
+            // --- END: MODIFIED CODE ---
             break;
+        }
         
         // UE_LOG(LogTemp, Warning, TEXT("out Max_MinimaxAlphabeta"));
     }
@@ -1867,55 +1923,55 @@ FMinimaxResult MinimaxEngine::Max_MinimaxAlphaBeta(const FMinimaxState& S, int32
     }
     
 
-    for (const auto& Pair : BestHistory)
-    {
-        const FMinimaxAction& Act       = Pair.Key;
-        const int32         Value       = Pair.Value;
-        FString Description;
-    
-        if (Act.bIsWall)
-        {
-            Description = FString::Printf(
-                TEXT("Wall@(%d,%d) %s Len=%d"),
-                Act.SlotX, Act.SlotY,
-                Act.bHorizontal ? TEXT("H") : TEXT("V"),
-                Act.WallLength
-            );
-        }
-        else
-        {
-            Description = FString::Printf(
-                TEXT("Move(%d,%d)"),
-                Act.MoveX, Act.MoveY
-            );
-        }
-    
-    
-        UE_LOG(
-            LogTemp, Warning,
-            TEXT("[History] Candidate MAX: %s  → Value = %d"),
-            *Description,
-            Value
-        );
-    }   
-    
-    if (bestAction.bIsWall)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
-            bestAction.SlotX, bestAction.SlotY,
-            bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
-            bestAction.MoveX, bestAction.MoveY);
-    }
-    
-    UE_LOG(LogTemp, Warning, TEXT("IdealPath untuk Player %d, Length = %d"), currturn, IdealPath.Num());
-    for (int32 i = 0; i < IdealPath.Num(); ++i)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("  Path[%d] = (%d,%d)"), i, IdealPath[i].X, IdealPath[i].Y);
-    }
+    // for (const auto& Pair : BestHistory)
+    // {
+    //     const FMinimaxAction& Act       = Pair.Key;
+    //     const int32         Value       = Pair.Value;
+    //     FString Description;
+    //
+    //     if (Act.bIsWall)
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Wall@(%d,%d) %s Len=%d"),
+    //             Act.SlotX, Act.SlotY,
+    //             Act.bHorizontal ? TEXT("H") : TEXT("V"),
+    //             Act.WallLength
+    //         );
+    //     }
+    //     else
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Move(%d,%d)"),
+    //             Act.MoveX, Act.MoveY
+    //         );
+    //     }
+    //
+    //
+    //     UE_LOG(
+    //         LogTemp, Warning,
+    //         TEXT("[History] Candidate MAX: %s  → Value = %d"),
+    //         *Description,
+    //         Value
+    //     );
+    // }   
+    //
+    // if (bestAction.bIsWall)
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("BestAction: Wall @(%d,%d) %s"),
+    //         bestAction.SlotX, bestAction.SlotY,
+    //         bestAction.bHorizontal ? TEXT("H") : TEXT("V"));
+    // }
+    // else
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("BestAction: Move to (%d,%d)"),
+    //         bestAction.MoveX, bestAction.MoveY);
+    // }
+    //
+    // UE_LOG(LogTemp, Warning, TEXT("IdealPath untuk Player %d, Length = %d"), currturn, IdealPath.Num());
+    // for (int32 i = 0; i < IdealPath.Num(); ++i)
+    // {
+    //     UE_LOG(LogTemp, Warning, TEXT("  Path[%d] = (%d,%d)"), i, IdealPath[i].X, IdealPath[i].Y);
+    // }
 
     // 5) Setelah parallel selesai, kembalikan action + value
     return FMinimaxResult(bestAction, bestValue);
@@ -1947,9 +2003,9 @@ FMinimaxResult MinimaxEngine::Min_MinimaxAlphaBeta(const FMinimaxState& S, int32
 
     if (Depth <= 0 || AILenCheck == 0 || OppLenCheck == 0)
     {
-        // UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Min_MinimaxAlphaBeta"));
+        UE_LOG(LogTemp, Warning, TEXT("IN Depth 0 Min_MinimaxAlphaBeta"));
         int32 eval = Evaluate(S, currturn, IdealPath);
-        // UE_LOG(LogTemp, Warning, TEXT("Out Min_MinimaxAlphaBeta:, Return Evaluate = %d"), eval);
+        UE_LOG(LogTemp, Warning, TEXT("Out Min_MinimaxAlphaBeta:, Return Evaluate = %d"), eval);
         return FMinimaxResult(FMinimaxAction(), eval);
         
     }
@@ -1959,7 +2015,7 @@ FMinimaxResult MinimaxEngine::Min_MinimaxAlphaBeta(const FMinimaxState& S, int32
         TArray<FIntPoint> PawnMoves = GetPawnMoves(S, RootPlayer);
         for (const auto& mv : PawnMoves)
         {
-            // UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate (Min): (%d, %d)"), mv.X, mv.Y);
+            UE_LOG(LogTemp, Warning, TEXT("Pawn‐move candidate (Min): (%d, %d)"), mv.X, mv.Y);
             Candidates.Add(FMinimaxAction(mv.X, mv.Y));
         }
     }
@@ -2018,41 +2074,97 @@ FMinimaxResult MinimaxEngine::Min_MinimaxAlphaBeta(const FMinimaxState& S, int32
         beta = FMath::Min(beta, v);
 
         if (beta <= alpha)
+        {
+            // // --- START: MODIFIED CODE FOR DETAILED PRUNING LOG ---
+            //
+            // // 1. Describe the action that TRIGGERED the prune
+            // FString PruningTriggerDescription;
+            // if (act.bIsWall)
+            // {
+            //     PruningTriggerDescription = FString::Printf(
+            //         TEXT("Wall@(%d,%d) %s"),
+            //         act.SlotX, act.SlotY,
+            //         act.bHorizontal ? TEXT("H") : TEXT("V")
+            //     );
+            // }
+            // else
+            // {
+            //     PruningTriggerDescription = FString::Printf(
+            //         TEXT("Move(%d,%d)"),
+            //         act.MoveX, act.MoveY
+            //     );
+            // }
+            //
+            // UE_LOG(LogTemp, Warning, TEXT(">> Alpha-Beta Pruning Triggered in MIN Node! Beta (%d) <= Alpha (%d)"), beta, alpha);
+            // UE_LOG(LogTemp, Warning, TEXT("   Triggered by Candidate: [%s] with value %d"), *PruningTriggerDescription, v);
+            //
+            // // 2. Describe the best action found so far at this node, which is now being discarded
+            // // Note: bestValue is a TAtomic, so we use .Load() to safely read it.
+            // if (bestValue.Load() != INT_MIN)
+            // {
+            //     FString LastBestDescription;
+            //     if (bestAction.bIsWall)
+            //     {
+            //         LastBestDescription = FString::Printf(
+            //             TEXT("Wall@(%d,%d) %s"),
+            //             bestAction.SlotX, bestAction.SlotY,
+            //             bestAction.bHorizontal ? TEXT("H") : TEXT("V")
+            //         );
+            //     }
+            //     else
+            //     {
+            //         LastBestDescription = FString::Printf(
+            //             TEXT("Move(%d,%d)"),
+            //             bestAction.MoveX, bestAction.MoveY
+            //         );
+            //     }
+            //     UE_LOG(LogTemp, Warning, TEXT("   The previous 'Best Candidate' at this node was: [%s] with value %d"), *LastBestDescription, bestValue.Load());
+            // }
+            // else
+            // {
+            //     // This case happens if the very first candidate checked triggers the prune.
+            //     UE_LOG(LogTemp, Warning, TEXT("   No 'Best Candidate So Far' had been established at this node yet."));
+            // }
+            //
+            // UE_LOG(LogTemp, Warning, TEXT("   Pruning all further sibling candidates at this level."));
+
+            // --- END: MODIFIED CODE ---
             break;
+        }
         
         
         // UE_LOG(LogTemp, Warning, TEXT("out Min_MinimaxAlphaBeta"));
     }
 
-    for (const auto& Pair : BestHistory)
-    {
-        const FMinimaxAction& Act       = Pair.Key;
-        const int32         Value       = Pair.Value;
-        FString Description;
-    
-        if (Act.bIsWall)
-        {
-            Description = FString::Printf(
-                TEXT("Wall@(%d,%d) %s"),
-                Act.SlotX, Act.SlotY,
-                Act.bHorizontal ? TEXT("H") : TEXT("V")
-            );
-        }
-        else
-        {
-            Description = FString::Printf(
-                TEXT("Move(%d,%d)"),
-                Act.MoveX, Act.MoveY
-            );
-        }
-    
-        UE_LOG(
-            LogTemp, Warning,
-            TEXT("[History] Candidate MIN: %s  → Value = %d"),
-            *Description,
-            Value
-        );
-    }
+    // for (const auto& Pair : BestHistory)
+    // {
+    //     const FMinimaxAction& Act       = Pair.Key;
+    //     const int32         Value       = Pair.Value;
+    //     FString Description;
+    //
+    //     if (Act.bIsWall)
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Wall@(%d,%d) %s"),
+    //             Act.SlotX, Act.SlotY,
+    //             Act.bHorizontal ? TEXT("H") : TEXT("V")
+    //         );
+    //     }
+    //     else
+    //     {
+    //         Description = FString::Printf(
+    //             TEXT("Move(%d,%d)"),
+    //             Act.MoveX, Act.MoveY
+    //         );
+    //     }
+    //
+    //     UE_LOG(
+    //         LogTemp, Warning,
+    //         TEXT("[History] Candidate MIN: %s  → Value = %d"),
+    //         *Description,
+    //         Value
+    //     );
+    // }
 
     return FMinimaxResult(bestAction, bestValue);
 }
